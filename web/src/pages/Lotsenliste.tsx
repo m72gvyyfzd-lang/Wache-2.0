@@ -1,23 +1,43 @@
 import { useMemo, useState } from "react";
+import { LotseForm } from "../components/LotseForm";
+import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
-import { mockLotsenliste } from "../data/mockData";
+import type { LotsenEintrag } from "../data/types";
+import { useData } from "../state/DataContext";
 
 export function Lotsenliste() {
+  const { lotsen, addLotse, updateLotse, deleteLotse } = useData();
   const [query, setQuery] = useState("");
+  const [dialog, setDialog] = useState<{ index?: number; lotse?: LotsenEintrag } | null>(null);
 
   const rows = useMemo(() => {
+    const indiziert = lotsen.map((eintrag, index) => ({ eintrag, index }));
     const q = query.trim().toLowerCase();
-    if (!q) return mockLotsenliste;
-    return mockLotsenliste.filter((r) => r.name.toLowerCase().includes(q));
-  }, [query]);
+    if (!q) return indiziert;
+    return indiziert.filter(({ eintrag }) => eintrag.name.toLowerCase().includes(q));
+  }, [lotsen, query]);
+
+  function handleSubmit(lotse: LotsenEintrag) {
+    if (dialog?.index !== undefined) {
+      updateLotse(dialog.index, lotse);
+    } else {
+      addLotse(lotse);
+    }
+    setDialog(null);
+  }
 
   return (
     <div>
       <PageHeader title="Lotsenliste" description="Hauptreihenfolge · Cuxhaven Bört (nicht relevant) · Brunsbüttel Bört (relevant)" />
       <Panel
         title="Lotsenliste"
-        count={query ? `${rows.length} / ${mockLotsenliste.length}` : `${mockLotsenliste.length} Einträge`}
+        count={query ? `${rows.length} / ${lotsen.length}` : `${lotsen.length} Einträge`}
+        action={
+          <button type="button" className="btn btn--small btn--accent" onClick={() => setDialog({})}>
+            + Neuer Lotse
+          </button>
+        }
       >
         <div style={{ padding: "0 20px 10px" }}>
           <input
@@ -31,10 +51,6 @@ export function Lotsenliste() {
               font: "inherit",
               fontSize: "0.85rem",
               padding: "7px 12px",
-              borderRadius: 8,
-              border: "1px solid var(--line)",
-              background: "var(--surface-2)",
-              color: "var(--ink)",
             }}
           />
         </div>
@@ -46,21 +62,40 @@ export function Lotsenliste() {
               <th>Name</th>
               <th className="num">BB</th>
               <th>Bemerkung</th>
+              <th aria-hidden="true" />
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => (
-              <tr key={i}>
-                <td className="num muted">{r.positionHaupt || "·"}</td>
-                <td className="num muted">{r.positionCuxhavenBoert || "·"}</td>
-                <td>{r.name}</td>
-                <td className="num">{r.positionBrunsbuettelBoert || <span className="muted">·</span>}</td>
-                <td className="muted">{r.bem}</td>
+            {rows.map(({ eintrag, index }) => (
+              <tr key={index}>
+                <td className="num muted">{eintrag.positionHaupt || "·"}</td>
+                <td className="num muted">{eintrag.positionCuxhavenBoert || "·"}</td>
+                <td>{eintrag.name}</td>
+                <td className="num">{eintrag.positionBrunsbuettelBoert || <span className="muted">·</span>}</td>
+                <td className="muted">{eintrag.bem}</td>
+                <td className="cell-actions">
+                  <button
+                    type="button"
+                    className="btn btn--small btn--icon"
+                    onClick={() => setDialog({ index, lotse: eintrag })}
+                    aria-label="Bearbeiten"
+                  >
+                    ✎
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--small btn--icon btn--danger"
+                    onClick={() => deleteLotse(index)}
+                    aria-label="Löschen"
+                  >
+                    ✕
+                  </button>
+                </td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} style={{ textAlign: "center", padding: 20 }} className="muted">
+                <td colSpan={6} style={{ textAlign: "center", padding: 20 }} className="muted">
                   keine Treffer
                 </td>
               </tr>
@@ -68,6 +103,12 @@ export function Lotsenliste() {
           </tbody>
         </table>
       </Panel>
+
+      {dialog && (
+        <Modal title={dialog.lotse ? "Lotse bearbeiten" : "Neuer Lotse"} onClose={() => setDialog(null)}>
+          <LotseForm initial={dialog.lotse} onSubmit={handleSubmit} onCancel={() => setDialog(null)} />
+        </Modal>
+      )}
     </div>
   );
 }

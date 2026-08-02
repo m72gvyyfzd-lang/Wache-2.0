@@ -26,6 +26,13 @@
   margin-top: 2px;
 }
 
+.panel__head-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
 .panel__count {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;

@@ -2,14 +2,15 @@ import { getAbteilzeitSettings, sortiereJobsNachAbteilzeit } from "@wache/core";
 import { Badge } from "../components/Badge";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
-import { mockJobs, mockLotsenliste } from "../data/mockData";
+import type { LotsenEintrag } from "../data/types";
+import { useData } from "../state/DataContext";
 import { formatUhrzeit, herkunftVon } from "../lib/format";
 import "./Einsatzplanung.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
-function nachBrunsbuettelPositionSortiert() {
-  return [...mockLotsenliste].sort((a, b) => {
+function nachBrunsbuettelPositionSortiert(lotsenliste: LotsenEintrag[]) {
+  return [...lotsenliste].sort((a, b) => {
     const posA = Number(a.positionBrunsbuettelBoert);
     const posB = Number(b.positionBrunsbuettelBoert);
     const aValide = a.positionBrunsbuettelBoert !== "" && !Number.isNaN(posA);
@@ -22,8 +23,9 @@ function nachBrunsbuettelPositionSortiert() {
 }
 
 export function Einsatzplanung() {
-  const jobsSortiert = sortiereJobsNachAbteilzeit(mockJobs, settings);
-  const lotsenSortiert = nachBrunsbuettelPositionSortiert();
+  const { jobs, lotsen } = useData();
+  const jobsSortiert = sortiereJobsNachAbteilzeit(jobs, settings);
+  const lotsenSortiert = nachBrunsbuettelPositionSortiert(lotsen);
   const zeilen = Math.max(jobsSortiert.length, lotsenSortiert.length);
 
   return (
