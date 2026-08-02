@@ -20,6 +20,9 @@ tools/pdf-extraction/README.md):
 - ausgehend_nok (formerly "Holt./Kuden"): tracks a ship in the Kiel Canal
   (Nord-Ostsee-Kanal) towards Brunsbüttel — Holt. = time it locked out of
   Kiel-Holtenau, Kuden = Kuden passage (~1h from Brunsbüttel).
+- anmeldungen (formerly "anmeldungen_ausgehend"): further jobs (types seen:
+  Radar, W-Blau, NW-Cux, EHF) that are not necessarily "outbound" — renamed
+  to drop the misleading direction label.
 
 Usage:
     python3 parse_wache_pdf.py <input.pdf> [output.json]
@@ -98,7 +101,7 @@ def parse(pdf_path):
         "ft_zurueck": [],
         "ausgehend_hamburg": [],
         "ausgehend_nok": [],
-        "anmeldungen_ausgehend": [],
+        "anmeldungen": [],
         "lotsenliste": [],
         "eingehende_schiffe": [],
         "_unparsed": [],
@@ -133,7 +136,7 @@ def parse(pdf_path):
             section = "ausgehend_nok"
             continue
         if row_starts_with(row, "Nr", "Typ", "Kat.", "Lotse"):
-            section = "anmeldungen_ausgehend"
+            section = "anmeldungen"
             continue
         if row_starts_with(row, "Tafel", "CB", "Name", "BB"):
             section = "lotsenliste"
@@ -177,8 +180,8 @@ def parse(pdf_path):
                 "kat": row[3],
                 "bem": row[4] if len(row) > 4 else "",
             })
-        elif section == "anmeldungen_ausgehend" and len(row) >= 4:
-            result["anmeldungen_ausgehend"].append({
+        elif section == "anmeldungen" and len(row) >= 4:
+            result["anmeldungen"].append({
                 "nr": row[0], "typ": row[1], "kat": row[2], "lotse": row[3],
                 "datum_zeit": row[4] if len(row) > 4 else "",
             })

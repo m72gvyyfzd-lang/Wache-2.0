@@ -58,7 +58,9 @@ python3 parse_wache_pdf.py wache.pdf output.json
     "kat",
     "bem"
   } ],
-  "anmeldungen_ausgehend": [ { "nr", "typ", "kat", "lotse", "datum_zeit" } ],  // Bedeutung noch unklar, siehe unten
+  // weitere Jobs (Typen u.a. Radar, W-Blau, NW-Cux, EHF) — keine feste
+  // Ein-/Ausgehend-Kategorie
+  "anmeldungen": [ { "nr", "typ", "kat", "lotse", "datum_zeit" } ],
   "lotsenliste": [ {
     "position_haupt",              // "Tafel": Hauptreihenfolge/Warteliste
     "position_cuxhaven_boert",     // "CB": Cuxhaven Bört — für diese Wache nicht relevant
@@ -80,7 +82,7 @@ Gegen einen echten Beispiel-Export (02.08.2026) validiert:
 | `ft_zurueck`             | 19                | vollständig                         |
 | `ausgehend_hamburg`      | 10                | vollständig (inkl. Leerslots)       |
 | `ausgehend_nok`          | 10                | vollständig (inkl. Leerslots)       |
-| `anmeldungen_ausgehend`  | 5                 | vollständig                         |
+| `anmeldungen`           | 5                 | vollständig                         |
 | `lotsenliste`            | 83                | 83/83 Zeilen — exakt                |
 | `eingehende_schiffe`     | 44                | Nr. 1–44 lückenlos                  |
 | `_unparsed`              | 1                 | Fußnoten-Zeile ("N N2 N2"), unkritisch |
@@ -101,16 +103,14 @@ Testen lokal in `tools/pdf-extraction/testdata/` ablegen.
   (Hamburg → Finkenwerder → Stade).
 - **`ausgehend_nok`**: verfolgt ein Schiff im Nord-Ostsee-Kanal (NOK)
   Richtung Brunsbüttel (Holtenau-Ausfahrt → Kuden-Passage).
+- **`anmeldungen`**: weitere Jobs (Typen u.a. Radar, W-Blau, NW-Cux, EHF),
+  die aber nicht generell als "ausgehend" kategorisiert werden können —
+  daher ohne Richtungs-Label im Namen.
 
-## Offene Fragen (fachliche Klärung nötig)
-
-- **`anmeldungen_ausgehend`**: Ist das tatsächlich die "ausgehende Jobs"-Liste,
-  oder etwas anderes (Sonderanmeldungen für Wegpunkte, z.B. Radar/W-Blau/
-  NW-Cux/EHF)?
-
-Sobald das geklärt ist, sollten die verbleibenden generischen Feldnamen durch
-sprechende Namen ersetzt und alle Listen in die eigentliche App-Datenstruktur
-(Jobs / Lotsen, ein-/ausgehend) übersetzt werden.
+Die generischen Feldnamen innerhalb von `anmeldungen` (`typ`, `kat`, `lotse`)
+sollten bei Bedarf noch weiter präzisiert werden, sobald klar ist, wie diese
+Jobs in die eigentliche App-Datenstruktur (Jobs / Lotsen, ein-/ausgehend)
+einsortiert werden.
 
 ## Bekannte Grenzen
 
