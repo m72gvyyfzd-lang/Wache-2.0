@@ -1,0 +1,14 @@
+# local test data — may contain real names / ship data, never commit
+*.pdf
+tools/pdf-extraction/testdata/
+tools/pdf-extraction/*.json
+
+# python
+venv/
+__pycache__/
+*.pyc
+
+# node
+node_modules/
+dist/
+.env
