@@ -41,10 +41,31 @@ python3 parse_wache_pdf.py wache.pdf output.json
     "kopfdaten": [ /* sonstige Kopfzeilen, roh */ ]
   },
   "ft_zurueck": [ { "ft_zurueck": "...", "kat": "...", "bem": "..." } ],
-  "hh_liste": [ { "nr", "hh", "fkw", "std", "bem" } ],
-  "holt_kuden": [ { "nr", "holt", "kuden", "kat", "bem" } ],
-  "anmeldungen_ausgehend": [ { "nr", "typ", "kat", "lotse", "datum_zeit" } ],
-  "lotsenliste": [ { "tafel", "cb", "name", "bb", "bem" } ],
+  // Schiff verlässt Hamburger Hafen Richtung Brunsbüttel (Elbe-Route),
+  // Fortschritt an 3 Meldepunkten
+  "ausgehend_hamburg": [ {
+    "nr",
+    "zeit_hamburg_hafen_verlassen",   // geplante Abfahrtszeit Hamburg Hafen
+    "zeit_finkenwerder_passage",      // Ist-Zeit Passage Finkenwerder = Schiff wirklich unterwegs
+    "zeit_stade_passage",             // Passage Stade, ~1h bis Brunsbüttel (tideabhängig)
+    "bem"
+  } ],
+  // Schiff im NOK (Nord-Ostsee-Kanal) Richtung Brunsbüttel
+  "ausgehend_nok": [ {
+    "nr",
+    "zeit_holtenau_ausfahrt",  // Zeit Schleusenausfahrt Kiel-Holtenau
+    "zeit_kuden_passage",      // Passage Kuden, ~1h bis Brunsbüttel
+    "kat",
+    "bem"
+  } ],
+  "anmeldungen_ausgehend": [ { "nr", "typ", "kat", "lotse", "datum_zeit" } ],  // Bedeutung noch unklar, siehe unten
+  "lotsenliste": [ {
+    "position_haupt",              // "Tafel": Hauptreihenfolge/Warteliste
+    "position_cuxhaven_boert",     // "CB": Cuxhaven Bört — für diese Wache nicht relevant
+    "name",
+    "position_brunsbuettel_boert", // "BB": Brunsbüttel Bört — relevante Warteliste
+    "bem"
+  } ],
   "eingehende_schiffe": [ { "nr", "kat", "eta", "bestimmung", "schiffsname" } ],
   "_unparsed": [ /* Zeilen, die keiner Sektion zugeordnet werden konnten */ ]
 }
@@ -57,8 +78,8 @@ Gegen einen echten Beispiel-Export (02.08.2026) validiert:
 | Abschnitt               | Zeilen extrahiert | Kontrolle                          |
 |--------------------------|-------------------|-------------------------------------|
 | `ft_zurueck`             | 19                | vollständig                         |
-| `hh_liste`               | 10                | vollständig (inkl. Leerslots)       |
-| `holt_kuden`              | 10                | vollständig (inkl. Leerslots)       |
+| `ausgehend_hamburg`      | 10                | vollständig (inkl. Leerslots)       |
+| `ausgehend_nok`          | 10                | vollständig (inkl. Leerslots)       |
 | `anmeldungen_ausgehend`  | 5                 | vollständig                         |
 | `lotsenliste`            | 83                | 83/83 Zeilen — exakt                |
 | `eingehende_schiffe`     | 44                | Nr. 1–44 lückenlos                  |
@@ -68,25 +89,28 @@ Gegen einen echten Beispiel-Export (02.08.2026) validiert:
 absichtlich **nicht** ins Repo committet (siehe `.gitignore`). Zum erneuten
 Testen lokal in `tools/pdf-extraction/testdata/` ablegen.
 
+## Geklärte Semantik
+
+- **`lotsenliste`**: `position_haupt` (früher "Tafel") ist die
+  Hauptreihenfolge/Warteliste. `position_cuxhaven_boert` (CB) ist eine
+  separate Warteliste für Cuxhaven Bört — für eine Brunsbüttel-Wache nicht
+  relevant. `position_brunsbuettel_boert` (BB) ist die relevante Warteliste
+  für Brunsbüttel Bört.
+- **`ausgehend_hamburg`**: verfolgt ein Schiff, das den Hamburger Hafen
+  Richtung Brunsbüttel verlässt (Elbe-Route), an drei Meldepunkten
+  (Hamburg → Finkenwerder → Stade).
+- **`ausgehend_nok`**: verfolgt ein Schiff im Nord-Ostsee-Kanal (NOK)
+  Richtung Brunsbüttel (Holtenau-Ausfahrt → Kuden-Passage).
+
 ## Offene Fragen (fachliche Klärung nötig)
 
-Die Struktur wurde rein aus dem PDF-Layout abgeleitet — die Bedeutung
-einiger Felder ist mir als Nicht-Lotse nicht klar. Bitte prüfen/klären:
-
-- **`lotsenliste`**: Spalten `tafel`, `cb`, `bb` scheinen unterschiedliche,
-  verschachtelte Nummerierungen/Listen zu sein (Haupt-Warteliste vs.
-  Untergruppen?). Was bedeuten `CB` und `BB` genau, und wie hängen die drei
-  Nummern zusammen?
-- **`hh_liste`** ("6 / HH / FKW / STD / Bem."): Wofür stehen `HH`, `FKW`,
-  `STD`? Vermutlich Zeiten/Kürzel für einen bestimmten Warte-/Treffpunkt.
-- **`holt_kuden`** ("Holt. / Kuden / Kat / Bem"): Vermutlich Abhol-/
-  Ankunftszeiten, aber Bedeutung von "Kuden" unklar.
 - **`anmeldungen_ausgehend`**: Ist das tatsächlich die "ausgehende Jobs"-Liste,
-  oder etwas anderes (Sonderanmeldungen für Wegpunkte)?
+  oder etwas anderes (Sonderanmeldungen für Wegpunkte, z.B. Radar/W-Blau/
+  NW-Cux/EHF)?
 
-Sobald das geklärt ist, sollten die generischen Feldnamen durch sprechende
-Namen ersetzt und die Daten in die eigentliche App-Datenstruktur (Jobs /
-Lotsen, ein-/ausgehend) übersetzt werden.
+Sobald das geklärt ist, sollten die verbleibenden generischen Feldnamen durch
+sprechende Namen ersetzt und alle Listen in die eigentliche App-Datenstruktur
+(Jobs / Lotsen, ein-/ausgehend) übersetzt werden.
 
 ## Bekannte Grenzen
 

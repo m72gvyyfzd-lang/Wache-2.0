@@ -6,6 +6,21 @@ the row *content* (jobs, pilots, ship counts) changes every shift. This parser
 splits the page-by-page lattice tables into named sections by matching those
 header rows, rather than hard-coding row counts or positions.
 
+Domain notes (clarified by a working pilot dispatcher, see
+tools/pdf-extraction/README.md):
+
+- Lotsenliste: "Tafel" = Hauptreihenfolge (main queue). "CB" = Cuxhaven
+  Bört (separate waitlist, not relevant for a Brunsbüttel-bound watch).
+  "BB" = Brunsbüttel Bört (the relevant waitlist for this watch).
+- ausgehend_hamburg (formerly "HH/FKW/STD"): tracks a ship leaving Hamburg
+  harbor down the Elbe towards Brunsbüttel at three checkpoints — HH =
+  planned time leaving Hamburg harbor, FKW = actual Finkenwerder passage
+  (ship is now really underway), STD = Stade passage (~1h from Brunsbüttel,
+  tide-dependent).
+- ausgehend_nok (formerly "Holt./Kuden"): tracks a ship in the Kiel Canal
+  (Nord-Ostsee-Kanal) towards Brunsbüttel — Holt. = time it locked out of
+  Kiel-Holtenau, Kuden = Kuden passage (~1h from Brunsbüttel).
+
 Usage:
     python3 parse_wache_pdf.py <input.pdf> [output.json]
 """
@@ -81,8 +96,8 @@ def parse(pdf_path):
     result = {
         "meta": {},
         "ft_zurueck": [],
-        "hh_liste": [],
-        "holt_kuden": [],
+        "ausgehend_hamburg": [],
+        "ausgehend_nok": [],
         "anmeldungen_ausgehend": [],
         "lotsenliste": [],
         "eingehende_schiffe": [],
@@ -112,10 +127,10 @@ def parse(pdf_path):
             section = "ft_zurueck"
             continue
         if len(row) >= 3 and row[1] == "HH" and row[2] == "FKW":
-            section = "hh_liste"
+            section = "ausgehend_hamburg"
             continue
         if len(row) >= 3 and row[1] == "Holt." and row[2] == "Kuden":
-            section = "holt_kuden"
+            section = "ausgehend_nok"
             continue
         if row_starts_with(row, "Nr", "Typ", "Kat.", "Lotse"):
             section = "anmeldungen_ausgehend"
@@ -146,14 +161,20 @@ def parse(pdf_path):
                 "kat": row[1] if len(row) > 1 else "",
                 "bem": row[2] if len(row) > 2 else "",
             })
-        elif section == "hh_liste" and len(row) >= 4:
-            result["hh_liste"].append({
-                "nr": row[0], "hh": row[1], "fkw": row[2], "std": row[3],
+        elif section == "ausgehend_hamburg" and len(row) >= 4:
+            result["ausgehend_hamburg"].append({
+                "nr": row[0],
+                "zeit_hamburg_hafen_verlassen": row[1],
+                "zeit_finkenwerder_passage": row[2],
+                "zeit_stade_passage": row[3],
                 "bem": row[4] if len(row) > 4 else "",
             })
-        elif section == "holt_kuden" and len(row) >= 4:
-            result["holt_kuden"].append({
-                "nr": row[0], "holt": row[1], "kuden": row[2], "kat": row[3],
+        elif section == "ausgehend_nok" and len(row) >= 4:
+            result["ausgehend_nok"].append({
+                "nr": row[0],
+                "zeit_holtenau_ausfahrt": row[1],
+                "zeit_kuden_passage": row[2],
+                "kat": row[3],
                 "bem": row[4] if len(row) > 4 else "",
             })
         elif section == "anmeldungen_ausgehend" and len(row) >= 4:
@@ -163,8 +184,10 @@ def parse(pdf_path):
             })
         elif section == "lotsenliste" and len(row) >= 3:
             result["lotsenliste"].append({
-                "tafel": row[0], "cb": row[1], "name": row[2],
-                "bb": row[3] if len(row) > 3 else "",
+                "position_haupt": row[0],
+                "position_cuxhaven_boert": row[1],
+                "name": row[2],
+                "position_brunsbuettel_boert": row[3] if len(row) > 3 else "",
                 "bem": row[4] if len(row) > 4 else "",
             })
         elif section == "eingehende_schiffe" and len(row) >= 4:
