@@ -10,6 +10,14 @@ Bewusste Entscheidung: keine Zugangsdaten in der App speichern oder für
 automatisierte Requests nutzen. Stattdessen wird ein manuell erzeugter
 PDF-Export analysiert.
 
+## App-relevanter Umfang
+
+Für die eigentliche App werden nur vier Abschnitte gebraucht:
+`ausgehend_hamburg`, `ausgehend_nok`, `anmeldungen`, `lotsenliste`.
+`ft_zurueck` und `eingehende_schiffe` werden vom Parser weiterhin extrahiert
+(schadet nicht, evtl. später nützlich), sind aber aktuell nicht Teil des
+Produkts und werden in der Ergebnis-Ansicht nicht angezeigt.
+
 ## Funktionsweise
 
 Das PDF enthält "echte" PDF-Tabellen mit sichtbaren Rasterlinien (kein
