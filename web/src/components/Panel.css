@@ -1,0 +1,40 @@
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.panel__head h2 {
+  font-size: 1.05rem;
+}
+
+.panel__desc {
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+  margin-top: 2px;
+}
+
+.panel__count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.panel__body {
+  padding: 4px 0 8px;
+  overflow-x: auto;
+}

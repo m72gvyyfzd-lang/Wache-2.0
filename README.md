@@ -9,10 +9,21 @@ ein- und ausgehenden Jobs zuzuteilen.
   verfügbaren Lotsen
 - Hochgradig modular — Inhalte ändern sich laufend während einer Wache
 
+## Projektstruktur
+
+- [`web/`](web) — React + Vite PWA, das eigentliche Grundgerüst der App.
+  Navigations-Shell mit vier Bereichen (Zulauf Hamburg, Zulauf NOK,
+  Anmeldungen, Lotsenliste), aktuell mit frei erfundenen Platzhalterdaten.
+- [`core/`](core) — framework-unabhängige TypeScript-Kernlogik
+  (Abteilzeit-/Anruf-Algorithmen, destilliert aus dem bisherigen
+  Excel/Numbers-Tool), noch nicht an `web/` angebunden.
+- [`tools/pdf-extraction`](tools/pdf-extraction) — Python-Skript, das den
+  PDF-Export der (zugangsbeschränkten) elbe-pilot.de Wache-Tafel in
+  strukturiertes JSON umwandelt, ohne die Zugangsdaten der Website zu
+  nutzen. Noch nicht mit `web/` verbunden.
+
 ## Status
 
-Frühe Konzept-/Testphase. Aktuell in Arbeit: automatisches Einlesen der
-Schicht-Startdaten aus einem PDF-Export der (zugangsbeschränkten)
-elbe-pilot.de Wache-Tafel — siehe [`tools/pdf-extraction`](tools/pdf-extraction).
-Es werden bewusst keine Zugangsdaten der Website in der App gespeichert oder
-genutzt; stattdessen wird ein manuell erzeugter PDF-Ausdruck analysiert.
+Frühe Konzept-/Testphase. Das App-Grundgerüst (`web/`) steht mit
+Platzhalterdaten; die einzelnen Bausteine (PDF-Extraktion, Kernlogik) sind
+noch nicht miteinander verdrahtet.

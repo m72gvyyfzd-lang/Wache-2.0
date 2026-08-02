@@ -1,0 +1,13 @@
+.page-header {
+  margin-bottom: 18px;
+}
+
+.page-header h1 {
+  font-size: 1.4rem;
+}
+
+.page-header__desc {
+  margin: 4px 0 0;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
