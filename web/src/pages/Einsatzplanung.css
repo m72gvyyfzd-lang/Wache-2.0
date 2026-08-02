@@ -1,0 +1,22 @@
+.einsatz-table__name {
+  font-weight: 500;
+}
+
+.einsatz-table__divider {
+  width: 32px;
+  padding: 0 !important;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  background: var(--surface-2);
+  text-align: center;
+}
+
+.einsatz-table__arrow {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* linke Spaltengruppe (Jobs) etwas abheben, damit die Paarung optisch klar bleibt */
+.einsatz-table thead th:nth-child(-n + 5) {
+  background: var(--surface-2);
+}

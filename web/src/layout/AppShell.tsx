@@ -3,10 +3,8 @@ import "./AppShell.css";
 
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", end: true },
+  { to: "/einsatzplanung", label: "Einsatzplanung" },
   { to: "/lotsenliste", label: "Lotsenliste" },
-  { to: "/zulauf-hamburg", label: "Zulauf Hamburg" },
-  { to: "/zulauf-nok", label: "Zulauf NOK" },
-  { to: "/anmeldungen", label: "Anmeldungen" },
 ];
 
 export function AppShell() {
