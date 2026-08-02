@@ -71,12 +71,23 @@ def trim_margin_columns(table_rows):
 
 def load_rows(pdf_path):
     """Flatten every page's lattice table into one row stream, dropping
-    footer/page-break noise and page-margin columns."""
-    rows = []
+    footer/page-break noise and page-margin columns.
+
+    A run of consecutive pages whose table rows share the same raw column
+    count is one continuous logical table split across page boundaries by
+    the site's PDF export, so it's trimmed as a *pooled* group rather than
+    page-by-page. That matters because a stray rendering artifact can add a
+    page-local extra grid line (seen on one sample page) that makes a
+    genuinely-used column look "always empty" if only that single page is
+    considered, silently shifting every value after it one column to the
+    left. Pooling by matching width (instead of blindly pooling everything)
+    avoids misaligning pages whose table genuinely has fewer columns.
+    """
+    page_rows = []
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
+            raw = []
             for table in page.find_tables():
-                raw = []
                 for row in table.extract():
                     cells = [clean_cell(c) for c in row]
                     if is_blank_row(cells):
@@ -84,7 +95,21 @@ def load_rows(pdf_path):
                     if any(FOOTER_RE.search(c) for c in cells):
                         continue
                     raw.append(cells)
-                rows.extend(trim_margin_columns(raw))
+            page_rows.append(raw)
+
+    rows = []
+    group = []
+    group_width = None
+    for raw in page_rows:
+        width = max((len(r) for r in raw), default=None)
+        if width is not None and width != group_width and group:
+            rows.extend(trim_margin_columns(group))
+            group = []
+        if width is not None:
+            group_width = width
+        group.extend(raw)
+    if group:
+        rows.extend(trim_margin_columns(group))
     return rows
 
 
