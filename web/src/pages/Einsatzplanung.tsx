@@ -59,7 +59,7 @@ export function Einsatzplanung() {
                         <Badge>{herkunftVon(eintrag.job.routentyp)}</Badge>
                       </td>
                       <td className="num">{formatUhrzeit(eintrag.abteilzeit)}</td>
-                      <td className="einsatz-table__name">{eintrag.job.bezeichnung ?? "–"}</td>
+                      <td className="cell-name">{eintrag.job.bezeichnung ?? "–"}</td>
                       <td className="num muted">{eintrag.job.kategorie ?? "·"}</td>
                     </>
                   ) : (
@@ -73,7 +73,7 @@ export function Einsatzplanung() {
                   {lotse ? (
                     <>
                       <td className="num muted">{lotse.positionBrunsbuettelBoert}</td>
-                      <td className="einsatz-table__name">{lotse.name}</td>
+                      <td className="cell-name">{lotse.name}</td>
                     </>
                   ) : (
                     <td colSpan={2} className="muted">

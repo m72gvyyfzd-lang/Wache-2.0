@@ -13,6 +13,8 @@ export interface Job {
   /** Anzeige-Bezeichnung (Schiffsname, oder bei Anmeldungen der Typ wie
    *  "Radar"/"EHF"). Rein informativ, fließt in keine Berechnung ein. */
   bezeichnung?: string;
+  /** Freitext-Bemerkung. Rein informativ, fließt in keine Berechnung ein. */
+  bemerkung?: string;
   /** Spalte E: Kategorie des Jobs. Zahl (1–8) für reguläre Lotsenkategorien,
    *  oder Text (z.B. "AGF3/7") für Sonderkategorien, die die Kat.-Prüfung
    *  nicht auslösen. */

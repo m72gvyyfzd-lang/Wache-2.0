@@ -1,0 +1,28 @@
+.dashboard-card {
+  flex: 1;
+  min-width: 0;
+  height: var(--sidebar-width);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  padding: 0 max(20px, env(safe-area-inset-right)) 0 20px;
+  overflow-x: auto;
+}
+
+.dashboard-card__stats {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .dashboard-card {
+    height: var(--sidebar-width-narrow);
+    padding: 0 12px;
+  }
+
+  .dashboard-card__stats {
+    gap: 8px;
+  }
+}

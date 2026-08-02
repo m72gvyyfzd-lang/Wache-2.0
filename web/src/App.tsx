@@ -1,14 +1,15 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./layout/AppShell";
-import { Dashboard } from "./pages/Dashboard";
 import { Einsatzplanung } from "./pages/Einsatzplanung";
+import { Jobs } from "./pages/Jobs";
 import { Lotsenliste } from "./pages/Lotsenliste";
 
 function App() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/" element={<Navigate to="/einsatzplanung" replace />} />
+        <Route path="/jobs" element={<Jobs />} />
         <Route path="/einsatzplanung" element={<Einsatzplanung />} />
         <Route path="/lotsenliste" element={<Lotsenliste />} />
       </Route>
