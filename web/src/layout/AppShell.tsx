@@ -5,7 +5,7 @@ import "./AppShell.css";
 const NAV_ITEMS = [
   { to: "/jobs", label: "Jobs" },
   { to: "/einsatzplanung", label: "Einsatzplanung" },
-  { to: "/lotsenliste", label: "Lotsenliste" },
+  { to: "/einsatzstation", label: "Einsatzstation" },
 ];
 
 export function AppShell() {

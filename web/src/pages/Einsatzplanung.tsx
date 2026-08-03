@@ -3,31 +3,22 @@ import { getAbteilzeitSettings } from "@wache/core";
 import { Badge } from "../components/Badge";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
-import type { LotsenEintrag } from "../data/types";
 import { sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
+import { sortiereUndNummeriere } from "../lib/lotsenOrdnung";
 import { useData } from "../state/DataContext";
 import "./Einsatzplanung.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
-function nachBrunsbuettelPositionSortiert(lotsenliste: LotsenEintrag[]) {
-  return [...lotsenliste].sort((a, b) => {
-    const posA = Number(a.positionBrunsbuettelBoert);
-    const posB = Number(b.positionBrunsbuettelBoert);
-    const aValide = a.positionBrunsbuettelBoert !== "" && !Number.isNaN(posA);
-    const bValide = b.positionBrunsbuettelBoert !== "" && !Number.isNaN(posB);
-    if (!aValide && !bValide) return 0;
-    if (!aValide) return 1;
-    if (!bValide) return -1;
-    return posA - posB;
-  });
-}
-
 export function Einsatzplanung() {
   const { jobs, lotsen } = useData();
   const jobsSortiert = sortiereEintraege(jobs, settings);
-  const lotsenSortiert = nachBrunsbuettelPositionSortiert(lotsen);
+  // nur Bereitschafts-Lotsen (fahrt === "") stehen an der Einsatzstation zur
+  // Verfügung — nach BB (Laufnummer innerhalb dieser Gruppe) sortiert
+  const lotsenSortiert = sortiereUndNummeriere(lotsen)
+    .filter((eintrag) => eintrag.bb !== undefined)
+    .sort((a, b) => a.bb! - b.bb!);
   const zeilen = Math.max(jobsSortiert.length, lotsenSortiert.length);
 
   // Unabhängige Auswahl je Seite: ein Job UND ein Lotse können gleichzeitig
@@ -101,15 +92,17 @@ export function Einsatzplanung() {
                   {lotse ? (
                     <>
                       <td className={`${lotseKlasse} num muted`} onClick={lotseKlick}>
-                        {lotse.positionBrunsbuettelBoert}
+                        {lotse.bb}
                       </td>
                       <td className={`${lotseKlasse} cell-name`} onClick={lotseKlick}>
-                        {lotse.name}
+                        {lotse.eintrag.name}
                       </td>
                       <td className={`${lotseKlasse} num`} onClick={lotseKlick}>
-                        {lotse.kategorie}
+                        {lotse.eintrag.kategorie}
                       </td>
-                      <td className={`${lotseKlasse} muted`} onClick={lotseKlick} />
+                      <td className={lotseKlasse} onClick={lotseKlick}>
+                        {lotse.eintrag.elbehafen ? "✓" : ""}
+                      </td>
                     </>
                   ) : (
                     <td colSpan={4} className="muted">

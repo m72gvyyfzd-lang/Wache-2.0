@@ -39,6 +39,20 @@
   min-height: 62px;
 }
 
+/* Lotsenformular: Name dominant, Kat./Fahrt/Abr. als schmale Dropdowns daneben */
+.job-form__lotse-name {
+  flex: 2;
+  min-width: 0;
+}
+
+.job-form__row--toerne > label {
+  flex: 0 1 80px;
+}
+
+.job-form__row--toerne > label.job-form__check {
+  flex: 1;
+}
+
 /* Felder ausblenden, aber Platz im Layout behalten (z.B. Schiffsname/Kat.
    bei Type "AG") */
 .job-form__verborgen {

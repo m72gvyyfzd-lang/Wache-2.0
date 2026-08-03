@@ -6,7 +6,9 @@ import type { JobEintrag, LotsenEintrag } from "../data/types";
 // v3: interne Job-ID (id) statt jobNr, AG-Verknüpfung über agJobId.
 const JOBS_KEY = "wache.jobs.v3";
 const JOBS_KEY_V2 = "wache.jobs.v2";
-const LOTSEN_KEY = "wache.lotsen.v2";
+// v3: Fahrt/Abrufzeit/Törn-Zähler statt manueller Tafel/CB/BB-Textfelder.
+const LOTSEN_KEY = "wache.lotsen.v3";
+const LOTSEN_KEY_V2 = "wache.lotsen.v2";
 const JOB_ID_ZAEHLER_KEY = "wache.jobid.v1";
 
 const JOB_DATUM_FELDER = [
@@ -67,11 +69,32 @@ export function speichereJobIdZaehler(wert: number): void {
 }
 
 export function ladeLotsen(fallback: LotsenEintrag[]): LotsenEintrag[] {
-  const raw = localStorage.getItem(LOTSEN_KEY);
-  if (!raw) return fallback;
+  const rawV3 = localStorage.getItem(LOTSEN_KEY);
+  if (rawV3) {
+    try {
+      return JSON.parse(rawV3) as LotsenEintrag[];
+    } catch {
+      return fallback;
+    }
+  }
+  // Migration v2 -> v3: Tafel/CB/BB entfallen (Fahrt#/BB werden jetzt aus
+  // der Fahrt-Zuweisung berechnet), bem -> bemerkung, Rest defaultet.
+  const rawV2 = localStorage.getItem(LOTSEN_KEY_V2);
+  if (!rawV2) return fallback;
   try {
-    const eintraege = JSON.parse(raw) as (Omit<LotsenEintrag, "kategorie"> & { kategorie?: string })[];
-    return eintraege.map((eintrag) => ({ ...eintrag, kategorie: eintrag.kategorie ?? "" }));
+    const eintraege = JSON.parse(rawV2) as { name: string; kategorie?: string; bem?: string }[];
+    return eintraege.map((eintrag) => ({
+      name: eintrag.name,
+      kategorie: eintrag.kategorie ?? "",
+      fahrt: "",
+      abrufStunden: undefined,
+      elbehafen: false,
+      toern2Plus2: 0,
+      toernWb: 0,
+      toernWr: 0,
+      toernHulo: 0,
+      bemerkung: eintrag.bem ?? "",
+    }));
   } catch {
     return fallback;
   }

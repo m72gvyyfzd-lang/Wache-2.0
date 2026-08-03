@@ -1,8 +1,8 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./layout/AppShell";
 import { Einsatzplanung } from "./pages/Einsatzplanung";
+import { Einsatzstation } from "./pages/Einsatzstation";
 import { Jobs } from "./pages/Jobs";
-import { Lotsenliste } from "./pages/Lotsenliste";
 
 function App() {
   return (
@@ -11,7 +11,7 @@ function App() {
         <Route path="/" element={<Navigate to="/einsatzplanung" replace />} />
         <Route path="/jobs" element={<Jobs />} />
         <Route path="/einsatzplanung" element={<Einsatzplanung />} />
-        <Route path="/lotsenliste" element={<Lotsenliste />} />
+        <Route path="/einsatzstation" element={<Einsatzstation />} />
       </Route>
     </Routes>
   );

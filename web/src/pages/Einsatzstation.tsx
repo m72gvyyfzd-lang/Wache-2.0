@@ -4,19 +4,31 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import type { LotsenEintrag } from "../data/types";
+import { formatAbrufzeit, sortiereUndNummeriere } from "../lib/lotsenOrdnung";
 import { useData } from "../state/DataContext";
+import "./Einsatzstation.css";
 
-export function Lotsenliste() {
+const FAHRT_KLASSE: Record<string, string> = {
+  MoFa: "fahrt-zelle fahrt-zelle--mofa",
+  MiFa: "fahrt-zelle fahrt-zelle--mifa",
+  AFA: "fahrt-zelle fahrt-zelle--afa",
+};
+
+function zaehlerZelle(wert: number): string {
+  return wert > 0 ? String(wert) : "·";
+}
+
+export function Einsatzstation() {
   const { lotsen, addLotse, updateLotse, deleteLotse } = useData();
   const [query, setQuery] = useState("");
   const [dialog, setDialog] = useState<{ index?: number; lotse?: LotsenEintrag } | null>(null);
 
+  const geordnet = useMemo(() => sortiereUndNummeriere(lotsen), [lotsen]);
   const rows = useMemo(() => {
-    const indiziert = lotsen.map((eintrag, index) => ({ eintrag, index }));
     const q = query.trim().toLowerCase();
-    if (!q) return indiziert;
-    return indiziert.filter(({ eintrag }) => eintrag.name.toLowerCase().includes(q));
-  }, [lotsen, query]);
+    if (!q) return geordnet;
+    return geordnet.filter(({ eintrag }) => eintrag.name.toLowerCase().includes(q));
+  }, [geordnet, query]);
 
   function handleSubmit(lotse: LotsenEintrag) {
     if (dialog?.index !== undefined) {
@@ -34,7 +46,7 @@ export function Lotsenliste() {
 
   return (
     <div>
-      <PageHeader title="Lotsenliste" description="Hauptreihenfolge · Cuxhaven Bört (nicht relevant) · Brunsbüttel Bört (relevant)" />
+      <PageHeader title="Einsatzstation Brunsbüttel" centered />
       <Panel
         title="Lotsenliste"
         count={query ? `${rows.length} / ${lotsen.length}` : `${lotsen.length} Einträge`}
@@ -50,40 +62,44 @@ export function Lotsenliste() {
             placeholder="Name suchen…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            style={{
-              width: "100%",
-              maxWidth: 320,
-              font: "inherit",
-              fontSize: "0.85rem",
-              padding: "7px 12px",
-            }}
+            style={{ width: "100%", maxWidth: 320, font: "inherit", fontSize: "0.85rem", padding: "7px 12px" }}
           />
         </div>
         <table>
           <thead>
             <tr>
-              <th className="num">Tafel</th>
-              <th className="num">CB</th>
+              <th className="num">Fahrt #</th>
               <th>Name</th>
               <th className="num">Kat.</th>
+              <th className="num">Abr.</th>
+              <th>EH</th>
+              <th className="num">2+2</th>
+              <th className="num">WB</th>
+              <th className="num">WR</th>
+              <th className="num">HuLo</th>
               <th className="num">BB</th>
-              <th>Bemerkung</th>
+              <th>Bemerkungen</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ eintrag, index }) => (
+            {rows.map(({ eintrag, index, fahrtNr, bb }) => (
               <tr key={index} className="row-click" onClick={() => setDialog({ index, lotse: eintrag })}>
-                <td className="num muted">{eintrag.positionHaupt || "·"}</td>
-                <td className="num muted">{eintrag.positionCuxhavenBoert || "·"}</td>
-                <td>{eintrag.name}</td>
-                <td className="num">{eintrag.kategorie}</td>
-                <td className="num">{eintrag.positionBrunsbuettelBoert || <span className="muted">·</span>}</td>
-                <td className="muted">{eintrag.bem}</td>
+                <td className={`num ${FAHRT_KLASSE[eintrag.fahrt] ?? ""}`}>{fahrtNr ?? "·"}</td>
+                <td className="cell-name">{eintrag.name}</td>
+                <td className="num">{eintrag.kategorie || <span className="muted">Volllotse</span>}</td>
+                <td className="num muted">{formatAbrufzeit(eintrag.abrufStunden) || "·"}</td>
+                <td>{eintrag.elbehafen ? "✓" : ""}</td>
+                <td className="num muted">{zaehlerZelle(eintrag.toern2Plus2)}</td>
+                <td className="num muted">{zaehlerZelle(eintrag.toernWb)}</td>
+                <td className="num muted">{zaehlerZelle(eintrag.toernWr)}</td>
+                <td className="num muted">{zaehlerZelle(eintrag.toernHulo)}</td>
+                <td className="num muted">{bb ?? "·"}</td>
+                <td className="muted">{eintrag.bemerkung}</td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ textAlign: "center", padding: 20 }} className="muted">
+                <td colSpan={11} style={{ textAlign: "center", padding: 20 }} className="muted">
                   keine Treffer
                 </td>
               </tr>

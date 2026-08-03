@@ -52,15 +52,37 @@ export interface JobEintrag {
 }
 
 /**
+ * Fahrt-Zuweisung: 3x täglich wird aus den Lotsen mit Zuweisung "" (leer)
+ * eine Bereitschafts-Gruppe für die Einsatzstation gebildet. Wer stattdessen
+ * MoFa (06–12 Uhr), MiFa (12–18 Uhr) oder AFA (18–06 Uhr) zugewiesen ist,
+ * fährt in dieser Fahrt und steht nicht für die Einsatzplanung zur
+ * Verfügung. Die Zuteilung erfolgt vorerst manuell.
+ */
+export type Fahrt = "" | "MoFa" | "MiFa" | "AFA";
+
+/**
  * UI-Datentyp für die rohe Lotsenliste (was der Dispatcher auf der Tafel
- * sieht). Bewusst an das Schema aus tools/pdf-extraction angelehnt.
+ * sieht).
+ *
+ * "Fahrt #" (Laufnummer je Fahrt-Gruppe) und "BB" (Laufnummer innerhalb der
+ * Gruppe mit fahrt === "") hängen an der Position in dieser Liste, nicht am
+ * einzelnen Lotsen — sie werden nicht gespeichert, sondern von
+ * lib/lotsenOrdnung.ts aus der Reihenfolge berechnet.
  */
 export interface LotsenEintrag {
-  positionHaupt: string;
-  positionCuxhavenBoert: string;
   name: string;
-  positionBrunsbuettelBoert: string;
   /** Lotsenkategorie als Text ("1"–"7", "3+"); "" = Volllotse */
   kategorie: string;
-  bem: string;
+  fahrt: Fahrt;
+  /** Abrufzeit in Std. (0,5er-Schritte). undefined = Standard, zählt für die
+   *  Berechnung als 1,0 Std. und wird in der Liste wie 1,0 als leer angezeigt. */
+  abrufStunden?: number;
+  /** EH = Elbehafen */
+  elbehafen: boolean;
+  /** Törn-Zähler 2+2 und 1+1 zusammen */
+  toern2Plus2: number;
+  toernWb: number;
+  toernWr: number;
+  toernHulo: number;
+  bemerkung: string;
 }
