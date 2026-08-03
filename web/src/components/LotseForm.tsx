@@ -36,7 +36,7 @@ export function LotseForm({ initial, onSubmit, onDelete, onCancel }: LotseFormPr
       <div className="job-form__row">
         <label className="job-form__grow3">
           Name
-          <input value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
+          <input value={name} onChange={(e) => setName(e.target.value)} required />
         </label>
         <label>
           Kat.

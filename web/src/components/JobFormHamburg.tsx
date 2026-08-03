@@ -73,7 +73,7 @@ export function JobFormHamburg({ initial, onSubmit, onDelete, onCancel }: JobFor
       <div className="job-form__row">
         <label className="job-form__grow3">
           Schiffsname
-          <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} autoFocus />
+          <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} />
         </label>
         <SchiffKatSelect value={kategorie} onChange={setKategorie} />
       </div>

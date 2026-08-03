@@ -50,7 +50,7 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
       <div className="job-form__row">
         <label className="job-form__grow3">
           Schiffsname
-          <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} autoFocus />
+          <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} />
         </label>
         <SchiffKatSelect value={kategorie} onChange={setKategorie} />
       </div>

@@ -38,6 +38,12 @@
   min-height: 62px;
 }
 
+/* Felder ausblenden, aber Platz im Layout behalten (z.B. Schiffsname/Kat.
+   bei Type "AG") */
+.job-form__verborgen {
+  visibility: hidden;
+}
+
 .job-form__check {
   justify-content: flex-end;
 }

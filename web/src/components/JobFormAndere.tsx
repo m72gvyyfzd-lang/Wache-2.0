@@ -16,7 +16,7 @@ interface JobFormAndereProps {
 }
 
 export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, onCancel }: JobFormAndereProps) {
-  const [typ, setTyp] = useState<AnmeldungsTyp>(initial?.typ ?? "AG");
+  const [typ, setTyp] = useState<AnmeldungsTyp | "">(initial?.typ ?? "");
   const [schiffsname, setSchiffsname] = useState(initial?.schiffsname ?? "");
   const [kategorie, setKategorie] = useState(initial?.kategorie ?? "");
   const [bemerkung, setBemerkung] = useState(initial?.bemerkung ?? "");
@@ -26,6 +26,28 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
   const [ehfLotse, setEhfLotse] = useState(initial?.ehfLotseBenoetigt ?? false);
   const [bhfBesetzZeit, setBhfBesetzZeit] = useState(toLocalInput(initial?.bhfBesetzZeit));
   const [abtZeit, setAbtZeit] = useState(toLocalInput(initial?.abtZeitManuell));
+
+  /** AG-Regel: Schiffsname wird aus der Verknüpfung abgeleitet — Name des
+   *  gewählten Schiffs + "(x AG)" (x = Anzahl Lotsen). Bei Abwahl des
+   *  Schiffs wird der Name wieder geleert. */
+  function aktualisiereAgSchiffsname(jobIdText: string, lotsenText: string) {
+    if (jobIdText === "") {
+      setSchiffsname("");
+      return;
+    }
+    const basis = verknuepfbareJobs.find((j) => String(j.id) === jobIdText)?.schiffsname ?? "";
+    setSchiffsname(basis && lotsenText !== "" ? `${basis} (${lotsenText} AG)` : basis);
+  }
+
+  function handleAgJobId(wert: string) {
+    setAgJobId(wert);
+    aktualisiereAgSchiffsname(wert, agLotsen);
+  }
+
+  function handleAgLotsen(wert: string) {
+    setAgLotsen(wert);
+    aktualisiereAgSchiffsname(agJobId, wert);
+  }
 
   /** EHF-Regel: nach Eingabe des best. Abgangs wird die Abteilzeit
    *  automatisch auf Abgang − 1 Std. gesetzt (bleibt danach editierbar). */
@@ -37,12 +59,13 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (typ === "") return;
     onSubmit({
       id: initial?.id ?? 0,
       liste: "andere",
       typ,
       schiffsname: schiffsname.trim() || undefined,
-      kategorie: kategorie || undefined,
+      kategorie: typ === "AG" ? undefined : kategorie || undefined,
       bemerkung: bemerkung.trim() || undefined,
       agJobId: typ === "AG" && agJobId !== "" ? Number(agJobId) : undefined,
       agLotsenAnzahl: typ === "AG" && agLotsen !== "" ? Number(agLotsen) : undefined,
@@ -58,7 +81,8 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
       <div className="job-form__row">
         <label className="job-form__grow3">
           Type
-          <select value={typ} onChange={(e) => setTyp(e.target.value as AnmeldungsTyp)}>
+          <select value={typ} onChange={(e) => setTyp(e.target.value as AnmeldungsTyp | "")} required>
+            <option value="">–</option>
             {ANMELDUNGS_TYPEN.map((t) => (
               <option key={t} value={t}>
                 {t}
@@ -68,7 +92,9 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
         </label>
       </div>
 
-      <div className="job-form__row">
+      {/* Bei Type "AG" ausgeblendet (Schiffsname wird aus der Verknüpfung
+          abgeleitet) — bleibt aber im Layout, damit Ebene 3/4 nicht rutschen. */}
+      <div className={typ === "AG" ? "job-form__row job-form__verborgen" : "job-form__row"}>
         <label className="job-form__grow3">
           Schiffsname
           <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} />
@@ -81,7 +107,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
           <>
             <label className="job-form__grow2">
               Schiff (aus Hamburg/NOK)
-              <select value={agJobId} onChange={(e) => setAgJobId(e.target.value)}>
+              <select value={agJobId} onChange={(e) => handleAgJobId(e.target.value)}>
                 <option value="">–</option>
                 {verknuepfbareJobs.map((job) => (
                   <option key={job.id} value={job.id}>
@@ -92,7 +118,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
             </label>
             <label>
               Lotsen
-              <input type="number" min={1} value={agLotsen} onChange={(e) => setAgLotsen(e.target.value)} />
+              <input type="number" min={1} value={agLotsen} onChange={(e) => handleAgLotsen(e.target.value)} />
             </label>
           </>
         )}
