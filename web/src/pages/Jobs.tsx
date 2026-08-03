@@ -7,7 +7,7 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import type { JobEintrag, JobListe } from "../data/types";
-import { abteilzeitVon } from "../lib/coreJob";
+import { sortiereEintraege, type EintragMitAbteilzeit } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { useData } from "../state/DataContext";
 
@@ -20,7 +20,7 @@ function formatCheckpoint(datum: Date | undefined): string {
 interface CheckpointListeProps {
   titel: string;
   beschreibung: string;
-  jobs: JobEintrag[];
+  zeilen: EintragMitAbteilzeit[];
   checkpointLabels: [string, string, string];
   checkpoints: (job: JobEintrag) => [Date | undefined, Date | undefined, Date | undefined];
   onNeu: () => void;
@@ -29,13 +29,13 @@ interface CheckpointListeProps {
 
 /** Hamburg- und NOK-Liste haben identische Spalten, nur die drei
  *  Checkpoint-Bezeichnungen und -Felder unterscheiden sich. */
-function CheckpointListe({ titel, beschreibung, jobs, checkpointLabels, checkpoints, onNeu, onZeile }: CheckpointListeProps) {
+function CheckpointListe({ titel, beschreibung, zeilen, checkpointLabels, checkpoints, onNeu, onZeile }: CheckpointListeProps) {
   const [label1, label2, label3] = checkpointLabels;
   return (
     <Panel
       title={titel}
       description={beschreibung}
-      count={`${jobs.length} Einträge`}
+      count={`${zeilen.length} Einträge`}
       action={
         <button type="button" className="btn btn--small btn--accent" onClick={onNeu}>
           + Neuer Job
@@ -56,22 +56,22 @@ function CheckpointListe({ titel, beschreibung, jobs, checkpointLabels, checkpoi
           </tr>
         </thead>
         <tbody>
-          {jobs.map((job) => {
-            const [zeit1, zeit2, zeit3] = checkpoints(job);
+          {zeilen.map(({ eintrag, abteilzeit }, i) => {
+            const [zeit1, zeit2, zeit3] = checkpoints(eintrag);
             return (
-              <tr key={job.jobNr} className="row-click" onClick={() => onZeile(job)}>
-                <td className="num muted">{job.jobNr}</td>
-                <td className="cell-name">{job.schiffsname ?? "–"}</td>
-                <td className="muted">{job.bemerkung}</td>
-                <td className="num muted">{job.kategorie ?? "·"}</td>
+              <tr key={eintrag.id} className="row-click" onClick={() => onZeile(eintrag)}>
+                <td className="num muted">{i + 1}</td>
+                <td className="cell-name">{eintrag.schiffsname ?? "–"}</td>
+                <td className="muted">{eintrag.bemerkung}</td>
+                <td className="num muted">{eintrag.kategorie ?? "·"}</td>
                 <td className="num">{formatCheckpoint(zeit1)}</td>
                 <td className="num">{formatCheckpoint(zeit2)}</td>
                 <td className="num">{formatCheckpoint(zeit3)}</td>
-                <td className="num">{formatUhrzeit(abteilzeitVon(job, settings))}</td>
+                <td className="num">{formatUhrzeit(abteilzeit)}</td>
               </tr>
             );
           })}
-          {jobs.length === 0 && (
+          {zeilen.length === 0 && (
             <tr>
               <td colSpan={8} className="muted" style={{ textAlign: "center", padding: 20 }}>
                 keine Jobs
@@ -85,17 +85,17 @@ function CheckpointListe({ titel, beschreibung, jobs, checkpointLabels, checkpoi
 }
 
 interface AndereListeProps {
-  jobs: JobEintrag[];
+  zeilen: EintragMitAbteilzeit[];
   onNeu: () => void;
   onZeile: (job: JobEintrag) => void;
 }
 
-function AndereListe({ jobs, onNeu, onZeile }: AndereListeProps) {
+function AndereListe({ zeilen, onNeu, onZeile }: AndereListeProps) {
   return (
     <Panel
       title="Andere Jobs"
       description="Anmeldungen ohne Checkpoint-Berechnung"
-      count={`${jobs.length} Einträge`}
+      count={`${zeilen.length} Einträge`}
       action={
         <button type="button" className="btn btn--small btn--accent" onClick={onNeu}>
           + Neuer Job
@@ -113,16 +113,16 @@ function AndereListe({ jobs, onNeu, onZeile }: AndereListeProps) {
           </tr>
         </thead>
         <tbody>
-          {jobs.map((job) => (
-            <tr key={job.jobNr} className="row-click" onClick={() => onZeile(job)}>
-              <td className="num muted">{job.jobNr}</td>
-              <td>{job.typ}</td>
-              <td className="cell-name">{job.schiffsname ?? "–"}</td>
-              <td className="num muted">{job.kategorie ?? "·"}</td>
-              <td className="num">{formatUhrzeit(job.abtZeitManuell)}</td>
+          {zeilen.map(({ eintrag, abteilzeit }, i) => (
+            <tr key={eintrag.id} className="row-click" onClick={() => onZeile(eintrag)}>
+              <td className="num muted">{i + 1}</td>
+              <td>{eintrag.typ}</td>
+              <td className="cell-name">{eintrag.schiffsname ?? "–"}</td>
+              <td className="num muted">{eintrag.kategorie ?? "·"}</td>
+              <td className="num">{formatUhrzeit(abteilzeit)}</td>
             </tr>
           ))}
-          {jobs.length === 0 && (
+          {zeilen.length === 0 && (
             <tr>
               <td colSpan={5} className="muted" style={{ textAlign: "center", padding: 20 }}>
                 keine Jobs
@@ -136,25 +136,27 @@ function AndereListe({ jobs, onNeu, onZeile }: AndereListeProps) {
 }
 
 export function Jobs() {
-  const { jobs, naechsteJobNr, addJob, updateJob, deleteJob } = useData();
+  const { jobs, addJob, updateJob, deleteJob } = useData();
   const [dialog, setDialog] = useState<{ liste: JobListe; eintrag?: JobEintrag } | null>(null);
 
-  const hamburg = jobs.filter((j) => j.liste === "hamburg");
-  const nok = jobs.filter((j) => j.liste === "nok");
-  const andere = jobs.filter((j) => j.liste === "andere");
+  // jede Liste eigenständig nach Abteilzeit sortiert (früheste oben);
+  // sortiert sich nach jedem Speichern automatisch neu
+  const hamburg = sortiereEintraege(jobs.filter((j) => j.liste === "hamburg"), settings);
+  const nok = sortiereEintraege(jobs.filter((j) => j.liste === "nok"), settings);
+  const andere = sortiereEintraege(jobs.filter((j) => j.liste === "andere"), settings);
   const verknuepfbar = jobs.filter((j) => j.liste !== "andere");
 
   function handleSubmit(job: JobEintrag) {
     if (dialog?.eintrag) {
-      updateJob(dialog.eintrag.jobNr, { ...job, jobNr: dialog.eintrag.jobNr });
+      updateJob(dialog.eintrag.id, job);
     } else {
-      addJob({ ...job, jobNr: naechsteJobNr() });
+      addJob(job);
     }
     setDialog(null);
   }
 
   function handleDelete() {
-    if (dialog?.eintrag) deleteJob(dialog.eintrag.jobNr);
+    if (dialog?.eintrag) deleteJob(dialog.eintrag.id);
     setDialog(null);
   }
 
@@ -171,7 +173,7 @@ export function Jobs() {
       <CheckpointListe
         titel="Hamburg"
         beschreibung="Elbe-Route: HH → FkW → Stade"
-        jobs={hamburg}
+        zeilen={hamburg}
         checkpointLabels={["HH", "FkW", "Stade"]}
         checkpoints={(job) => [job.hh, job.buetzfleth ? job.geplAbgang : job.fkw, job.stade]}
         onNeu={() => setDialog({ liste: "hamburg" })}
@@ -180,14 +182,14 @@ export function Jobs() {
       <CheckpointListe
         titel="NOK"
         beschreibung="Kanal-Route: Holt. → Ticker → Kuden"
-        jobs={nok}
+        zeilen={nok}
         checkpointLabels={["Holt.", "Ticker", "Kuden"]}
         checkpoints={(job) => [job.holt, job.ticker, job.kuden]}
         onNeu={() => setDialog({ liste: "nok" })}
         onZeile={(eintrag) => setDialog({ liste: "nok", eintrag })}
       />
       <AndereListe
-        jobs={andere}
+        zeilen={andere}
         onNeu={() => setDialog({ liste: "andere" })}
         onZeile={(eintrag) => setDialog({ liste: "andere", eintrag })}
       />

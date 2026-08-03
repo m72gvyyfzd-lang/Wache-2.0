@@ -1,15 +1,22 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { mockJobs, mockLotsenliste } from "../data/mockData";
 import type { JobEintrag, LotsenEintrag } from "../data/types";
-import { ladeJobs, ladeLotsen, speichereJobs, speichereLotsen } from "./storage";
+import {
+  ladeJobIdZaehler,
+  ladeJobs,
+  ladeLotsen,
+  speichereJobIdZaehler,
+  speichereJobs,
+  speichereLotsen,
+} from "./storage";
 
 interface DataContextValue {
   jobs: JobEintrag[];
   lotsen: LotsenEintrag[];
-  naechsteJobNr: () => number;
+  /** vergibt die interne Job-ID selbst — eine im Eintrag gesetzte id wird ignoriert */
   addJob: (job: JobEintrag) => void;
-  updateJob: (jobNr: number, job: JobEintrag) => void;
-  deleteJob: (jobNr: number) => void;
+  updateJob: (id: number, job: JobEintrag) => void;
+  deleteJob: (id: number) => void;
   addLotse: (lotse: LotsenEintrag) => void;
   updateLotse: (index: number, lotse: LotsenEintrag) => void;
   deleteLotse: (index: number) => void;
@@ -21,16 +28,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [jobs, setJobs] = useState<JobEintrag[]>(() => ladeJobs(mockJobs));
   const [lotsen, setLotsen] = useState<LotsenEintrag[]>(() => ladeLotsen(mockLotsenliste));
 
+  // Persistenter ID-Zähler: einmal vergebene IDs werden nie wiederverwendet,
+  // damit spätere Verweise (z.B. AG-Verknüpfung) eindeutig bleiben.
+  const naechsteJobId = useRef<number | null>(null);
+  if (naechsteJobId.current === null) naechsteJobId.current = ladeJobIdZaehler(jobs);
+
   useEffect(() => speichereJobs(jobs), [jobs]);
   useEffect(() => speichereLotsen(lotsen), [lotsen]);
 
-  const naechsteJobNr = useCallback(() => jobs.reduce((max, j) => Math.max(max, j.jobNr), 0) + 1, [jobs]);
-  const addJob = useCallback((job: JobEintrag) => setJobs((prev) => [...prev, job]), []);
+  const addJob = useCallback((job: JobEintrag) => {
+    const id = naechsteJobId.current!;
+    naechsteJobId.current = id + 1;
+    speichereJobIdZaehler(naechsteJobId.current);
+    setJobs((prev) => [...prev, { ...job, id }]);
+  }, []);
   const updateJob = useCallback(
-    (jobNr: number, job: JobEintrag) => setJobs((prev) => prev.map((j) => (j.jobNr === jobNr ? job : j))),
+    (id: number, job: JobEintrag) => setJobs((prev) => prev.map((j) => (j.id === id ? { ...job, id } : j))),
     [],
   );
-  const deleteJob = useCallback((jobNr: number) => setJobs((prev) => prev.filter((j) => j.jobNr !== jobNr)), []);
+  const deleteJob = useCallback((id: number) => setJobs((prev) => prev.filter((j) => j.id !== id)), []);
 
   const addLotse = useCallback((lotse: LotsenEintrag) => setLotsen((prev) => [...prev, lotse]), []);
   const updateLotse = useCallback(
@@ -40,9 +56,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const deleteLotse = useCallback((index: number) => setLotsen((prev) => prev.filter((_, i) => i !== index)), []);
 
   return (
-    <DataContext.Provider
-      value={{ jobs, lotsen, naechsteJobNr, addJob, updateJob, deleteJob, addLotse, updateLotse, deleteLotse }}
-    >
+    <DataContext.Provider value={{ jobs, lotsen, addJob, updateJob, deleteJob, addLotse, updateLotse, deleteLotse }}>
       {children}
     </DataContext.Provider>
   );

@@ -11,7 +11,10 @@ export type JobListe = "hamburg" | "nok" | "andere";
  * `Job` aus @wache/core übersetzt.
  */
 export interface JobEintrag {
-  jobNr: number;
+  /** interne, eindeutige Job-ID (persistenter Zähler, wird auch nach
+   *  Löschungen nicht wiederverwendet). Wird nicht angezeigt — die
+   *  Nr-Spalte der Listen ist die laufende Position nach Sortierung. */
+  id: number;
   liste: JobListe;
   schiffsname?: string;
   bemerkung?: string;
@@ -33,8 +36,8 @@ export interface JobEintrag {
 
   // Liste Andere Jobs
   typ?: AnmeldungsTyp;
-  /** AG: verknüpfter Job (jobNr) aus Hamburg/NOK */
-  agJobNr?: number;
+  /** AG: verknüpfter Job (interne Job-ID) aus Hamburg/NOK */
+  agJobId?: number;
   /** AG: Anzahl der AG-Lotsen */
   agLotsenAnzahl?: number;
   /** EHF: bestätigter Abgang; Abt.Zeit wird im Formular als Abgang − 1h vorbelegt */

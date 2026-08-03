@@ -26,7 +26,7 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
 
   function entwurf(): JobEintrag {
     return {
-      jobNr: initial?.jobNr ?? 0,
+      id: initial?.id ?? 0,
       liste: "nok",
       schiffsname: schiffsname.trim() || undefined,
       kategorie: kategorie || undefined,

@@ -31,3 +31,23 @@
 .einsatz-table th.num {
   width: 1%;
 }
+
+/* Auswahl je Seite: das Zeilen-Hover aus index.css abschalten und nur die
+   Spaltengruppe hervorheben, über der der Zeiger tatsächlich steht */
+.einsatz-table tbody tr:hover td {
+  background: transparent;
+}
+
+.einsatz-table td.einsatz-table__seite {
+  cursor: pointer;
+}
+
+.einsatz-table tbody tr:has(td.einsatz-table__seite:hover) td.einsatz-table__seite:hover,
+.einsatz-table tbody tr:has(> td.einsatz-table__seite:nth-child(-n + 5):hover) td.einsatz-table__seite:nth-child(-n + 5),
+.einsatz-table tbody tr:has(> td.einsatz-table__seite:nth-child(n + 7):hover) td.einsatz-table__seite:nth-child(n + 7) {
+  background: var(--surface-2);
+}
+
+.einsatz-table td.ist-ausgewaehlt {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface)) !important;
+}

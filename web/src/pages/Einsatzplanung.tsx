@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
 import { Badge } from "../components/Badge";
 import { PageHeader } from "../components/PageHeader";
@@ -29,6 +30,11 @@ export function Einsatzplanung() {
   const lotsenSortiert = nachBrunsbuettelPositionSortiert(lotsen);
   const zeilen = Math.max(jobsSortiert.length, lotsenSortiert.length);
 
+  // Unabhängige Auswahl je Seite: ein Job UND ein Lotse können gleichzeitig
+  // markiert sein (z.B. Job 1 + Lotse 2). Erneuter Klick wählt wieder ab.
+  const [jobAuswahl, setJobAuswahl] = useState<number | null>(null);
+  const [lotseAuswahl, setLotseAuswahl] = useState<number | null>(null);
+
   return (
     <div>
       <PageHeader title="Einsatzplanung" />
@@ -57,17 +63,32 @@ export function Einsatzplanung() {
             {Array.from({ length: zeilen }).map((_, i) => {
               const paar = jobsSortiert[i];
               const lotse = lotsenSortiert[i];
+              const jobKlasse =
+                "einsatz-table__seite" + (paar && jobAuswahl === paar.eintrag.id ? " ist-ausgewaehlt" : "");
+              const lotseKlasse = "einsatz-table__seite" + (lotse && lotseAuswahl === i ? " ist-ausgewaehlt" : "");
+              const jobKlick = paar
+                ? () => setJobAuswahl((aktiv) => (aktiv === paar.eintrag.id ? null : paar.eintrag.id))
+                : undefined;
+              const lotseKlick = lotse ? () => setLotseAuswahl((aktiv) => (aktiv === i ? null : i)) : undefined;
               return (
                 <tr key={i}>
                   {paar ? (
                     <>
-                      <td className="num muted">{i + 1}</td>
-                      <td>
+                      <td className={`${jobKlasse} num muted`} onClick={jobKlick}>
+                        {i + 1}
+                      </td>
+                      <td className={jobKlasse} onClick={jobKlick}>
                         <Badge>{vonTypeLabel(paar.eintrag)}</Badge>
                       </td>
-                      <td className="cell-name">{paar.eintrag.schiffsname ?? "–"}</td>
-                      <td className="num muted">{paar.eintrag.kategorie ?? "·"}</td>
-                      <td className="num">{formatUhrzeit(paar.abteilzeit)}</td>
+                      <td className={`${jobKlasse} cell-name`} onClick={jobKlick}>
+                        {paar.eintrag.schiffsname ?? "–"}
+                      </td>
+                      <td className={`${jobKlasse} num muted`} onClick={jobKlick}>
+                        {paar.eintrag.kategorie ?? "·"}
+                      </td>
+                      <td className={`${jobKlasse} num`} onClick={jobKlick}>
+                        {formatUhrzeit(paar.abteilzeit)}
+                      </td>
                     </>
                   ) : (
                     <td colSpan={5} className="muted">
@@ -79,10 +100,16 @@ export function Einsatzplanung() {
                   </td>
                   {lotse ? (
                     <>
-                      <td className="num muted">{lotse.positionBrunsbuettelBoert}</td>
-                      <td className="cell-name">{lotse.name}</td>
-                      <td className="num">{lotse.kategorie}</td>
-                      <td className="muted" />
+                      <td className={`${lotseKlasse} num muted`} onClick={lotseKlick}>
+                        {lotse.positionBrunsbuettelBoert}
+                      </td>
+                      <td className={`${lotseKlasse} cell-name`} onClick={lotseKlick}>
+                        {lotse.name}
+                      </td>
+                      <td className={`${lotseKlasse} num`} onClick={lotseKlick}>
+                        {lotse.kategorie}
+                      </td>
+                      <td className={`${lotseKlasse} muted`} onClick={lotseKlick} />
                     </>
                   ) : (
                     <td colSpan={4} className="muted">

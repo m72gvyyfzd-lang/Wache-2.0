@@ -8,10 +8,10 @@ import type { JobEintrag, LotsenEintrag } from "./types";
 
 export const mockJobs: JobEintrag[] = [
   // Liste Hamburg (Elbe): HH -> FkW -> Stade
-  { jobNr: 1, liste: "hamburg", schiffsname: "MS BEISPIEL", kategorie: "3", fkw: new Date("2026-08-02T09:00:00") },
-  { jobNr: 2, liste: "hamburg", schiffsname: "MS SEEBRISE", kategorie: "1", bemerkung: "eilt", hh: new Date("2026-08-02T06:00:00") },
+  { id: 1, liste: "hamburg", schiffsname: "MS BEISPIEL", kategorie: "3", fkw: new Date("2026-08-02T09:00:00") },
+  { id: 2, liste: "hamburg", schiffsname: "MS SEEBRISE", kategorie: "1", bemerkung: "eilt", hh: new Date("2026-08-02T06:00:00") },
   {
-    jobNr: 3,
+    id: 3,
     liste: "hamburg",
     schiffsname: "MS NORDLICHT",
     kategorie: "AGF 3/7",
@@ -21,13 +21,13 @@ export const mockJobs: JobEintrag[] = [
   },
 
   // Liste NOK (Kanal): Holt. -> Ticker -> Kuden
-  { jobNr: 4, liste: "nok", schiffsname: "MS KANALFAHRT", kategorie: "1", kuden: new Date("2026-08-02T08:00:00") },
-  { jobNr: 5, liste: "nok", schiffsname: "MS PROBEFAHRT", kategorie: "1", bemerkung: "ca.-Zeit", holt: new Date("2026-08-02T05:00:00") },
+  { id: 4, liste: "nok", schiffsname: "MS KANALFAHRT", kategorie: "1", kuden: new Date("2026-08-02T08:00:00") },
+  { id: 5, liste: "nok", schiffsname: "MS PROBEFAHRT", kategorie: "1", bemerkung: "ca.-Zeit", holt: new Date("2026-08-02T05:00:00") },
 
   // Liste Andere Jobs: Anmeldungen, Abteilzeit als direkte Eingabe
-  { jobNr: 6, liste: "andere", typ: "Sonderradar", schiffsname: "MS RADARBILD", kategorie: "3", abtZeitManuell: new Date("2026-08-02T10:30:00") },
+  { id: 6, liste: "andere", typ: "Sonderradar", schiffsname: "MS RADARBILD", kategorie: "3", abtZeitManuell: new Date("2026-08-02T10:30:00") },
   {
-    jobNr: 7,
+    id: 7,
     liste: "andere",
     typ: "EHF",
     schiffsname: "MS GASWOLKE",
@@ -36,7 +36,7 @@ export const mockJobs: JobEintrag[] = [
     ehfLotseBenoetigt: true,
     abtZeitManuell: new Date("2026-08-02T12:10:00"),
   },
-  { jobNr: 8, liste: "andere", typ: "WB", schiffsname: "MS WELLENGANG", kategorie: "1", abtZeitManuell: new Date("2026-08-03T23:00:00") },
+  { id: 8, liste: "andere", typ: "WB", schiffsname: "MS WELLENGANG", kategorie: "1", abtZeitManuell: new Date("2026-08-03T23:00:00") },
 ];
 
 /**

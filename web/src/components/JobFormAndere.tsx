@@ -20,7 +20,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
   const [schiffsname, setSchiffsname] = useState(initial?.schiffsname ?? "");
   const [kategorie, setKategorie] = useState(initial?.kategorie ?? "");
   const [bemerkung, setBemerkung] = useState(initial?.bemerkung ?? "");
-  const [agJobNr, setAgJobNr] = useState(initial?.agJobNr !== undefined ? String(initial.agJobNr) : "");
+  const [agJobId, setAgJobId] = useState(initial?.agJobId !== undefined ? String(initial.agJobId) : "");
   const [agLotsen, setAgLotsen] = useState(initial?.agLotsenAnzahl !== undefined ? String(initial.agLotsenAnzahl) : "");
   const [ehfBestAbgang, setEhfBestAbgang] = useState(toLocalInput(initial?.ehfBestAbgang));
   const [ehfLotse, setEhfLotse] = useState(initial?.ehfLotseBenoetigt ?? false);
@@ -38,13 +38,13 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     onSubmit({
-      jobNr: initial?.jobNr ?? 0,
+      id: initial?.id ?? 0,
       liste: "andere",
       typ,
       schiffsname: schiffsname.trim() || undefined,
       kategorie: kategorie || undefined,
       bemerkung: bemerkung.trim() || undefined,
-      agJobNr: typ === "AG" && agJobNr !== "" ? Number(agJobNr) : undefined,
+      agJobId: typ === "AG" && agJobId !== "" ? Number(agJobId) : undefined,
       agLotsenAnzahl: typ === "AG" && agLotsen !== "" ? Number(agLotsen) : undefined,
       ehfBestAbgang: typ === "EHF" ? fromLocalInput(ehfBestAbgang) : undefined,
       ehfLotseBenoetigt: typ === "EHF" ? ehfLotse : undefined,
@@ -81,11 +81,11 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
           <>
             <label className="job-form__grow2">
               Schiff (aus Hamburg/NOK)
-              <select value={agJobNr} onChange={(e) => setAgJobNr(e.target.value)}>
+              <select value={agJobId} onChange={(e) => setAgJobId(e.target.value)}>
                 <option value="">–</option>
                 {verknuepfbareJobs.map((job) => (
-                  <option key={job.jobNr} value={job.jobNr}>
-                    {job.schiffsname ?? `Job ${job.jobNr}`}
+                  <option key={job.id} value={job.id}>
+                    {job.schiffsname ?? `Job ${job.id}`}
                   </option>
                 ))}
               </select>

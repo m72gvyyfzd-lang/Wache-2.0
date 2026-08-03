@@ -7,7 +7,7 @@ import type { JobEintrag } from "../data/types";
 export function zuCoreJob(eintrag: JobEintrag): Job {
   if (eintrag.liste === "hamburg") {
     return {
-      jobNr: eintrag.jobNr,
+      jobNr: eintrag.id,
       // Bützfleth nutzt die BÜTZ-Formel: gepl. Abgang + 29 min + Stade-Offset
       // (der Abgang läuft dafür über das FkW/Ticker-Feld des core-Jobs).
       routentyp: eintrag.buetzfleth ? "BÜTZ" : "HH",
@@ -19,7 +19,7 @@ export function zuCoreJob(eintrag: JobEintrag): Job {
   }
   if (eintrag.liste === "nok") {
     return {
-      jobNr: eintrag.jobNr,
+      jobNr: eintrag.id,
       routentyp: "NOK",
       hhHoltenau: eintrag.holt,
       fkwTickerAbgang: eintrag.ticker,
@@ -28,7 +28,7 @@ export function zuCoreJob(eintrag: JobEintrag): Job {
     };
   }
   return {
-    jobNr: eintrag.jobNr,
+    jobNr: eintrag.id,
     routentyp: eintrag.typ ?? "Anmeldung",
     abteilungManuell: eintrag.abtZeitManuell,
   };
