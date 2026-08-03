@@ -48,17 +48,6 @@ export function Einsatzstation() {
     <div>
       <PageHeader title="Einsatzstation Brunsbüttel" centered />
 
-      <div className="fahrt-auswahl">
-        <label>
-          aktuelle Fahrt:
-          <select value={aktuelleFahrt} onChange={(e) => setAktuelleFahrt(e.target.value as AktuelleFahrt)}>
-            <option value="MoFa">MoFa</option>
-            <option value="MiFa">MiFa</option>
-            <option value="AFA">AFA</option>
-          </select>
-        </label>
-      </div>
-
       <Panel
         title="Lotsenliste"
         count={query ? `${rows.length} / ${lotsen.length}` : `${lotsen.length} Einträge`}
@@ -68,7 +57,7 @@ export function Einsatzstation() {
           </button>
         }
       >
-        <div style={{ padding: "0 20px 10px" }}>
+        <div className="lotsen-toolbar">
           <input
             type="search"
             placeholder="Name suchen…"
@@ -76,6 +65,14 @@ export function Einsatzstation() {
             onChange={(e) => setQuery(e.target.value)}
             style={{ width: "100%", maxWidth: 320, font: "inherit", fontSize: "0.85rem", padding: "7px 12px" }}
           />
+          <label className="fahrt-auswahl">
+            aktuelle Fahrt:
+            <select value={aktuelleFahrt} onChange={(e) => setAktuelleFahrt(e.target.value as AktuelleFahrt)}>
+              <option value="MoFa">MoFa</option>
+              <option value="MiFa">MiFa</option>
+              <option value="AFA">AFA</option>
+            </select>
+          </label>
         </div>
         <table className="lotsen-table">
           <thead>
@@ -125,7 +122,7 @@ export function Einsatzstation() {
       </Panel>
 
       {dialog && (
-        <Modal title={dialog.lotse ? "Lotse bearbeiten" : "Neuer Lotse"} onClose={() => setDialog(null)}>
+        <Modal title={dialog.lotse ? "Lotse bearbeiten" : "Neuer Lotse"} onClose={() => setDialog(null)} maxWidth="420px">
           <LotseForm
             initial={dialog.lotse}
             onSubmit={handleSubmit}

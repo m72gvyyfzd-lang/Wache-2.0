@@ -5,9 +5,12 @@ interface ModalProps {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  /** überschreibt die Standard-max-width (560px) aus Modal.css, z.B. für
+   *  schmalere Formulare */
+  maxWidth?: string;
 }
 
-export function Modal({ title, onClose, children }: ModalProps) {
+export function Modal({ title, onClose, children, maxWidth }: ModalProps) {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -18,7 +21,14 @@ export function Modal({ title, onClose, children }: ModalProps) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal"
+        style={maxWidth ? { maxWidth } : undefined}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal__head">
           <h2>{title}</h2>
           <button type="button" className="modal__close" onClick={onClose} aria-label="Schließen">

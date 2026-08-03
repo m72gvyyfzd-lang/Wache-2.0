@@ -52,6 +52,14 @@ export function LotseForm({ initial, onSubmit, onDelete, onCancel }: LotseFormPr
           Name
           <input value={name} onChange={(e) => setName(e.target.value)} required />
         </label>
+        <label className="job-form__check job-form__eh-minimal">
+          <span>
+            <input type="checkbox" checked={elbehafen} onChange={(e) => setElbehafen(e.target.checked)} /> EH
+          </span>
+        </label>
+      </div>
+
+      <div className="job-form__row">
         <label>
           Kat.
           <select value={kategorie} onChange={(e) => setKategorie(e.target.value)}>
@@ -83,12 +91,7 @@ export function LotseForm({ initial, onSubmit, onDelete, onCancel }: LotseFormPr
         </label>
       </div>
 
-      <div className="job-form__row job-form__row--toerne">
-        <label className="job-form__check">
-          <span>
-            <input type="checkbox" checked={elbehafen} onChange={(e) => setElbehafen(e.target.checked)} /> EH
-          </span>
-        </label>
+      <div className="job-form__row">
         <label>
           2+2
           <input type="number" min={0} max={999} step={1} value={toern2Plus2} onChange={(e) => setToern2Plus2(e.target.value)} />

@@ -1,10 +1,14 @@
-/* "aktuelle Fahrt"-Auswahl auf Höhe der Überschrift, linksbündig */
-.fahrt-auswahl {
+/* Suchfeld (links) und "aktuelle Fahrt"-Auswahl (rechts) auf einer Ebene */
+.lotsen-toolbar {
   display: flex;
-  margin-bottom: 18px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 0 20px 10px;
 }
 
-.fahrt-auswahl label {
+.fahrt-auswahl {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -12,6 +16,7 @@
   font-size: 0.85rem;
   color: var(--ink-muted);
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .fahrt-auswahl select {
