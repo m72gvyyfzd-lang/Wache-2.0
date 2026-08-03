@@ -1,10 +1,19 @@
 import { useState, type FormEvent } from "react";
-import { ANMELDUNGS_TYPEN } from "@wache/core";
+import { ANMELDUNGS_TYPEN, getAbteilzeitSettings } from "@wache/core";
 import type { AnmeldungsTyp } from "@wache/core";
 import type { JobEintrag } from "../data/types";
+import { abteilzeitVon } from "../lib/coreJob";
 import { fromLocalInput, toLocalInput } from "../lib/datetime";
 import { FormActions, SchiffKatSelect } from "./formShared";
 import "./JobForm.css";
+
+const settings = getAbteilzeitSettings("Wechsel Tide");
+
+/** Typen ohne eigenen Schiffsnamen/Kategorie: AG leitet den Namen aus der
+ *  Verknüpfung ab, Nebelradar braucht beides schlicht nicht. */
+function ohneSchiffsfelder(typ: AnmeldungsTyp | ""): boolean {
+  return typ === "AG" || typ === "Nebelradar";
+}
 
 interface JobFormAndereProps {
   initial?: JobEintrag;
@@ -27,26 +36,44 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
   const [bhfBesetzZeit, setBhfBesetzZeit] = useState(toLocalInput(initial?.bhfBesetzZeit));
   const [abtZeit, setAbtZeit] = useState(toLocalInput(initial?.abtZeitManuell));
 
+  /** Beim Wechsel auf AG/Nebelradar Schiffsname+Kat. leeren — beide Felder
+   *  sind dort ausgeblendet und sollen keine Altwerte mit einreichen. */
+  function handleTypChange(wert: AnmeldungsTyp | "") {
+    setTyp(wert);
+    if (ohneSchiffsfelder(wert)) {
+      setSchiffsname("");
+      setKategorie("");
+    }
+  }
+
   /** AG-Regel: Schiffsname wird aus der Verknüpfung abgeleitet — Name des
-   *  gewählten Schiffs + "(x AG)" (x = Anzahl Lotsen). Bei Abwahl des
-   *  Schiffs wird der Name wieder geleert. */
-  function aktualisiereAgSchiffsname(jobIdText: string, lotsenText: string) {
+   *  gewählten Schiffs + "(x AG)" (x = Anzahl Lotsen); die Abt. Zeit wird
+   *  vom verknüpften Schiff übernommen. Bei Abwahl werden beide wieder
+   *  geleert. */
+  function aktualisiereAgVerknuepfung(jobIdText: string, lotsenText: string) {
     if (jobIdText === "") {
       setSchiffsname("");
       return;
     }
-    const basis = verknuepfbareJobs.find((j) => String(j.id) === jobIdText)?.schiffsname ?? "";
+    const job = verknuepfbareJobs.find((j) => String(j.id) === jobIdText);
+    const basis = job?.schiffsname ?? "";
     setSchiffsname(basis && lotsenText !== "" ? `${basis} (${lotsenText} AG)` : basis);
   }
 
   function handleAgJobId(wert: string) {
     setAgJobId(wert);
-    aktualisiereAgSchiffsname(wert, agLotsen);
+    aktualisiereAgVerknuepfung(wert, agLotsen);
+    if (wert === "") {
+      setAbtZeit("");
+      return;
+    }
+    const job = verknuepfbareJobs.find((j) => String(j.id) === wert);
+    if (job) setAbtZeit(toLocalInput(abteilzeitVon(job, settings)));
   }
 
   function handleAgLotsen(wert: string) {
     setAgLotsen(wert);
-    aktualisiereAgSchiffsname(agJobId, wert);
+    aktualisiereAgVerknuepfung(agJobId, wert);
   }
 
   /** EHF-Regel: nach Eingabe des best. Abgangs wird die Abteilzeit
@@ -57,6 +84,14 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
     if (abgang) setAbtZeit(toLocalInput(new Date(abgang.getTime() - 3_600_000)));
   }
 
+  /** BHF-Regel: nach Eingabe der Besetz-Zeit wird die Abteilzeit
+   *  automatisch auf Besetz-Zeit + 30 min gesetzt (bleibt danach editierbar). */
+  function handleBesetzZeit(wert: string) {
+    setBhfBesetzZeit(wert);
+    const besetzt = fromLocalInput(wert);
+    if (besetzt) setAbtZeit(toLocalInput(new Date(besetzt.getTime() + 1_800_000)));
+  }
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (typ === "") return;
@@ -64,8 +99,8 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
       id: initial?.id ?? 0,
       liste: "andere",
       typ,
-      schiffsname: schiffsname.trim() || undefined,
-      kategorie: typ === "AG" ? undefined : kategorie || undefined,
+      schiffsname: typ === "Nebelradar" ? undefined : schiffsname.trim() || undefined,
+      kategorie: ohneSchiffsfelder(typ) ? undefined : kategorie || undefined,
       bemerkung: bemerkung.trim() || undefined,
       agJobId: typ === "AG" && agJobId !== "" ? Number(agJobId) : undefined,
       agLotsenAnzahl: typ === "AG" && agLotsen !== "" ? Number(agLotsen) : undefined,
@@ -81,7 +116,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
       <div className="job-form__row">
         <label className="job-form__grow3">
           Type
-          <select value={typ} onChange={(e) => setTyp(e.target.value as AnmeldungsTyp | "")} required>
+          <select value={typ} onChange={(e) => handleTypChange(e.target.value as AnmeldungsTyp | "")} required>
             <option value="">–</option>
             {ANMELDUNGS_TYPEN.map((t) => (
               <option key={t} value={t}>
@@ -92,9 +127,9 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
         </label>
       </div>
 
-      {/* Bei Type "AG" ausgeblendet (Schiffsname wird aus der Verknüpfung
-          abgeleitet) — bleibt aber im Layout, damit Ebene 3/4 nicht rutschen. */}
-      <div className={typ === "AG" ? "job-form__row job-form__verborgen" : "job-form__row"}>
+      {/* Bei Type "AG"/"Nebelradar" ausgeblendet — bleibt aber im Layout,
+          damit Ebene 3/4 nicht rutschen. */}
+      <div className={ohneSchiffsfelder(typ) ? "job-form__row job-form__verborgen" : "job-form__row"}>
         <label className="job-form__grow3">
           Schiffsname
           <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} />
@@ -137,10 +172,13 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
           </>
         )}
         {typ === "BHF" && (
-          <label>
-            Besetz-Zeit
-            <input type="datetime-local" value={bhfBesetzZeit} onChange={(e) => setBhfBesetzZeit(e.target.value)} />
-          </label>
+          <>
+            <span className="job-form__grow2" aria-hidden="true" />
+            <label className="job-form__abtzeit-eingabe">
+              Besetz-Zeit
+              <input type="datetime-local" value={bhfBesetzZeit} onChange={(e) => handleBesetzZeit(e.target.value)} />
+            </label>
+          </>
         )}
       </div>
 

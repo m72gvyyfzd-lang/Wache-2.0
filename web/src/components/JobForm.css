@@ -19,16 +19,17 @@
   flex-basis: 33%;
 }
 
-/* Breitenverhältnisse laut Spezifikation (3/4, 2/3, 1/2) */
-.job-form__row > label.job-form__grow3 {
+/* Breitenverhältnisse laut Spezifikation (3/4, 2/3, 1/2) — auch auf
+   nicht-label Elemente anwendbar (z.B. Platzhalter-Spacer) */
+.job-form__row > .job-form__grow3 {
   flex: 3;
 }
 
-.job-form__row > label.job-form__grow2 {
+.job-form__row > .job-form__grow2 {
   flex: 2;
 }
 
-.job-form__row > label.job-form__half {
+.job-form__row > .job-form__half {
   flex: 0 0 50%;
 }
 
