@@ -12,11 +12,13 @@ import "./Einsatzplanung.css";
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
 export function Einsatzplanung() {
-  const { jobs, lotsen } = useData();
+  const { jobs, lotsen, aktuelleFahrt } = useData();
   const jobsSortiert = sortiereEintraege(jobs, settings);
   // nur Bereitschafts-Lotsen (fahrt === "") stehen an der Einsatzstation zur
-  // Verfügung — nach BB (Laufnummer innerhalb dieser Gruppe) sortiert
-  const lotsenSortiert = sortiereUndNummeriere(lotsen)
+  // Verfügung — nach BB (Laufnummer innerhalb dieser Gruppe) sortiert; die
+  // aktuelle Fahrt beeinflusst nur die Reihenfolge der MoFa/MiFa/AFA-Gruppen,
+  // nicht die BB-Nummerierung selbst
+  const lotsenSortiert = sortiereUndNummeriere(lotsen, aktuelleFahrt)
     .filter((eintrag) => eintrag.bb !== undefined)
     .sort((a, b) => a.bb! - b.bb!);
   const zeilen = Math.max(jobsSortiert.length, lotsenSortiert.length);

@@ -3,15 +3,15 @@ import { LotseForm } from "../components/LotseForm";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
-import type { LotsenEintrag } from "../data/types";
+import type { AktuelleFahrt, LotsenEintrag } from "../data/types";
 import { formatAbrufzeit, sortiereUndNummeriere } from "../lib/lotsenOrdnung";
 import { useData } from "../state/DataContext";
 import "./Einsatzstation.css";
 
-const FAHRT_KLASSE: Record<string, string> = {
-  MoFa: "fahrt-zelle fahrt-zelle--mofa",
-  MiFa: "fahrt-zelle fahrt-zelle--mifa",
-  AFA: "fahrt-zelle fahrt-zelle--afa",
+const FAHRT_ZEILE_KLASSE: Record<string, string> = {
+  MoFa: "fahrt-zeile--mofa",
+  MiFa: "fahrt-zeile--mifa",
+  AFA: "fahrt-zeile--afa",
 };
 
 function zaehlerZelle(wert: number): string {
@@ -19,11 +19,11 @@ function zaehlerZelle(wert: number): string {
 }
 
 export function Einsatzstation() {
-  const { lotsen, addLotse, updateLotse, deleteLotse } = useData();
+  const { lotsen, addLotse, updateLotse, deleteLotse, aktuelleFahrt, setAktuelleFahrt } = useData();
   const [query, setQuery] = useState("");
   const [dialog, setDialog] = useState<{ index?: number; lotse?: LotsenEintrag } | null>(null);
 
-  const geordnet = useMemo(() => sortiereUndNummeriere(lotsen), [lotsen]);
+  const geordnet = useMemo(() => sortiereUndNummeriere(lotsen, aktuelleFahrt), [lotsen, aktuelleFahrt]);
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return geordnet;
@@ -47,6 +47,18 @@ export function Einsatzstation() {
   return (
     <div>
       <PageHeader title="Einsatzstation Brunsbüttel" centered />
+
+      <div className="fahrt-auswahl">
+        <label>
+          aktuelle Fahrt:
+          <select value={aktuelleFahrt} onChange={(e) => setAktuelleFahrt(e.target.value as AktuelleFahrt)}>
+            <option value="MoFa">MoFa</option>
+            <option value="MiFa">MiFa</option>
+            <option value="AFA">AFA</option>
+          </select>
+        </label>
+      </div>
+
       <Panel
         title="Lotsenliste"
         count={query ? `${rows.length} / ${lotsen.length}` : `${lotsen.length} Einträge`}
@@ -65,14 +77,14 @@ export function Einsatzstation() {
             style={{ width: "100%", maxWidth: 320, font: "inherit", fontSize: "0.85rem", padding: "7px 12px" }}
           />
         </div>
-        <table>
+        <table className="lotsen-table">
           <thead>
             <tr>
               <th className="num">Fahrt #</th>
               <th>Name</th>
               <th className="num">Kat.</th>
               <th className="num">Abr.</th>
-              <th>EH</th>
+              <th className="num">EH</th>
               <th className="num">2+2</th>
               <th className="num">WB</th>
               <th className="num">WR</th>
@@ -83,12 +95,16 @@ export function Einsatzstation() {
           </thead>
           <tbody>
             {rows.map(({ eintrag, index, fahrtNr, bb }) => (
-              <tr key={index} className="row-click" onClick={() => setDialog({ index, lotse: eintrag })}>
-                <td className={`num ${FAHRT_KLASSE[eintrag.fahrt] ?? ""}`}>{fahrtNr ?? "·"}</td>
+              <tr
+                key={index}
+                className={`row-click ${FAHRT_ZEILE_KLASSE[eintrag.fahrt] ?? ""}`}
+                onClick={() => setDialog({ index, lotse: eintrag })}
+              >
+                <td className="num">{fahrtNr ?? "·"}</td>
                 <td className="cell-name">{eintrag.name}</td>
-                <td className="num">{eintrag.kategorie || <span className="muted">Volllotse</span>}</td>
+                <td className="num">{eintrag.kategorie}</td>
                 <td className="num muted">{formatAbrufzeit(eintrag.abrufStunden) || "·"}</td>
-                <td>{eintrag.elbehafen ? "✓" : ""}</td>
+                <td className="num">{eintrag.elbehafen ? "✓" : ""}</td>
                 <td className="num muted">{zaehlerZelle(eintrag.toern2Plus2)}</td>
                 <td className="num muted">{zaehlerZelle(eintrag.toernWb)}</td>
                 <td className="num muted">{zaehlerZelle(eintrag.toernWr)}</td>

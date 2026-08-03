@@ -1,7 +1,7 @@
 /** localStorage-Persistenz für die manuell gepflegten Jobs/Lotsen-Daten.
  *  Date-Felder werden bei JSON.stringify automatisch zu ISO-Strings und
  *  müssen beim Laden wieder in Date-Objekte zurückverwandelt werden. */
-import type { JobEintrag, LotsenEintrag } from "../data/types";
+import type { AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
 
 // v3: interne Job-ID (id) statt jobNr, AG-Verknüpfung über agJobId.
 const JOBS_KEY = "wache.jobs.v3";
@@ -10,6 +10,7 @@ const JOBS_KEY_V2 = "wache.jobs.v2";
 const LOTSEN_KEY = "wache.lotsen.v3";
 const LOTSEN_KEY_V2 = "wache.lotsen.v2";
 const JOB_ID_ZAEHLER_KEY = "wache.jobid.v1";
+const AKTUELLE_FAHRT_KEY = "wache.aktuelleFahrt.v1";
 
 const JOB_DATUM_FELDER = [
   "hh",
@@ -102,4 +103,13 @@ export function ladeLotsen(fallback: LotsenEintrag[]): LotsenEintrag[] {
 
 export function speichereLotsen(lotsen: LotsenEintrag[]): void {
   localStorage.setItem(LOTSEN_KEY, JSON.stringify(lotsen));
+}
+
+export function ladeAktuelleFahrt(fallback: AktuelleFahrt): AktuelleFahrt {
+  const raw = localStorage.getItem(AKTUELLE_FAHRT_KEY);
+  return raw === "MoFa" || raw === "MiFa" || raw === "AFA" ? raw : fallback;
+}
+
+export function speichereAktuelleFahrt(fahrt: AktuelleFahrt): void {
+  localStorage.setItem(AKTUELLE_FAHRT_KEY, fahrt);
 }

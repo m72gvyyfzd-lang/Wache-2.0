@@ -1,11 +1,24 @@
 /** Berechnet die beiden Laufnummern der Lotsenliste, die an der Position in
  *  der Liste hängen statt am einzelnen Lotsen: "Fahrt #" je Fahrt-Gruppe und
  *  "BB" innerhalb der Gruppe mit fahrt === "" (die Bereitschafts-Lotsen an
- *  der Einsatzstation). Gruppenreihenfolge: MoFa vor MiFa vor AFA vor "" —
- *  innerhalb einer Gruppe bleibt die bestehende Listenreihenfolge erhalten. */
-import type { Fahrt, LotsenEintrag } from "../data/types";
+ *  der Einsatzstation).
+ *
+ *  Gruppenreihenfolge rotiert mit der "aktuellen Fahrt": die laufende Fahrt
+ *  kommt zuerst, danach die nächsten im Zyklus MoFa → MiFa → AFA → MoFa …
+ *  "" (Bereitschaft) steht immer ganz hinten. Beispiel: aktuelle Fahrt AFA
+ *  → Reihenfolge AFA, MoFa, MiFa, "" — ein neu auf MoFa gesetzter Lotse
+ *  sortiert damit direkt hinter die letzten AFA-Einträge.
+ *  Innerhalb einer Gruppe bleibt die bestehende Listenreihenfolge erhalten. */
+import type { AktuelleFahrt, Fahrt, LotsenEintrag } from "../data/types";
 
-const FAHRT_RANG: Record<Fahrt, number> = { MoFa: 1, MiFa: 2, AFA: 3, "": 4 };
+const ZYKLUS: AktuelleFahrt[] = ["MoFa", "MiFa", "AFA"];
+
+function fahrtRang(fahrt: Fahrt, aktuelleFahrt: AktuelleFahrt): number {
+  if (fahrt === "") return ZYKLUS.length + 1;
+  const start = ZYKLUS.indexOf(aktuelleFahrt);
+  const ziel = ZYKLUS.indexOf(fahrt);
+  return ((ziel - start + ZYKLUS.length) % ZYKLUS.length) + 1;
+}
 
 export interface LotseMitOrdnung {
   eintrag: LotsenEintrag;
@@ -17,14 +30,14 @@ export interface LotseMitOrdnung {
   bb?: number;
 }
 
-export function sortiereUndNummeriere(lotsen: LotsenEintrag[]): LotseMitOrdnung[] {
+export function sortiereUndNummeriere(lotsen: LotsenEintrag[], aktuelleFahrt: AktuelleFahrt): LotseMitOrdnung[] {
   const indiziert = lotsen.map((eintrag, index) => ({ eintrag, index }));
   const sortiert = [...indiziert].sort((a, b) => {
-    const rang = FAHRT_RANG[a.eintrag.fahrt] - FAHRT_RANG[b.eintrag.fahrt];
+    const rang = fahrtRang(a.eintrag.fahrt, aktuelleFahrt) - fahrtRang(b.eintrag.fahrt, aktuelleFahrt);
     return rang !== 0 ? rang : a.index - b.index;
   });
 
-  const zaehler: Record<Exclude<Fahrt, "">, number> = { MoFa: 0, MiFa: 0, AFA: 0 };
+  const zaehler: Record<AktuelleFahrt, number> = { MoFa: 0, MiFa: 0, AFA: 0 };
   let bbZaehler = 0;
 
   return sortiert.map(({ eintrag, index }) => {

@@ -60,6 +60,11 @@ export interface JobEintrag {
  */
 export type Fahrt = "" | "MoFa" | "MiFa" | "AFA";
 
+/** Die Fahrt, in der wir uns gerade befinden — gibt vor, in welcher
+ *  Reihenfolge die Fahrt-Gruppen in der Einsatzstation-Liste einsortiert
+ *  werden (siehe lib/lotsenOrdnung.ts). Global für die Wache, nicht je Lotse. */
+export type AktuelleFahrt = "MoFa" | "MiFa" | "AFA";
+
 /**
  * UI-Datentyp für die rohe Lotsenliste (was der Dispatcher auf der Tafel
  * sieht).

@@ -1,10 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { mockJobs, mockLotsenliste } from "../data/mockData";
-import type { JobEintrag, LotsenEintrag } from "../data/types";
+import type { AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
 import {
+  ladeAktuelleFahrt,
   ladeJobIdZaehler,
   ladeJobs,
   ladeLotsen,
+  speichereAktuelleFahrt,
   speichereJobIdZaehler,
   speichereJobs,
   speichereLotsen,
@@ -20,6 +22,8 @@ interface DataContextValue {
   addLotse: (lotse: LotsenEintrag) => void;
   updateLotse: (index: number, lotse: LotsenEintrag) => void;
   deleteLotse: (index: number) => void;
+  aktuelleFahrt: AktuelleFahrt;
+  setAktuelleFahrt: (fahrt: AktuelleFahrt) => void;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -27,6 +31,7 @@ const DataContext = createContext<DataContextValue | null>(null);
 export function DataProvider({ children }: { children: ReactNode }) {
   const [jobs, setJobs] = useState<JobEintrag[]>(() => ladeJobs(mockJobs));
   const [lotsen, setLotsen] = useState<LotsenEintrag[]>(() => ladeLotsen(mockLotsenliste));
+  const [aktuelleFahrt, setAktuelleFahrtState] = useState<AktuelleFahrt>(() => ladeAktuelleFahrt("MoFa"));
 
   // Persistenter ID-Zähler: einmal vergebene IDs werden nie wiederverwendet,
   // damit spätere Verweise (z.B. AG-Verknüpfung) eindeutig bleiben.
@@ -55,8 +60,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
   const deleteLotse = useCallback((index: number) => setLotsen((prev) => prev.filter((_, i) => i !== index)), []);
 
+  const setAktuelleFahrt = useCallback((fahrt: AktuelleFahrt) => {
+    setAktuelleFahrtState(fahrt);
+    speichereAktuelleFahrt(fahrt);
+  }, []);
+
   return (
-    <DataContext.Provider value={{ jobs, lotsen, addJob, updateJob, deleteJob, addLotse, updateLotse, deleteLotse }}>
+    <DataContext.Provider
+      value={{
+        jobs,
+        lotsen,
+        addJob,
+        updateJob,
+        deleteJob,
+        addLotse,
+        updateLotse,
+        deleteLotse,
+        aktuelleFahrt,
+        setAktuelleFahrt,
+      }}
+    >
       {children}
     </DataContext.Provider>
   );
