@@ -12,7 +12,22 @@
   font-weight: 600;
 }
 
-/* linke Spaltengruppe (Jobs) etwas abheben, damit die Paarung optisch klar bleibt */
-.einsatz-table thead th:nth-child(-n + 5) {
-  background: var(--surface-2);
+/* Gruppenzeile: die zwei Listen "Jobs" und "Lotsen" über den Spalten */
+.einsatz-table__gruppen th {
+  text-align: center;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  padding: 10px 14px 6px;
+}
+
+/* Spaltenbreiten am Inhalt ausrichten, damit beide Listen eng
+   nebeneinander in die Karte passen */
+.einsatz-table th,
+.einsatz-table td {
+  white-space: nowrap;
+}
+
+.einsatz-table td.num,
+.einsatz-table th.num {
+  width: 1%;
 }

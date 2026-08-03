@@ -1,15 +1,27 @@
 /** localStorage-Persistenz für die manuell gepflegten Jobs/Lotsen-Daten.
  *  Date-Felder werden bei JSON.stringify automatisch zu ISO-Strings und
  *  müssen beim Laden wieder in Date-Objekte zurückverwandelt werden. */
-import type { Job } from "@wache/core";
-import type { LotsenEintrag } from "../data/types";
+import type { JobEintrag, LotsenEintrag } from "../data/types";
 
-const JOBS_KEY = "wache.jobs.v1";
-const LOTSEN_KEY = "wache.lotsen.v1";
+// v2: listenfestes JobEintrag-Schema + Lotsen-Kategorie (altes v1-Schema
+// wird nicht migriert — bewusst, es enthielt nur Demo-Daten).
+const JOBS_KEY = "wache.jobs.v2";
+const LOTSEN_KEY = "wache.lotsen.v2";
 
-const JOB_DATUM_FELDER = ["hhHoltenau", "fkwTickerAbgang", "stadeKuden", "abteilungManuell"] as const;
+const JOB_DATUM_FELDER = [
+  "hh",
+  "fkw",
+  "stade",
+  "geplAbgang",
+  "holt",
+  "ticker",
+  "kuden",
+  "ehfBestAbgang",
+  "bhfBesetzZeit",
+  "abtZeitManuell",
+] as const;
 
-export function ladeJobs(fallback: Job[]): Job[] {
+export function ladeJobs(fallback: JobEintrag[]): JobEintrag[] {
   const raw = localStorage.getItem(JOBS_KEY);
   if (!raw) return fallback;
   try {
@@ -20,14 +32,14 @@ export function ladeJobs(fallback: Job[]): Job[] {
         const wert = eintrag[feld];
         job[feld] = typeof wert === "string" ? new Date(wert) : undefined;
       }
-      return job as unknown as Job;
+      return job as unknown as JobEintrag;
     });
   } catch {
     return fallback;
   }
 }
 
-export function speichereJobs(jobs: Job[]): void {
+export function speichereJobs(jobs: JobEintrag[]): void {
   localStorage.setItem(JOBS_KEY, JSON.stringify(jobs));
 }
 
@@ -35,7 +47,8 @@ export function ladeLotsen(fallback: LotsenEintrag[]): LotsenEintrag[] {
   const raw = localStorage.getItem(LOTSEN_KEY);
   if (!raw) return fallback;
   try {
-    return JSON.parse(raw) as LotsenEintrag[];
+    const eintraege = JSON.parse(raw) as (Omit<LotsenEintrag, "kategorie"> & { kategorie?: string })[];
+    return eintraege.map((eintrag) => ({ ...eintrag, kategorie: eintrag.kategorie ?? "" }));
   } catch {
     return fallback;
   }

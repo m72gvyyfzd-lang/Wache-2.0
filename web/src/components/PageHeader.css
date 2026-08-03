@@ -6,6 +6,10 @@
   font-size: 1.4rem;
 }
 
+.page-header--centered {
+  text-align: center;
+}
+
 .page-header__desc {
   margin: 4px 0 0;
   color: var(--ink-muted);

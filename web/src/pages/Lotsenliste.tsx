@@ -27,6 +27,11 @@ export function Lotsenliste() {
     setDialog(null);
   }
 
+  function handleDelete() {
+    if (dialog?.index !== undefined) deleteLotse(dialog.index);
+    setDialog(null);
+  }
+
   return (
     <div>
       <PageHeader title="Lotsenliste" description="Hauptreihenfolge · Cuxhaven Bört (nicht relevant) · Brunsbüttel Bört (relevant)" />
@@ -60,37 +65,20 @@ export function Lotsenliste() {
               <th className="num">Tafel</th>
               <th className="num">CB</th>
               <th>Name</th>
+              <th className="num">Kat.</th>
               <th className="num">BB</th>
               <th>Bemerkung</th>
-              <th aria-hidden="true" />
             </tr>
           </thead>
           <tbody>
             {rows.map(({ eintrag, index }) => (
-              <tr key={index}>
+              <tr key={index} className="row-click" onClick={() => setDialog({ index, lotse: eintrag })}>
                 <td className="num muted">{eintrag.positionHaupt || "·"}</td>
                 <td className="num muted">{eintrag.positionCuxhavenBoert || "·"}</td>
                 <td>{eintrag.name}</td>
+                <td className="num">{eintrag.kategorie}</td>
                 <td className="num">{eintrag.positionBrunsbuettelBoert || <span className="muted">·</span>}</td>
                 <td className="muted">{eintrag.bem}</td>
-                <td className="cell-actions">
-                  <button
-                    type="button"
-                    className="btn btn--small btn--icon"
-                    onClick={() => setDialog({ index, lotse: eintrag })}
-                    aria-label="Bearbeiten"
-                  >
-                    ✎
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--small btn--icon btn--danger"
-                    onClick={() => deleteLotse(index)}
-                    aria-label="Löschen"
-                  >
-                    ✕
-                  </button>
-                </td>
               </tr>
             ))}
             {rows.length === 0 && (
@@ -106,7 +94,12 @@ export function Lotsenliste() {
 
       {dialog && (
         <Modal title={dialog.lotse ? "Lotse bearbeiten" : "Neuer Lotse"} onClose={() => setDialog(null)}>
-          <LotseForm initial={dialog.lotse} onSubmit={handleSubmit} onCancel={() => setDialog(null)} />
+          <LotseForm
+            initial={dialog.lotse}
+            onSubmit={handleSubmit}
+            onDelete={dialog.index !== undefined ? handleDelete : undefined}
+            onCancel={() => setDialog(null)}
+          />
         </Modal>
       )}
     </div>

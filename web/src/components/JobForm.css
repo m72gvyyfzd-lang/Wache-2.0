@@ -7,6 +7,7 @@
 .job-form__row {
   display: flex;
   gap: 12px;
+  align-items: flex-end;
 }
 
 .job-form__row > label {
@@ -18,9 +19,80 @@
   flex-basis: 33%;
 }
 
+/* Breitenverhältnisse laut Spezifikation (3/4, 2/3, 1/2) */
+.job-form__row > label.job-form__grow3 {
+  flex: 3;
+}
+
+.job-form__row > label.job-form__grow2 {
+  flex: 2;
+}
+
+.job-form__row > label.job-form__half {
+  flex: 0 0 50%;
+}
+
+/* Typ-abhängige Felder (Ebene 3, Liste Andere): feste Mindesthöhe, damit
+   Ebene 4 bei Typen ohne Zusatzfelder nicht nach oben rutscht. */
+.job-form__typfelder {
+  min-height: 62px;
+}
+
+.job-form__check {
+  justify-content: flex-end;
+}
+
+.job-form__check > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  white-space: nowrap;
+}
+
+.job-form__check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.job-form__abtzeit {
+  display: block;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+/* Wert stammt aus "man. Abt.Zeit" → dezent rot hinterlegen */
+.job-form__abtzeit--manuell {
+  background: rgba(214, 69, 48, 0.1);
+  border-color: rgba(214, 69, 48, 0.45);
+}
+
+.job-form__abtzeit-eingabe input {
+  text-align: right;
+}
+
 .job-form__actions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: 10px;
   margin-top: 6px;
+}
+
+.job-form__spacer {
+  flex: 1;
+}
+
+.job-form__confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
 }

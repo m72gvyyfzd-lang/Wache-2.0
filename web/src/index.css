@@ -174,11 +174,6 @@ select {
   padding: 8px 10px;
 }
 
-td.cell-actions {
-  white-space: nowrap;
-  text-align: right;
-}
-
-td.cell-actions .btn {
-  margin-left: 6px;
+tr.row-click {
+  cursor: pointer;
 }

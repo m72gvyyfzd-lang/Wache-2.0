@@ -1,6 +1,7 @@
-import { getAbteilzeitSettings, sortiereJobsNachAbteilzeit } from "@wache/core";
+import { getAbteilzeitSettings } from "@wache/core";
+import { sortiereEintraege } from "../lib/coreJob";
 import { useData } from "../state/DataContext";
-import { formatUhrzeit, herkunftVon } from "../lib/format";
+import { formatUhrzeit } from "../lib/format";
 import { StatTile } from "./StatTile";
 import "./DashboardCard.css";
 
@@ -8,11 +9,11 @@ const settings = getAbteilzeitSettings("Wechsel Tide");
 
 export function DashboardCard() {
   const { jobs, lotsen } = useData();
-  const jobsSortiert = sortiereJobsNachAbteilzeit(jobs, settings);
+  const jobsSortiert = sortiereEintraege(jobs, settings);
   const naechster = jobsSortiert[0];
-  const anzahlHH = jobs.filter((j) => herkunftVon(j.routentyp) === "HH").length;
-  const anzahlNOK = jobs.filter((j) => herkunftVon(j.routentyp) === "NOK").length;
-  const anzahlAnmeldungen = jobs.filter((j) => herkunftVon(j.routentyp) === "Anmeldung").length;
+  const anzahlHH = jobs.filter((j) => j.liste === "hamburg").length;
+  const anzahlNOK = jobs.filter((j) => j.liste === "nok").length;
+  const anzahlAnmeldungen = jobs.filter((j) => j.liste === "andere").length;
 
   return (
     <div className="dashboard-card">

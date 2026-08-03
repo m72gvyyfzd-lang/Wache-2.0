@@ -1,16 +1,17 @@
 import { useState } from "react";
-import { berechneAbteilzeit, getAbteilzeitSettings } from "@wache/core";
-import type { Job } from "@wache/core";
-import { JobForm } from "../components/JobForm";
+import { getAbteilzeitSettings } from "@wache/core";
+import { JobFormAndere } from "../components/JobFormAndere";
+import { JobFormHamburg } from "../components/JobFormHamburg";
+import { JobFormNok } from "../components/JobFormNok";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
-import { useData } from "../state/DataContext";
+import type { JobEintrag, JobListe } from "../data/types";
+import { abteilzeitVon } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
+import { useData } from "../state/DataContext";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
-
-type Art = "HH" | "NOK" | "Andere";
 
 function formatCheckpoint(datum: Date | undefined): string {
   return datum ? formatUhrzeit(datum) : "·";
@@ -19,17 +20,16 @@ function formatCheckpoint(datum: Date | undefined): string {
 interface CheckpointListeProps {
   titel: string;
   beschreibung: string;
-  jobs: Job[];
+  jobs: JobEintrag[];
   checkpointLabels: [string, string, string];
+  checkpoints: (job: JobEintrag) => [Date | undefined, Date | undefined, Date | undefined];
   onNeu: () => void;
-  onBearbeiten: (job: Job) => void;
-  onLoeschen: (jobNr: number) => void;
+  onZeile: (job: JobEintrag) => void;
 }
 
 /** Hamburg- und NOK-Liste haben identische Spalten, nur die drei
- *  Checkpoint-Bezeichnungen unterscheiden sich (HH/FkW/Stade vs.
- *  Holt./Ticker/Kuden) — beide greifen auf dieselben Job-Felder zu. */
-function CheckpointListe({ titel, beschreibung, jobs, checkpointLabels, onNeu, onBearbeiten, onLoeschen }: CheckpointListeProps) {
+ *  Checkpoint-Bezeichnungen und -Felder unterscheiden sich. */
+function CheckpointListe({ titel, beschreibung, jobs, checkpointLabels, checkpoints, onNeu, onZeile }: CheckpointListeProps) {
   const [label1, label2, label3] = checkpointLabels;
   return (
     <Panel
@@ -53,38 +53,27 @@ function CheckpointListe({ titel, beschreibung, jobs, checkpointLabels, onNeu, o
             <th className="num">{label2}</th>
             <th className="num">{label3}</th>
             <th className="num">Abt. Zeit</th>
-            <th aria-hidden="true" />
           </tr>
         </thead>
         <tbody>
-          {jobs.map((job) => (
-            <tr key={job.jobNr}>
-              <td className="num muted">{job.jobNr}</td>
-              <td className="cell-name">{job.bezeichnung ?? "–"}</td>
-              <td className="muted">{job.bemerkung}</td>
-              <td className="num muted">{job.kategorie ?? "·"}</td>
-              <td className="num">{formatCheckpoint(job.hhHoltenau)}</td>
-              <td className="num">{formatCheckpoint(job.fkwTickerAbgang)}</td>
-              <td className="num">{formatCheckpoint(job.stadeKuden)}</td>
-              <td className="num">{formatUhrzeit(berechneAbteilzeit(job, settings))}</td>
-              <td className="cell-actions">
-                <button type="button" className="btn btn--small btn--icon" onClick={() => onBearbeiten(job)} aria-label="Bearbeiten">
-                  ✎
-                </button>
-                <button
-                  type="button"
-                  className="btn btn--small btn--icon btn--danger"
-                  onClick={() => onLoeschen(job.jobNr)}
-                  aria-label="Löschen"
-                >
-                  ✕
-                </button>
-              </td>
-            </tr>
-          ))}
+          {jobs.map((job) => {
+            const [zeit1, zeit2, zeit3] = checkpoints(job);
+            return (
+              <tr key={job.jobNr} className="row-click" onClick={() => onZeile(job)}>
+                <td className="num muted">{job.jobNr}</td>
+                <td className="cell-name">{job.schiffsname ?? "–"}</td>
+                <td className="muted">{job.bemerkung}</td>
+                <td className="num muted">{job.kategorie ?? "·"}</td>
+                <td className="num">{formatCheckpoint(zeit1)}</td>
+                <td className="num">{formatCheckpoint(zeit2)}</td>
+                <td className="num">{formatCheckpoint(zeit3)}</td>
+                <td className="num">{formatUhrzeit(abteilzeitVon(job, settings))}</td>
+              </tr>
+            );
+          })}
           {jobs.length === 0 && (
             <tr>
-              <td colSpan={9} className="muted" style={{ textAlign: "center", padding: 20 }}>
+              <td colSpan={8} className="muted" style={{ textAlign: "center", padding: 20 }}>
                 keine Jobs
               </td>
             </tr>
@@ -96,13 +85,12 @@ function CheckpointListe({ titel, beschreibung, jobs, checkpointLabels, onNeu, o
 }
 
 interface AndereListeProps {
-  jobs: Job[];
+  jobs: JobEintrag[];
   onNeu: () => void;
-  onBearbeiten: (job: Job) => void;
-  onLoeschen: (jobNr: number) => void;
+  onZeile: (job: JobEintrag) => void;
 }
 
-function AndereListe({ jobs, onNeu, onBearbeiten, onLoeschen }: AndereListeProps) {
+function AndereListe({ jobs, onNeu, onZeile }: AndereListeProps) {
   return (
     <Panel
       title="Andere Jobs"
@@ -122,35 +110,21 @@ function AndereListe({ jobs, onNeu, onBearbeiten, onLoeschen }: AndereListeProps
             <th>Schiff</th>
             <th className="num">Kat.</th>
             <th className="num">Abt. Zeit</th>
-            <th aria-hidden="true" />
           </tr>
         </thead>
         <tbody>
           {jobs.map((job) => (
-            <tr key={job.jobNr}>
+            <tr key={job.jobNr} className="row-click" onClick={() => onZeile(job)}>
               <td className="num muted">{job.jobNr}</td>
-              <td>{job.routentyp}</td>
-              <td className="cell-name">{job.bezeichnung ?? "–"}</td>
+              <td>{job.typ}</td>
+              <td className="cell-name">{job.schiffsname ?? "–"}</td>
               <td className="num muted">{job.kategorie ?? "·"}</td>
-              <td className="num">{formatUhrzeit(berechneAbteilzeit(job, settings))}</td>
-              <td className="cell-actions">
-                <button type="button" className="btn btn--small btn--icon" onClick={() => onBearbeiten(job)} aria-label="Bearbeiten">
-                  ✎
-                </button>
-                <button
-                  type="button"
-                  className="btn btn--small btn--icon btn--danger"
-                  onClick={() => onLoeschen(job.jobNr)}
-                  aria-label="Löschen"
-                >
-                  ✕
-                </button>
-              </td>
+              <td className="num">{formatUhrzeit(job.abtZeitManuell)}</td>
             </tr>
           ))}
           {jobs.length === 0 && (
             <tr>
-              <td colSpan={6} className="muted" style={{ textAlign: "center", padding: 20 }}>
+              <td colSpan={5} className="muted" style={{ textAlign: "center", padding: 20 }}>
                 keine Jobs
               </td>
             </tr>
@@ -163,52 +137,66 @@ function AndereListe({ jobs, onNeu, onBearbeiten, onLoeschen }: AndereListeProps
 
 export function Jobs() {
   const { jobs, naechsteJobNr, addJob, updateJob, deleteJob } = useData();
-  const [dialog, setDialog] = useState<{ art: Art; job?: Job } | null>(null);
+  const [dialog, setDialog] = useState<{ liste: JobListe; eintrag?: JobEintrag } | null>(null);
 
-  const hamburg = jobs.filter((j) => j.routentyp === "HH");
-  const nok = jobs.filter((j) => j.routentyp === "NOK");
-  const andere = jobs.filter((j) => j.routentyp !== "HH" && j.routentyp !== "NOK");
+  const hamburg = jobs.filter((j) => j.liste === "hamburg");
+  const nok = jobs.filter((j) => j.liste === "nok");
+  const andere = jobs.filter((j) => j.liste === "andere");
+  const verknuepfbar = jobs.filter((j) => j.liste !== "andere");
 
-  function handleSubmit(job: Job) {
-    if (dialog?.job) {
-      updateJob(dialog.job.jobNr, { ...job, jobNr: dialog.job.jobNr });
+  function handleSubmit(job: JobEintrag) {
+    if (dialog?.eintrag) {
+      updateJob(dialog.eintrag.jobNr, { ...job, jobNr: dialog.eintrag.jobNr });
     } else {
       addJob({ ...job, jobNr: naechsteJobNr() });
     }
     setDialog(null);
   }
 
+  function handleDelete() {
+    if (dialog?.eintrag) deleteJob(dialog.eintrag.jobNr);
+    setDialog(null);
+  }
+
+  const formProps = {
+    initial: dialog?.eintrag,
+    onSubmit: handleSubmit,
+    onDelete: dialog?.eintrag ? handleDelete : undefined,
+    onCancel: () => setDialog(null),
+  };
+
   return (
     <div>
-      <PageHeader title="Jobs" description="Alle anstehenden Jobs, aufgeteilt nach Herkunft" />
+      <PageHeader title="ausgehender Schiffsverkehr / Anmeldungen" centered />
       <CheckpointListe
         titel="Hamburg"
         beschreibung="Elbe-Route: HH → FkW → Stade"
         jobs={hamburg}
         checkpointLabels={["HH", "FkW", "Stade"]}
-        onNeu={() => setDialog({ art: "HH" })}
-        onBearbeiten={(job) => setDialog({ art: "HH", job })}
-        onLoeschen={deleteJob}
+        checkpoints={(job) => [job.hh, job.buetzfleth ? job.geplAbgang : job.fkw, job.stade]}
+        onNeu={() => setDialog({ liste: "hamburg" })}
+        onZeile={(eintrag) => setDialog({ liste: "hamburg", eintrag })}
       />
       <CheckpointListe
         titel="NOK"
         beschreibung="Kanal-Route: Holt. → Ticker → Kuden"
         jobs={nok}
         checkpointLabels={["Holt.", "Ticker", "Kuden"]}
-        onNeu={() => setDialog({ art: "NOK" })}
-        onBearbeiten={(job) => setDialog({ art: "NOK", job })}
-        onLoeschen={deleteJob}
+        checkpoints={(job) => [job.holt, job.ticker, job.kuden]}
+        onNeu={() => setDialog({ liste: "nok" })}
+        onZeile={(eintrag) => setDialog({ liste: "nok", eintrag })}
       />
       <AndereListe
         jobs={andere}
-        onNeu={() => setDialog({ art: "Andere" })}
-        onBearbeiten={(job) => setDialog({ art: "Andere", job })}
-        onLoeschen={deleteJob}
+        onNeu={() => setDialog({ liste: "andere" })}
+        onZeile={(eintrag) => setDialog({ liste: "andere", eintrag })}
       />
 
       {dialog && (
-        <Modal title={dialog.job ? "Job bearbeiten" : "Neuer Job"} onClose={() => setDialog(null)}>
-          <JobForm initial={dialog.job} vorgabeArt={dialog.art} onSubmit={handleSubmit} onCancel={() => setDialog(null)} />
+        <Modal title={dialog.eintrag ? "Job bearbeiten" : "Neuer Job"} onClose={() => setDialog(null)}>
+          {dialog.liste === "hamburg" && <JobFormHamburg {...formProps} />}
+          {dialog.liste === "nok" && <JobFormNok {...formProps} />}
+          {dialog.liste === "andere" && <JobFormAndere {...formProps} verknuepfbareJobs={verknuepfbar} />}
         </Modal>
       )}
     </div>

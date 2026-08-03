@@ -1,10 +1,11 @@
-import { getAbteilzeitSettings, sortiereJobsNachAbteilzeit } from "@wache/core";
+import { getAbteilzeitSettings } from "@wache/core";
 import { Badge } from "../components/Badge";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import type { LotsenEintrag } from "../data/types";
+import { sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
+import { formatUhrzeit } from "../lib/format";
 import { useData } from "../state/DataContext";
-import { formatUhrzeit, herkunftVon } from "../lib/format";
 import "./Einsatzplanung.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
@@ -24,45 +25,49 @@ function nachBrunsbuettelPositionSortiert(lotsenliste: LotsenEintrag[]) {
 
 export function Einsatzplanung() {
   const { jobs, lotsen } = useData();
-  const jobsSortiert = sortiereJobsNachAbteilzeit(jobs, settings);
+  const jobsSortiert = sortiereEintraege(jobs, settings);
   const lotsenSortiert = nachBrunsbuettelPositionSortiert(lotsen);
   const zeilen = Math.max(jobsSortiert.length, lotsenSortiert.length);
 
   return (
     <div>
-      <PageHeader
-        title="Einsatzplanung"
-        description="Jobs (HH + NOK + Anmeldungen, nach Abteilzeit sortiert) ↔ verfügbare Lotsen (nach Reihenfolge) — Normalfall: Zeile 1 zu Zeile 1, Zeile 2 zu Zeile 2, ..."
-      />
+      <PageHeader title="Einsatzplanung" />
       <Panel title="Zuordnung" count={`${zeilen} Zeilen`}>
         <table className="einsatz-table">
           <thead>
+            <tr className="einsatz-table__gruppen">
+              <th colSpan={5}>Jobs</th>
+              <th className="einsatz-table__divider" aria-hidden="true" />
+              <th colSpan={4}>Lotsen</th>
+            </tr>
             <tr>
               <th className="num">#</th>
-              <th>Herkunft</th>
-              <th>Abteilzeit</th>
-              <th>Bezeichnung</th>
-              <th className="num">Kat</th>
+              <th>Von / Type</th>
+              <th>Schiffsname</th>
+              <th className="num">Kat.</th>
+              <th className="num">Abt. Zeit</th>
               <th className="einsatz-table__divider" aria-hidden="true" />
-              <th className="num">Pos.</th>
-              <th>Lotse</th>
+              <th className="num">#</th>
+              <th>Name</th>
+              <th className="num">Kat.</th>
+              <th>EH</th>
             </tr>
           </thead>
           <tbody>
             {Array.from({ length: zeilen }).map((_, i) => {
-              const eintrag = jobsSortiert[i];
+              const paar = jobsSortiert[i];
               const lotse = lotsenSortiert[i];
               return (
                 <tr key={i}>
-                  {eintrag ? (
+                  {paar ? (
                     <>
                       <td className="num muted">{i + 1}</td>
                       <td>
-                        <Badge>{herkunftVon(eintrag.job.routentyp)}</Badge>
+                        <Badge>{vonTypeLabel(paar.eintrag)}</Badge>
                       </td>
-                      <td className="num">{formatUhrzeit(eintrag.abteilzeit)}</td>
-                      <td className="cell-name">{eintrag.job.bezeichnung ?? "–"}</td>
-                      <td className="num muted">{eintrag.job.kategorie ?? "·"}</td>
+                      <td className="cell-name">{paar.eintrag.schiffsname ?? "–"}</td>
+                      <td className="num muted">{paar.eintrag.kategorie ?? "·"}</td>
+                      <td className="num">{formatUhrzeit(paar.abteilzeit)}</td>
                     </>
                   ) : (
                     <td colSpan={5} className="muted">
@@ -76,9 +81,11 @@ export function Einsatzplanung() {
                     <>
                       <td className="num muted">{lotse.positionBrunsbuettelBoert}</td>
                       <td className="cell-name">{lotse.name}</td>
+                      <td className="num">{lotse.kategorie}</td>
+                      <td className="muted" />
                     </>
                   ) : (
-                    <td colSpan={2} className="muted">
+                    <td colSpan={4} className="muted">
                       –
                     </td>
                   )}
