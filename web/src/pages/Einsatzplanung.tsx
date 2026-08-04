@@ -9,10 +9,18 @@ import type { JobEintrag } from "../data/types";
 import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { sortiereUndNummeriere } from "../lib/lotsenOrdnung";
+import { planeEinsatzstation } from "../lib/planungEinsatzstation";
 import { useData } from "../state/DataContext";
 import "./Einsatzplanung.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
+
+/** "Planung Einsatzstation": zugewiesene Lotsen dezent hinter dem
+ *  Schiffsnamen, mehrere durch ", " getrennt. */
+function PlanungHinweis({ namen }: { namen: string[] }) {
+  if (namen.length === 0) return null;
+  return <span className="planung-hinweis"> ({namen.join(", ")})</span>;
+}
 
 export function Einsatzplanung() {
   const { jobs, lotsen, aktuelleFahrt, updateJob, vNrStart } = useData();
@@ -22,6 +30,8 @@ export function Einsatzplanung() {
   // die Reihenfolge, die sortiereUndNummeriere bereits liefert.
   const lotsenSortiert = sortiereUndNummeriere(lotsen, aktuelleFahrt);
   const zeilen = Math.max(jobsSortiert.length, lotsenSortiert.length);
+  // "Planung Einsatzstation" — wird bei jeder Änderung neu berechnet
+  const zuweisungen = planeEinsatzstation(jobs, lotsen, aktuelleFahrt, settings);
 
   // Unabhängige Auswahl je Seite: ein Job UND ein Lotse können gleichzeitig
   // markiert sein (z.B. Job 1 + Lotse 2). Erneuter Klick wählt wieder ab.
@@ -85,6 +95,7 @@ export function Einsatzplanung() {
                       </td>
                       <td className={`${jobKlasse} cell-name`} onClick={jobKlick}>
                         {paar.eintrag.schiffsname ?? "–"}
+                        <PlanungHinweis namen={(zuweisungen.get(paar.eintrag.id) ?? []).map((l) => l.name)} />
                       </td>
                       <td className={`${jobKlasse} num muted zentriert`} onClick={jobKlick}>
                         {paar.eintrag.kategorie ?? "·"}

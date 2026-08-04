@@ -6,24 +6,15 @@ import { JobFormNok } from "../components/JobFormNok";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
-import type { JobEintrag, JobListe, LotsenEintrag } from "../data/types";
+import type { JobEintrag, JobListe } from "../data/types";
 import { sortiereEintraege, type EintragMitAbteilzeit } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
-import { planeEinsatzstation } from "../lib/planungEinsatzstation";
 import { useData } from "../state/DataContext";
-import "./Jobs.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
 function formatCheckpoint(datum: Date | undefined): string {
   return datum ? formatUhrzeit(datum) : "·";
-}
-
-/** "Planung Einsatzstation": zugewiesene Lotsen dezent hinter dem
- *  Schiffsnamen, mehrere durch ", " getrennt. */
-function PlanungHinweis({ lotsen }: { lotsen: LotsenEintrag[] }) {
-  if (lotsen.length === 0) return null;
-  return <span className="planung-hinweis"> ({lotsen.map((l) => l.name).join(", ")})</span>;
 }
 
 interface CheckpointListeProps {
@@ -32,14 +23,13 @@ interface CheckpointListeProps {
   zeilen: EintragMitAbteilzeit[];
   checkpointLabels: [string, string, string];
   checkpoints: (job: JobEintrag) => [Date | undefined, Date | undefined, Date | undefined];
-  zuweisungen: Map<number, LotsenEintrag[]>;
   onNeu: () => void;
   onZeile: (job: JobEintrag) => void;
 }
 
 /** Hamburg- und NOK-Liste haben identische Spalten, nur die drei
  *  Checkpoint-Bezeichnungen und -Felder unterscheiden sich. */
-function CheckpointListe({ titel, beschreibung, zeilen, checkpointLabels, checkpoints, zuweisungen, onNeu, onZeile }: CheckpointListeProps) {
+function CheckpointListe({ titel, beschreibung, zeilen, checkpointLabels, checkpoints, onNeu, onZeile }: CheckpointListeProps) {
   const [label1, label2, label3] = checkpointLabels;
   return (
     <Panel
@@ -71,10 +61,7 @@ function CheckpointListe({ titel, beschreibung, zeilen, checkpointLabels, checkp
             return (
               <tr key={eintrag.id} className="row-click" onClick={() => onZeile(eintrag)}>
                 <td className="num muted">{i + 1}</td>
-                <td className="cell-name">
-                  {eintrag.schiffsname ?? "–"}
-                  <PlanungHinweis lotsen={zuweisungen.get(eintrag.id) ?? []} />
-                </td>
+                <td className="cell-name">{eintrag.schiffsname ?? "–"}</td>
                 <td className="muted">{eintrag.bemerkung}</td>
                 <td className="num muted">{eintrag.kategorie ?? "·"}</td>
                 <td className="num">{formatCheckpoint(zeit1)}</td>
@@ -99,12 +86,11 @@ function CheckpointListe({ titel, beschreibung, zeilen, checkpointLabels, checkp
 
 interface AndereListeProps {
   zeilen: EintragMitAbteilzeit[];
-  zuweisungen: Map<number, LotsenEintrag[]>;
   onNeu: () => void;
   onZeile: (job: JobEintrag) => void;
 }
 
-function AndereListe({ zeilen, zuweisungen, onNeu, onZeile }: AndereListeProps) {
+function AndereListe({ zeilen, onNeu, onZeile }: AndereListeProps) {
   return (
     <Panel
       title="Andere Jobs"
@@ -131,10 +117,7 @@ function AndereListe({ zeilen, zuweisungen, onNeu, onZeile }: AndereListeProps) 
             <tr key={eintrag.id} className="row-click" onClick={() => onZeile(eintrag)}>
               <td className="num muted">{i + 1}</td>
               <td>{eintrag.typ}</td>
-              <td className="cell-name">
-                {eintrag.schiffsname ?? "–"}
-                <PlanungHinweis lotsen={zuweisungen.get(eintrag.id) ?? []} />
-              </td>
+              <td className="cell-name">{eintrag.schiffsname ?? "–"}</td>
               <td className="num muted">{eintrag.kategorie ?? "·"}</td>
               <td className="num">{formatUhrzeit(abteilzeit)}</td>
             </tr>
@@ -153,7 +136,7 @@ function AndereListe({ zeilen, zuweisungen, onNeu, onZeile }: AndereListeProps) 
 }
 
 export function Jobs() {
-  const { jobs, lotsen, aktuelleFahrt, addJob, updateJob, deleteJob } = useData();
+  const { jobs, addJob, updateJob, deleteJob } = useData();
   const [dialog, setDialog] = useState<{ liste: JobListe; eintrag?: JobEintrag } | null>(null);
 
   // jede Liste eigenständig nach Abteilzeit sortiert (früheste oben);
@@ -162,8 +145,6 @@ export function Jobs() {
   const nok = sortiereEintraege(jobs.filter((j) => j.liste === "nok"), settings);
   const andere = sortiereEintraege(jobs.filter((j) => j.liste === "andere"), settings);
   const verknuepfbar = jobs.filter((j) => j.liste !== "andere");
-  // "Planung Einsatzstation" — wird bei jeder Änderung neu berechnet
-  const zuweisungen = planeEinsatzstation(jobs, lotsen, aktuelleFahrt, settings);
 
   function handleSubmit(job: JobEintrag) {
     if (dialog?.eintrag) {
@@ -195,7 +176,6 @@ export function Jobs() {
         zeilen={hamburg}
         checkpointLabels={["HH", "FkW", "Stade"]}
         checkpoints={(job) => [job.hh, job.buetzfleth ? job.geplAbgang : job.fkw, job.stade]}
-        zuweisungen={zuweisungen}
         onNeu={() => setDialog({ liste: "hamburg" })}
         onZeile={(eintrag) => setDialog({ liste: "hamburg", eintrag })}
       />
@@ -205,13 +185,11 @@ export function Jobs() {
         zeilen={nok}
         checkpointLabels={["Holt.", "Ticker", "Kuden"]}
         checkpoints={(job) => [job.holt, job.ticker, job.kuden]}
-        zuweisungen={zuweisungen}
         onNeu={() => setDialog({ liste: "nok" })}
         onZeile={(eintrag) => setDialog({ liste: "nok", eintrag })}
       />
       <AndereListe
         zeilen={andere}
-        zuweisungen={zuweisungen}
         onNeu={() => setDialog({ liste: "andere" })}
         onZeile={(eintrag) => setDialog({ liste: "andere", eintrag })}
       />

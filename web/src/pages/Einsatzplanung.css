@@ -32,6 +32,21 @@
   width: 1%;
 }
 
+/* Schiffsname/Lotsen-Name: Zeilenumbruch statt Spaltenverbreiterung, damit
+   die "Planung Einsatzstation"-Zuweisung dahinter die Spaltenbreite nicht
+   sprengt. */
+.einsatz-table td.cell-name {
+  white-space: normal;
+  max-width: 160px;
+}
+
+/* "Planung Einsatzstation": zugewiesene Lotsen dezent hinter dem Schiffsnamen */
+.planung-hinweis {
+  color: var(--ink-faint);
+  font-size: 0.85em;
+  font-weight: 400;
+}
+
 /* Von/Type, Kat., Abt. Zeit, Lots. (Jobs-Seite) zentriert */
 .einsatz-table td.zentriert,
 .einsatz-table th.zentriert {
