@@ -1,0 +1,6 @@
+/* "Planung Einsatzstation": zugewiesene Lotsen dezent hinter dem Schiffsnamen */
+.planung-hinweis {
+  color: var(--ink-faint);
+  font-size: 0.78em;
+  font-weight: 400;
+}
