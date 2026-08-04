@@ -1,4 +1,5 @@
 import "./JobForm.css";
+import "./AbrufenModal.css";
 
 interface AbrufenModalProps {
   abgerufen: boolean;
@@ -8,16 +9,13 @@ interface AbrufenModalProps {
 
 export function AbrufenModal({ abgerufen, onToggle, onAbbrechen }: AbrufenModalProps) {
   return (
-    <div className="job-form">
-      <div className="job-form__actions">
-        <button type="button" className="btn btn--ghost" onClick={onAbbrechen}>
-          Abbrechen
-        </button>
-        <span className="job-form__spacer" />
-        <button type="button" className="btn btn--accent" onClick={onToggle}>
-          {abgerufen ? "Abruf zurück" : "Lotsen abrufen"}
-        </button>
-      </div>
+    <div className="job-form abrufen-modal__actions">
+      <button type="button" className="btn btn--accent" onClick={onToggle}>
+        {abgerufen ? "Abruf zurück" : "Lotsen abrufen"}
+      </button>
+      <button type="button" className="btn btn--ghost" onClick={onAbbrechen}>
+        Abbrechen
+      </button>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { fromLocalInput, toLocalInput } from "../lib/datetime";
+import { toLocalTimeInput } from "../lib/datetime";
 import "./JobForm.css";
 import "./AbtZeitModal.css";
 
@@ -10,10 +10,20 @@ interface AnStationModalProps {
 }
 
 export function AnStationModal({ initial, onUebernehmen, onAbbrechen }: AnStationModalProps) {
-  const [eingabe, setEingabe] = useState(toLocalInput(initial));
+  // Datum bleibt unverändert (nur die Uhrzeit ist editierbar) — ohne
+  // bisherigen Wert wird der heutige Tag als Basis verwendet.
+  const [basis] = useState(() => initial ?? new Date());
+  const [zeit, setZeit] = useState(toLocalTimeInput(initial));
 
   function handleOk() {
-    onUebernehmen(eingabe === "" ? initial : fromLocalInput(eingabe));
+    if (zeit === "") {
+      onUebernehmen(initial);
+      return;
+    }
+    const [stunden, minuten] = zeit.split(":").map(Number);
+    const ergebnis = new Date(basis);
+    ergebnis.setHours(stunden, minuten, 0, 0);
+    onUebernehmen(ergebnis);
   }
 
   return (
@@ -21,7 +31,7 @@ export function AnStationModal({ initial, onUebernehmen, onAbbrechen }: AnStatio
       <div className="job-form__row">
         <label className="abtzeit-feld">
           An Stn.:
-          <input type="datetime-local" value={eingabe} onChange={(e) => setEingabe(e.target.value)} />
+          <input type="time" value={zeit} onChange={(e) => setZeit(e.target.value)} />
         </label>
       </div>
 

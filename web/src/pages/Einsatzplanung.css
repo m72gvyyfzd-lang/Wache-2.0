@@ -61,6 +61,20 @@
   max-width: 70px;
 }
 
+/* V-Nr.: möglichst schmal, Platz für die fixierte An-Stn.-Breite */
+.einsatz-table th.vnr-schmal,
+.einsatz-table td.vnr-schmal {
+  width: 40px;
+}
+
+/* An Stn.: feste Breite, damit der Wechsel zwischen leer ("–") und
+   gesetzter Uhrzeit die Spalte (und damit die ganze Seite) nicht wackeln
+   lässt. */
+.einsatz-table th.anstn-fix,
+.einsatz-table td.anstn-fix {
+  width: 80px;
+}
+
 /* V-Nr.: fett, wenn der Lotse einem Job zugewiesen wurde */
 .einsatz-table td.fett {
   font-weight: 700;

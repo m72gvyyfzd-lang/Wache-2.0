@@ -144,10 +144,10 @@ export function Einsatzplanung() {
               <th className="num zentriert">Abt. Zeit</th>
               <th className="num zentriert">Lots.</th>
               <th className="einsatz-table__divider" aria-hidden="true" />
-              <th className="num">V-Nr.</th>
+              <th className="num zentriert vnr-schmal">V-Nr.</th>
               <th>Name</th>
               <th className="num zentriert kopf-umbruch">gepl. Abruf</th>
-              <th className="num zentriert kopf-umbruch">An Stn.</th>
+              <th className="num zentriert kopf-umbruch anstn-fix">An Stn.</th>
             </tr>
           </thead>
           <tbody>
@@ -208,7 +208,7 @@ export function Einsatzplanung() {
                   {lotse ? (
                     <>
                       <td
-                        className={`${lotseKlasse} num ${zugewieseneLotsen.has(lotse.eintrag) ? "fett" : "muted"}`}
+                        className={`${lotseKlasse} num vnr-schmal ${zugewieseneLotsen.has(lotse.eintrag) ? "fett" : "muted"}`}
                         onClick={lotseKlick}
                       >
                         {vNrProLotse.get(lotse.eintrag) ?? ""}
@@ -230,7 +230,7 @@ export function Einsatzplanung() {
                           : formatUhrzeit(geplanterAbruf(abteilzeitProLotseMap.get(lotse.eintrag), lotse.eintrag.abrufStunden))}
                       </td>
                       <td
-                        className={`${lotseKlasse} num muted zentriert`}
+                        className={`${lotseKlasse} num zentriert anstn-fix ${lotse.eintrag.abgerufen ? "fett" : "muted"}`}
                         onClick={lotseKlick}
                         onDoubleClick={
                           lotse.eintrag.abgerufen
@@ -291,7 +291,7 @@ export function Einsatzplanung() {
       )}
 
       {anStationLotse && (
-        <Modal title={anStationLotse.eintrag.name} onClose={() => setAnStationLotse(null)} maxWidth="320px">
+        <Modal title={anStationLotse.eintrag.name} onClose={() => setAnStationLotse(null)} maxWidth="240px">
           <AnStationModal
             initial={anStationLotse.eintrag.anStationZeit}
             onUebernehmen={handleAnStationUebernehmen}

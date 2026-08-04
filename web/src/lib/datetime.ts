@@ -11,3 +11,10 @@ export function fromLocalInput(wert: string): Date | undefined {
   const datum = new Date(wert);
   return Number.isNaN(datum.getTime()) ? undefined : datum;
 }
+
+/** Nur die Uhrzeit für <input type="time"> ("HH:mm", lokale Zeit). */
+export function toLocalTimeInput(datum: Date | undefined): string {
+  if (!datum) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(datum.getHours())}:${pad(datum.getMinutes())}`;
+}
