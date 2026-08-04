@@ -43,8 +43,8 @@
 }
 
 .einsatz-table tbody tr:has(td.einsatz-table__seite:hover) td.einsatz-table__seite:hover,
-.einsatz-table tbody tr:has(> td.einsatz-table__seite:nth-child(-n + 5):hover) td.einsatz-table__seite:nth-child(-n + 5),
-.einsatz-table tbody tr:has(> td.einsatz-table__seite:nth-child(n + 7):hover) td.einsatz-table__seite:nth-child(n + 7) {
+.einsatz-table tbody tr:has(> td.einsatz-table__seite:nth-child(-n + 6):hover) td.einsatz-table__seite:nth-child(-n + 6),
+.einsatz-table tbody tr:has(> td.einsatz-table__seite:nth-child(n + 8):hover) td.einsatz-table__seite:nth-child(n + 8) {
   background: var(--surface-2);
 }
 

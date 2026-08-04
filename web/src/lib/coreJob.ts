@@ -45,6 +45,16 @@ export function vonTypeLabel(eintrag: JobEintrag): string {
   return eintrag.typ ?? "?";
 }
 
+/** Anzahl benötigter Lotsen (Einsatzplanung, Spalte "Lots."). Jeder Job
+ *  braucht standardmäßig genau einen Lotsen — Ausnahme AG, dort wird die im
+ *  Job-Formular eingetragene Anzahl übernommen. Ein manueller Override
+ *  (lotsenAnzahl) sticht in jedem Fall alles andere aus. */
+export function benoetigteLotsenAnzahl(eintrag: JobEintrag): number {
+  if (eintrag.lotsenAnzahl !== undefined) return eintrag.lotsenAnzahl;
+  if (eintrag.liste === "andere" && eintrag.typ === "AG") return eintrag.agLotsenAnzahl ?? 1;
+  return 1;
+}
+
 export interface EintragMitAbteilzeit {
   eintrag: JobEintrag;
   abteilzeit: Date | undefined;

@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
 import { Badge } from "../components/Badge";
+import { LotsenAnzahlModal } from "../components/LotsenAnzahlModal";
+import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
-import { sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
+import type { JobEintrag } from "../data/types";
+import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { sortiereUndNummeriere } from "../lib/lotsenOrdnung";
 import { useData } from "../state/DataContext";
@@ -12,7 +15,7 @@ import "./Einsatzplanung.css";
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
 export function Einsatzplanung() {
-  const { jobs, lotsen, aktuelleFahrt } = useData();
+  const { jobs, lotsen, aktuelleFahrt, updateJob } = useData();
   const jobsSortiert = sortiereEintraege(jobs, settings);
   // nur Bereitschafts-Lotsen (fahrt === "") stehen an der Einsatzstation zur
   // Verfügung — nach BB (Laufnummer innerhalb dieser Gruppe) sortiert; die
@@ -27,6 +30,15 @@ export function Einsatzplanung() {
   // markiert sein (z.B. Job 1 + Lotse 2). Erneuter Klick wählt wieder ab.
   const [jobAuswahl, setJobAuswahl] = useState<number | null>(null);
   const [lotseAuswahl, setLotseAuswahl] = useState<number | null>(null);
+  // Doppelklick auf "Lots." öffnet das Bearbeitungsfenster für die Anzahl
+  const [lotsenAnzahlJob, setLotsenAnzahlJob] = useState<JobEintrag | null>(null);
+
+  function handleLotsenAnzahlUebernehmen(wert: number) {
+    if (!lotsenAnzahlJob) return;
+    updateJob(lotsenAnzahlJob.id, { ...lotsenAnzahlJob, lotsenAnzahl: wert });
+    setJobAuswahl(null);
+    setLotsenAnzahlJob(null);
+  }
 
   return (
     <div>
@@ -35,7 +47,7 @@ export function Einsatzplanung() {
         <table className="einsatz-table">
           <thead>
             <tr className="einsatz-table__gruppen">
-              <th colSpan={5}>Jobs</th>
+              <th colSpan={6}>Jobs</th>
               <th className="einsatz-table__divider" aria-hidden="true" />
               <th colSpan={4}>Lotsen</th>
             </tr>
@@ -45,6 +57,7 @@ export function Einsatzplanung() {
               <th>Schiffsname</th>
               <th className="num">Kat.</th>
               <th className="num">Abt. Zeit</th>
+              <th className="num">Lots.</th>
               <th className="einsatz-table__divider" aria-hidden="true" />
               <th className="num">#</th>
               <th>Name</th>
@@ -82,9 +95,19 @@ export function Einsatzplanung() {
                       <td className={`${jobKlasse} num`} onClick={jobKlick}>
                         {formatUhrzeit(paar.abteilzeit)}
                       </td>
+                      <td
+                        className={`${jobKlasse} num`}
+                        onClick={jobKlick}
+                        onDoubleClick={() => {
+                          setJobAuswahl(paar.eintrag.id);
+                          setLotsenAnzahlJob(paar.eintrag);
+                        }}
+                      >
+                        {benoetigteLotsenAnzahl(paar.eintrag)}
+                      </td>
                     </>
                   ) : (
-                    <td colSpan={5} className="muted">
+                    <td colSpan={6} className="muted">
                       –
                     </td>
                   )}
@@ -117,6 +140,20 @@ export function Einsatzplanung() {
           </tbody>
         </table>
       </Panel>
+
+      {lotsenAnzahlJob && (
+        <Modal
+          title={lotsenAnzahlJob.schiffsname ?? "Job"}
+          onClose={() => setLotsenAnzahlJob(null)}
+          maxWidth="300px"
+        >
+          <LotsenAnzahlModal
+            initial={benoetigteLotsenAnzahl(lotsenAnzahlJob)}
+            onUebernehmen={handleLotsenAnzahlUebernehmen}
+            onAbbrechen={() => setLotsenAnzahlJob(null)}
+          />
+        </Modal>
+      )}
     </div>
   );
 }
