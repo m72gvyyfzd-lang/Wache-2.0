@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
+import { AbtZeitModal } from "../components/AbtZeitModal";
 import { Badge } from "../components/Badge";
 import { LotsenAnzahlModal } from "../components/LotsenAnzahlModal";
 import { Modal } from "../components/Modal";
@@ -9,7 +10,7 @@ import type { JobEintrag, LotsenEintrag } from "../data/types";
 import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { sortiereUndNummeriere } from "../lib/lotsenOrdnung";
-import { planeEinsatzstation } from "../lib/planungEinsatzstation";
+import { abteilzeitProLotse, geplanterAbruf, planeEinsatzstation } from "../lib/planungEinsatzstation";
 import { useData } from "../state/DataContext";
 import "./Einsatzplanung.css";
 
@@ -20,6 +21,14 @@ const settings = getAbteilzeitSettings("Wechsel Tide");
 function PlanungHinweis({ namen }: { namen: string[] }) {
   if (namen.length === 0) return null;
   return <span className="planung-hinweis"> ({namen.join(", ")})</span>;
+}
+
+/** Kat. und EH dezent hinter dem Lotsennamen, im selben Stil wie
+ *  PlanungHinweis. Volllotsen (kategorie === "") ohne EH zeigen nichts. */
+function LotseHinweis({ kategorie, eh }: { kategorie: string; eh: boolean }) {
+  const teile = [kategorie, eh ? "EH" : ""].filter((t) => t !== "");
+  if (teile.length === 0) return null;
+  return <span className="planung-hinweis"> ({teile.join(", ")})</span>;
 }
 
 /** Anmeldungs-Typen, für die zugewiesene Lotsen keine V-Nr. bekommen — die
@@ -55,18 +64,35 @@ export function Einsatzplanung() {
     naechsteVNr += 1;
   }
 
+  // "gepl. Abruf": Abt.Zeit des zugewiesenen Jobs minus die Abrufzeit des
+  // Lotsen — wird bei jeder Änderung neu berechnet.
+  const abteilzeitProLotseMap = abteilzeitProLotse(jobsSortiert, zuweisungen);
+
   // Unabhängige Auswahl je Seite: ein Job UND ein Lotse können gleichzeitig
   // markiert sein (z.B. Job 1 + Lotse 2). Erneuter Klick wählt wieder ab.
   const [jobAuswahl, setJobAuswahl] = useState<number | null>(null);
   const [lotseAuswahl, setLotseAuswahl] = useState<number | null>(null);
   // Doppelklick auf "Lots." öffnet das Bearbeitungsfenster für die Anzahl
   const [lotsenAnzahlJob, setLotsenAnzahlJob] = useState<JobEintrag | null>(null);
+  // Doppelklick auf "Abt. Zeit" öffnet das Bearbeitungsfenster für die Zeit
+  const [abtZeitJob, setAbtZeitJob] = useState<JobEintrag | null>(null);
 
   function handleLotsenAnzahlUebernehmen(wert: number) {
     if (!lotsenAnzahlJob) return;
     updateJob(lotsenAnzahlJob.id, { ...lotsenAnzahlJob, lotsenAnzahl: wert });
     setJobAuswahl(null);
     setLotsenAnzahlJob(null);
+  }
+
+  // Bei HH/NOK entspricht das genau dem Feld "man. Abt.Zeit" des
+  // Formulars, bei Andere Jobs der direkten Abt.Zeit-Eingabe — beides ist
+  // dasselbe Datenfeld abtZeitManuell, daher hier keine Fallunterscheidung
+  // nötig.
+  function handleAbtZeitUebernehmen(wert: Date | undefined) {
+    if (!abtZeitJob) return;
+    updateJob(abtZeitJob.id, { ...abtZeitJob, abtZeitManuell: wert });
+    setJobAuswahl(null);
+    setAbtZeitJob(null);
   }
 
   return (
@@ -90,8 +116,8 @@ export function Einsatzplanung() {
               <th className="einsatz-table__divider" aria-hidden="true" />
               <th className="num">V-Nr.</th>
               <th>Name</th>
-              <th className="num">Kat.</th>
-              <th>EH</th>
+              <th className="num zentriert kopf-umbruch">gepl. Abruf</th>
+              <th className="num zentriert kopf-umbruch">An Stn.</th>
             </tr>
           </thead>
           <tbody>
@@ -122,7 +148,14 @@ export function Einsatzplanung() {
                       <td className={`${jobKlasse} num muted zentriert`} onClick={jobKlick}>
                         {paar.eintrag.kategorie ?? "·"}
                       </td>
-                      <td className={`${jobKlasse} num zentriert`} onClick={jobKlick}>
+                      <td
+                        className={`${jobKlasse} num zentriert`}
+                        onClick={jobKlick}
+                        onDoubleClick={() => {
+                          setJobAuswahl(paar.eintrag.id);
+                          setAbtZeitJob(paar.eintrag);
+                        }}
+                      >
                         {formatUhrzeit(paar.abteilzeit)}
                       </td>
                       <td
@@ -152,12 +185,13 @@ export function Einsatzplanung() {
                       </td>
                       <td className={`${lotseKlasse} cell-name`} onClick={lotseKlick}>
                         {lotse.eintrag.name}
+                        <LotseHinweis kategorie={lotse.eintrag.kategorie} eh={lotse.eintrag.elbehafen} />
                       </td>
-                      <td className={`${lotseKlasse} num`} onClick={lotseKlick}>
-                        {lotse.eintrag.kategorie}
+                      <td className={`${lotseKlasse} num muted zentriert`} onClick={lotseKlick}>
+                        {formatUhrzeit(geplanterAbruf(abteilzeitProLotseMap.get(lotse.eintrag), lotse.eintrag.abrufStunden))}
                       </td>
-                      <td className={lotseKlasse} onClick={lotseKlick}>
-                        {lotse.eintrag.elbehafen ? "✓" : ""}
+                      <td className={`${lotseKlasse} num muted zentriert`} onClick={lotseKlick}>
+                        –
                       </td>
                     </>
                   ) : (
@@ -182,6 +216,16 @@ export function Einsatzplanung() {
             initial={benoetigteLotsenAnzahl(lotsenAnzahlJob)}
             onUebernehmen={handleLotsenAnzahlUebernehmen}
             onAbbrechen={() => setLotsenAnzahlJob(null)}
+          />
+        </Modal>
+      )}
+
+      {abtZeitJob && (
+        <Modal title={abtZeitJob.schiffsname ?? "Job"} onClose={() => setAbtZeitJob(null)} maxWidth="320px">
+          <AbtZeitModal
+            initial={jobsSortiert.find((p) => p.eintrag.id === abtZeitJob.id)?.abteilzeit}
+            onUebernehmen={handleAbtZeitUebernehmen}
+            onAbbrechen={() => setAbtZeitJob(null)}
           />
         </Modal>
       )}

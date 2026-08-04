@@ -54,6 +54,13 @@
   text-align: center;
 }
 
+/* "gepl. Abruf"/"An Stn.": nur die (lange) Kopfzeile umbricht, der Inhalt
+   ist ja nur eine kurze Uhrzeit und bleibt schmal. */
+.einsatz-table th.kopf-umbruch {
+  white-space: normal;
+  max-width: 70px;
+}
+
 /* V-Nr.: fett, wenn der Lotse einem Job zugewiesen wurde */
 .einsatz-table td.fett {
   font-weight: 700;

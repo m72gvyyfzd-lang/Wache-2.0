@@ -14,7 +14,7 @@
  */
 import { darfFahren, darfJobTyp, darfZweiterLotse, schiffsRang, type AbteilzeitSettings } from "@wache/core";
 import type { AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
-import { benoetigteLotsenAnzahl, sortiereEintraege } from "./coreJob";
+import { benoetigteLotsenAnzahl, sortiereEintraege, type EintragMitAbteilzeit } from "./coreJob";
 import { sortiereUndNummeriere } from "./lotsenOrdnung";
 
 function istGeeignet(job: JobEintrag, lotse: LotsenEintrag, istErster: boolean): boolean {
@@ -55,4 +55,28 @@ export function planeEinsatzstation(
   }
 
   return zuweisungen;
+}
+
+/** Ordnet jedem zugewiesenen Lotsen die Abteilzeit seines Jobs zu — Basis für
+ *  die Berechnung des geplanten Abrufs (siehe geplanterAbruf). */
+export function abteilzeitProLotse(
+  jobsSortiert: EintragMitAbteilzeit[],
+  zuweisungen: Map<number, LotsenEintrag[]>,
+): Map<LotsenEintrag, Date> {
+  const ergebnis = new Map<LotsenEintrag, Date>();
+  for (const { eintrag: job, abteilzeit } of jobsSortiert) {
+    if (!abteilzeit) continue;
+    for (const lotse of zuweisungen.get(job.id) ?? []) {
+      ergebnis.set(lotse, abteilzeit);
+    }
+  }
+  return ergebnis;
+}
+
+/** "gepl. Abruf" = Abt.Zeit des zugewiesenen Jobs minus die individuelle
+ *  Abrufzeit des Lotsen (Standard 1,0 Std., wenn nicht gesetzt) — der
+ *  Zeitpunkt, zu dem der Lotse alarmiert werden muss. */
+export function geplanterAbruf(abteilzeit: Date | undefined, abrufStunden: number | undefined): Date | undefined {
+  if (!abteilzeit) return undefined;
+  return new Date(abteilzeit.getTime() - (abrufStunden ?? 1) * 3_600_000);
 }
