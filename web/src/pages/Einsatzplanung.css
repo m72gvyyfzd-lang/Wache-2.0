@@ -32,12 +32,18 @@
   width: 1%;
 }
 
+/* Von/Type: so schmal wie möglich, dafür bekommt Schiffsname mehr Platz */
+.einsatz-table td.schmal,
+.einsatz-table th.schmal {
+  width: 1%;
+}
+
 /* Schiffsname/Lotsen-Name: Zeilenumbruch statt Spaltenverbreiterung, damit
    die "Planung Einsatzstation"-Zuweisung dahinter die Spaltenbreite nicht
    sprengt. */
 .einsatz-table td.cell-name {
   white-space: normal;
-  max-width: 160px;
+  max-width: 240px;
 }
 
 /* "Planung Einsatzstation": zugewiesene Lotsen dezent hinter dem Schiffsnamen */
@@ -51,6 +57,12 @@
 .einsatz-table td.zentriert,
 .einsatz-table th.zentriert {
   text-align: center;
+}
+
+/* V-Nr.: fett, wenn der Lotse einem Job zugewiesen wurde */
+.einsatz-table td.fett {
+  font-weight: 700;
+  color: var(--ink);
 }
 
 /* Auswahl je Seite: das Zeilen-Hover aus index.css abschalten und nur die

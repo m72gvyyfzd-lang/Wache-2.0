@@ -5,7 +5,7 @@ import { LotsenAnzahlModal } from "../components/LotsenAnzahlModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
-import type { JobEintrag } from "../data/types";
+import type { JobEintrag, LotsenEintrag } from "../data/types";
 import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { sortiereUndNummeriere } from "../lib/lotsenOrdnung";
@@ -22,6 +22,10 @@ function PlanungHinweis({ namen }: { namen: string[] }) {
   return <span className="planung-hinweis"> ({namen.join(", ")})</span>;
 }
 
+/** Anmeldungs-Typen, für die zugewiesene Lotsen keine V-Nr. bekommen — die
+ *  V-Nr. rutscht dann zum nächsten Lotsen ohne diese Restriktion weiter. */
+const OHNE_V_NR_TYPEN = new Set(["Sonderradar", "Nebelradar", "2+2", "1+1", "WB", "WR"]);
+
 export function Einsatzplanung() {
   const { jobs, lotsen, aktuelleFahrt, updateJob, vNrStart } = useData();
   const jobsSortiert = sortiereEintraege(jobs, settings);
@@ -32,6 +36,24 @@ export function Einsatzplanung() {
   const zeilen = Math.max(jobsSortiert.length, lotsenSortiert.length);
   // "Planung Einsatzstation" — wird bei jeder Änderung neu berechnet
   const zuweisungen = planeEinsatzstation(jobs, lotsen, aktuelleFahrt, settings);
+  const zugewieseneLotsen = new Set(Array.from(zuweisungen.values()).flat());
+
+  // V-Nr.: fortlaufend ab vNrStart, aber Lotsen mit einer Zuweisung aus
+  // OHNE_V_NR_TYPEN bekommen keine — der Zähler bleibt für sie stehen und
+  // geht an den nächsten Lotsen ohne diese Restriktion.
+  const ohneVNr = new Set<LotsenEintrag>();
+  for (const { eintrag: job } of jobsSortiert) {
+    if (job.liste === "andere" && job.typ && OHNE_V_NR_TYPEN.has(job.typ)) {
+      for (const l of zuweisungen.get(job.id) ?? []) ohneVNr.add(l);
+    }
+  }
+  const vNrProLotse = new Map<LotsenEintrag, number>();
+  let naechsteVNr = vNrStart;
+  for (const { eintrag } of lotsenSortiert) {
+    if (ohneVNr.has(eintrag)) continue;
+    vNrProLotse.set(eintrag, naechsteVNr);
+    naechsteVNr += 1;
+  }
 
   // Unabhängige Auswahl je Seite: ein Job UND ein Lotse können gleichzeitig
   // markiert sein (z.B. Job 1 + Lotse 2). Erneuter Klick wählt wieder ab.
@@ -60,7 +82,7 @@ export function Einsatzplanung() {
             </tr>
             <tr>
               <th className="num">#</th>
-              <th className="zentriert">Von / Type</th>
+              <th className="zentriert schmal">Von / Type</th>
               <th>Schiffsname</th>
               <th className="num zentriert">Kat.</th>
               <th className="num zentriert">Abt. Zeit</th>
@@ -90,7 +112,7 @@ export function Einsatzplanung() {
                       <td className={`${jobKlasse} num muted`} onClick={jobKlick}>
                         {i + 1}
                       </td>
-                      <td className={`${jobKlasse} zentriert`} onClick={jobKlick}>
+                      <td className={`${jobKlasse} zentriert schmal`} onClick={jobKlick}>
                         <Badge>{vonTypeLabel(paar.eintrag)}</Badge>
                       </td>
                       <td className={`${jobKlasse} cell-name`} onClick={jobKlick}>
@@ -124,8 +146,11 @@ export function Einsatzplanung() {
                   </td>
                   {lotse ? (
                     <>
-                      <td className={`${lotseKlasse} num muted`} onClick={lotseKlick}>
-                        {vNrStart + i}
+                      <td
+                        className={`${lotseKlasse} num ${zugewieseneLotsen.has(lotse.eintrag) ? "fett" : "muted"}`}
+                        onClick={lotseKlick}
+                      >
+                        {vNrProLotse.get(lotse.eintrag) ?? ""}
                       </td>
                       <td className={`${lotseKlasse} cell-name`} onClick={lotseKlick}>
                         {lotse.eintrag.name}

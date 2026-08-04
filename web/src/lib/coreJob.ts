@@ -38,10 +38,13 @@ export function abteilzeitVon(eintrag: JobEintrag, settings: AbteilzeitSettings)
   return berechneAbteilzeit(zuCoreJob(eintrag), settings);
 }
 
-/** Anzeige für die Spalte "Von / Type": Herkunftsliste bzw. Anmeldungs-Typ. */
+/** Anzeige für die Spalte "Von / Type": Herkunftsliste bzw. Anmeldungs-Typ.
+ *  Sonderradar/Nebelradar werden abgekürzt, damit die Spalte schmal bleibt. */
 export function vonTypeLabel(eintrag: JobEintrag): string {
   if (eintrag.liste === "hamburg") return eintrag.buetzfleth ? "Bütz" : "HH";
   if (eintrag.liste === "nok") return "NOK";
+  if (eintrag.typ === "Sonderradar") return "SoRa";
+  if (eintrag.typ === "Nebelradar") return "NeRa";
   return eintrag.typ ?? "?";
 }
 
