@@ -95,4 +95,14 @@ export interface LotsenEintrag {
   toernWr: number;
   toernHulo: number;
   bemerkung: string;
+
+  /** "Lotsen abrufen" (Einsatzplanung): true, sobald der Lotse abgerufen
+   *  wurde — steuert die fette Namensdarstellung und ob "gepl. Abruf" noch
+   *  berechnet oder als "–" angezeigt wird. */
+  abgerufen?: boolean;
+  /** "An Stn.": tatsächlicher Zeitpunkt, wann der Lotse an der
+   *  Einsatzstation sein wird — gesetzt durch "Lotsen abrufen" (jetzt +
+   *  Abrufzeit) oder manuell nachträglich korrigiert. undefined = noch
+   *  nicht abgerufen. */
+  anStationZeit?: Date;
 }

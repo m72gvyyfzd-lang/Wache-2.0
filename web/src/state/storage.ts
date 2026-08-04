@@ -71,11 +71,21 @@ export function speichereJobIdZaehler(wert: number): void {
   localStorage.setItem(JOB_ID_ZAEHLER_KEY, String(wert));
 }
 
+function lotsenAusJson(raw: string): LotsenEintrag[] {
+  const eintraege = JSON.parse(raw) as Record<string, unknown>[];
+  return eintraege.map((eintrag) => {
+    const lotse: Record<string, unknown> = { ...eintrag };
+    const wert = eintrag.anStationZeit;
+    lotse.anStationZeit = typeof wert === "string" ? new Date(wert) : undefined;
+    return lotse as unknown as LotsenEintrag;
+  });
+}
+
 export function ladeLotsen(fallback: LotsenEintrag[]): LotsenEintrag[] {
   const rawV3 = localStorage.getItem(LOTSEN_KEY);
   if (rawV3) {
     try {
-      return JSON.parse(rawV3) as LotsenEintrag[];
+      return lotsenAusJson(rawV3);
     } catch {
       return fallback;
     }

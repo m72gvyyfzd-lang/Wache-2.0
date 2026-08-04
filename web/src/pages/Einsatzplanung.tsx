@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
+import { AbrufenModal } from "../components/AbrufenModal";
 import { AbtZeitModal } from "../components/AbtZeitModal";
+import { AnStationModal } from "../components/AnStationModal";
 import { Badge } from "../components/Badge";
 import { LotsenAnzahlModal } from "../components/LotsenAnzahlModal";
 import { Modal } from "../components/Modal";
@@ -9,7 +11,7 @@ import { Panel } from "../components/Panel";
 import type { JobEintrag, LotsenEintrag } from "../data/types";
 import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
-import { sortiereUndNummeriere } from "../lib/lotsenOrdnung";
+import { sortiereUndNummeriere, type LotseMitOrdnung } from "../lib/lotsenOrdnung";
 import { abteilzeitProLotse, geplanterAbruf, planeEinsatzstation } from "../lib/planungEinsatzstation";
 import { useData } from "../state/DataContext";
 import "./Einsatzplanung.css";
@@ -36,7 +38,7 @@ function LotseHinweis({ kategorie, eh }: { kategorie: string; eh: boolean }) {
 const OHNE_V_NR_TYPEN = new Set(["Sonderradar", "Nebelradar", "2+2", "1+1", "WB", "WR"]);
 
 export function Einsatzplanung() {
-  const { jobs, lotsen, aktuelleFahrt, updateJob, vNrStart } = useData();
+  const { jobs, lotsen, aktuelleFahrt, updateJob, updateLotse, vNrStart } = useData();
   const jobsSortiert = sortiereEintraege(jobs, settings);
   // Komplette Lotsenliste der Einsatzstation: 1. Prio Fahrt ≠ leer (in der
   // dort geltenden Fahrt-Rotationsreihenfolge), 2. Prio Fahrt = leer — genau
@@ -76,6 +78,11 @@ export function Einsatzplanung() {
   const [lotsenAnzahlJob, setLotsenAnzahlJob] = useState<JobEintrag | null>(null);
   // Doppelklick auf "Abt. Zeit" öffnet das Bearbeitungsfenster für die Zeit
   const [abtZeitJob, setAbtZeitJob] = useState<JobEintrag | null>(null);
+  // Doppelklick auf den Lotsen-Namen öffnet das Abrufen-Fenster
+  const [abrufenLotse, setAbrufenLotse] = useState<LotseMitOrdnung | null>(null);
+  // Doppelklick auf "An Stn." öffnet das Bearbeitungsfenster (nur wenn
+  // bereits abgerufen)
+  const [anStationLotse, setAnStationLotse] = useState<LotseMitOrdnung | null>(null);
 
   function handleLotsenAnzahlUebernehmen(wert: number) {
     if (!lotsenAnzahlJob) return;
@@ -93,6 +100,29 @@ export function Einsatzplanung() {
     updateJob(abtZeitJob.id, { ...abtZeitJob, abtZeitManuell: wert });
     setJobAuswahl(null);
     setAbtZeitJob(null);
+  }
+
+  // "Lotsen abrufen": An Stn. = jetzt + Abrufzeit, gepl. Abruf zeigt danach
+  // "–". "Abruf zurück": beide Felder zurücksetzen — das entspricht wieder
+  // dem berechneten Ausgangszustand.
+  function handleAbrufenToggle() {
+    if (!abrufenLotse) return;
+    const { eintrag, index } = abrufenLotse;
+    if (eintrag.abgerufen) {
+      updateLotse(index, { ...eintrag, abgerufen: false, anStationZeit: undefined });
+    } else {
+      const abrufStunden = eintrag.abrufStunden ?? 1;
+      updateLotse(index, { ...eintrag, abgerufen: true, anStationZeit: new Date(Date.now() + abrufStunden * 3_600_000) });
+    }
+    setLotseAuswahl(null);
+    setAbrufenLotse(null);
+  }
+
+  function handleAnStationUebernehmen(wert: Date | undefined) {
+    if (!anStationLotse) return;
+    updateLotse(anStationLotse.index, { ...anStationLotse.eintrag, anStationZeit: wert });
+    setLotseAuswahl(null);
+    setAnStationLotse(null);
   }
 
   return (
@@ -183,15 +213,35 @@ export function Einsatzplanung() {
                       >
                         {vNrProLotse.get(lotse.eintrag) ?? ""}
                       </td>
-                      <td className={`${lotseKlasse} cell-name`} onClick={lotseKlick}>
+                      <td
+                        className={`${lotseKlasse} cell-name ${lotse.eintrag.abgerufen ? "fett" : "muted"}`}
+                        onClick={lotseKlick}
+                        onDoubleClick={() => {
+                          setLotseAuswahl(i);
+                          setAbrufenLotse(lotse);
+                        }}
+                      >
                         {lotse.eintrag.name}
                         <LotseHinweis kategorie={lotse.eintrag.kategorie} eh={lotse.eintrag.elbehafen} />
                       </td>
                       <td className={`${lotseKlasse} num muted zentriert`} onClick={lotseKlick}>
-                        {formatUhrzeit(geplanterAbruf(abteilzeitProLotseMap.get(lotse.eintrag), lotse.eintrag.abrufStunden))}
+                        {lotse.eintrag.abgerufen
+                          ? "–"
+                          : formatUhrzeit(geplanterAbruf(abteilzeitProLotseMap.get(lotse.eintrag), lotse.eintrag.abrufStunden))}
                       </td>
-                      <td className={`${lotseKlasse} num muted zentriert`} onClick={lotseKlick}>
-                        –
+                      <td
+                        className={`${lotseKlasse} num muted zentriert`}
+                        onClick={lotseKlick}
+                        onDoubleClick={
+                          lotse.eintrag.abgerufen
+                            ? () => {
+                                setLotseAuswahl(i);
+                                setAnStationLotse(lotse);
+                              }
+                            : undefined
+                        }
+                      >
+                        {formatUhrzeit(lotse.eintrag.anStationZeit)}
                       </td>
                     </>
                   ) : (
@@ -226,6 +276,26 @@ export function Einsatzplanung() {
             initial={jobsSortiert.find((p) => p.eintrag.id === abtZeitJob.id)?.abteilzeit}
             onUebernehmen={handleAbtZeitUebernehmen}
             onAbbrechen={() => setAbtZeitJob(null)}
+          />
+        </Modal>
+      )}
+
+      {abrufenLotse && (
+        <Modal title={abrufenLotse.eintrag.name} onClose={() => setAbrufenLotse(null)} maxWidth="280px">
+          <AbrufenModal
+            abgerufen={abrufenLotse.eintrag.abgerufen ?? false}
+            onToggle={handleAbrufenToggle}
+            onAbbrechen={() => setAbrufenLotse(null)}
+          />
+        </Modal>
+      )}
+
+      {anStationLotse && (
+        <Modal title={anStationLotse.eintrag.name} onClose={() => setAnStationLotse(null)} maxWidth="320px">
+          <AnStationModal
+            initial={anStationLotse.eintrag.anStationZeit}
+            onUebernehmen={handleAnStationUebernehmen}
+            onAbbrechen={() => setAnStationLotse(null)}
           />
         </Modal>
       )}
