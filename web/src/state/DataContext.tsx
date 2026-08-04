@@ -6,10 +6,12 @@ import {
   ladeAktuelleFahrt,
   ladeJobIdZaehler,
   ladeJobs,
+  ladeLetzteVNr,
   ladeLotsen,
   speichereAktuelleFahrt,
   speichereJobIdZaehler,
   speichereJobs,
+  speichereLetzteVNr,
   speichereLotsen,
 } from "./storage";
 
@@ -29,6 +31,9 @@ interface DataContextValue {
   verschiebeLotse: (quellIndex: number, zielIndex: number) => void;
   aktuelleFahrt: AktuelleFahrt;
   setAktuelleFahrt: (fahrt: AktuelleFahrt) => void;
+  /** letzte vergebene V-Nr. (0–999), Settings-Tab */
+  letzteVNr: number;
+  setLetzteVNr: (wert: number) => void;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -37,6 +42,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [jobs, setJobs] = useState<JobEintrag[]>(() => ladeJobs(mockJobs));
   const [lotsen, setLotsen] = useState<LotsenEintrag[]>(() => ladeLotsen(mockLotsenliste));
   const [aktuelleFahrt, setAktuelleFahrtState] = useState<AktuelleFahrt>(() => ladeAktuelleFahrt("MoFa"));
+  const [letzteVNr, setLetzteVNrState] = useState<number>(() => ladeLetzteVNr(0));
 
   // Persistenter ID-Zähler: einmal vergebene IDs werden nie wiederverwendet,
   // damit spätere Verweise (z.B. AG-Verknüpfung) eindeutig bleiben.
@@ -78,6 +84,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     speichereAktuelleFahrt(fahrt);
   }, []);
 
+  const setLetzteVNr = useCallback((wert: number) => {
+    setLetzteVNrState(wert);
+    speichereLetzteVNr(wert);
+  }, []);
+
   return (
     <DataContext.Provider
       value={{
@@ -93,6 +104,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         verschiebeLotse,
         aktuelleFahrt,
         setAktuelleFahrt,
+        letzteVNr,
+        setLetzteVNr,
       }}
     >
       {children}

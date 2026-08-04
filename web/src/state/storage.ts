@@ -11,6 +11,7 @@ const LOTSEN_KEY = "wache.lotsen.v3";
 const LOTSEN_KEY_V2 = "wache.lotsen.v2";
 const JOB_ID_ZAEHLER_KEY = "wache.jobid.v1";
 const AKTUELLE_FAHRT_KEY = "wache.aktuelleFahrt.v1";
+const LETZTE_V_NR_KEY = "wache.letzteVNr.v1";
 
 const JOB_DATUM_FELDER = [
   "hh",
@@ -112,4 +113,14 @@ export function ladeAktuelleFahrt(fallback: AktuelleFahrt): AktuelleFahrt {
 
 export function speichereAktuelleFahrt(fahrt: AktuelleFahrt): void {
   localStorage.setItem(AKTUELLE_FAHRT_KEY, fahrt);
+}
+
+export function ladeLetzteVNr(fallback: number): number {
+  const raw = localStorage.getItem(LETZTE_V_NR_KEY);
+  const wert = raw !== null ? Number(raw) : Number.NaN;
+  return Number.isInteger(wert) && wert >= 0 && wert <= 999 ? wert : fallback;
+}
+
+export function speichereLetzteVNr(wert: number): void {
+  localStorage.setItem(LETZTE_V_NR_KEY, String(wert));
 }

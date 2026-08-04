@@ -1,0 +1,21 @@
+.settings-feld-zeile {
+  padding: 16px 20px;
+}
+
+.settings-feld {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
+.settings-feld input {
+  width: 70px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+}

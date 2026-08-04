@@ -3,6 +3,7 @@ import { AppShell } from "./layout/AppShell";
 import { Einsatzplanung } from "./pages/Einsatzplanung";
 import { Einsatzstation } from "./pages/Einsatzstation";
 import { Jobs } from "./pages/Jobs";
+import { Settings } from "./pages/Settings";
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Route path="/jobs" element={<Jobs />} />
         <Route path="/einsatzplanung" element={<Einsatzplanung />} />
         <Route path="/einsatzstation" element={<Einsatzstation />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
     </Routes>
   );
