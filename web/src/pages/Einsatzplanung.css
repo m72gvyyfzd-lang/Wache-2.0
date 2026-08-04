@@ -7,11 +7,6 @@
   text-align: center;
 }
 
-.einsatz-table__arrow {
-  color: var(--accent);
-  font-weight: 600;
-}
-
 /* Gruppenzeile: die zwei Listen "Jobs" und "Lotsen" über den Spalten */
 .einsatz-table__gruppen th {
   text-align: center;

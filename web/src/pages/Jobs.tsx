@@ -7,7 +7,7 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import type { JobEintrag, JobListe } from "../data/types";
-import { sortiereEintraege, type EintragMitAbteilzeit } from "../lib/coreJob";
+import { benoetigteLotsenAnzahl, sortiereEintraege, type EintragMitAbteilzeit } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { useData } from "../state/DataContext";
 
@@ -53,6 +53,7 @@ function CheckpointListe({ titel, beschreibung, zeilen, checkpointLabels, checkp
             <th className="num">{label2}</th>
             <th className="num">{label3}</th>
             <th className="num">Abt. Zeit</th>
+            <th className="num">Lots.</th>
           </tr>
         </thead>
         <tbody>
@@ -68,12 +69,13 @@ function CheckpointListe({ titel, beschreibung, zeilen, checkpointLabels, checkp
                 <td className="num">{formatCheckpoint(zeit2)}</td>
                 <td className="num">{formatCheckpoint(zeit3)}</td>
                 <td className="num">{formatUhrzeit(abteilzeit)}</td>
+                <td className="num muted">{benoetigteLotsenAnzahl(eintrag)}</td>
               </tr>
             );
           })}
           {zeilen.length === 0 && (
             <tr>
-              <td colSpan={8} className="muted" style={{ textAlign: "center", padding: 20 }}>
+              <td colSpan={9} className="muted" style={{ textAlign: "center", padding: 20 }}>
                 keine Jobs
               </td>
             </tr>
@@ -110,6 +112,7 @@ function AndereListe({ zeilen, onNeu, onZeile }: AndereListeProps) {
             <th>Schiff</th>
             <th className="num">Kat.</th>
             <th className="num">Abt. Zeit</th>
+            <th className="num">Lots.</th>
           </tr>
         </thead>
         <tbody>
@@ -120,11 +123,12 @@ function AndereListe({ zeilen, onNeu, onZeile }: AndereListeProps) {
               <td className="cell-name">{eintrag.schiffsname ?? "–"}</td>
               <td className="num muted">{eintrag.kategorie ?? "·"}</td>
               <td className="num">{formatUhrzeit(abteilzeit)}</td>
+              <td className="num muted">{benoetigteLotsenAnzahl(eintrag)}</td>
             </tr>
           ))}
           {zeilen.length === 0 && (
             <tr>
-              <td colSpan={5} className="muted" style={{ textAlign: "center", padding: 20 }}>
+              <td colSpan={6} className="muted" style={{ textAlign: "center", padding: 20 }}>
                 keine Jobs
               </td>
             </tr>

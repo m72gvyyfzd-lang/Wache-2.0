@@ -141,9 +141,7 @@ export function Einsatzplanung() {
                       –
                     </td>
                   )}
-                  <td className="einsatz-table__divider" aria-hidden="true">
-                    <span className="einsatz-table__arrow">→</span>
-                  </td>
+                  <td className="einsatz-table__divider" aria-hidden="true" />
                   {lotse ? (
                     <>
                       <td

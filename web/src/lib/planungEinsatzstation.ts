@@ -12,7 +12,7 @@
  * Muss bei jeder Änderung (Jobs, Lotsen, aktuelle Fahrt) neu berechnet
  * werden — daher rein funktional, kein eigener State.
  */
-import { darfFahren, darfJobTyp, darfZweiterLotse, type AbteilzeitSettings } from "@wache/core";
+import { darfFahren, darfJobTyp, darfZweiterLotse, schiffsRang, type AbteilzeitSettings } from "@wache/core";
 import type { AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
 import { benoetigteLotsenAnzahl, sortiereEintraege } from "./coreJob";
 import { sortiereUndNummeriere } from "./lotsenOrdnung";
@@ -21,7 +21,11 @@ function istGeeignet(job: JobEintrag, lotse: LotsenEintrag, istErster: boolean):
   const schiffsKat = job.kategorie ?? "";
   const passtKat = istErster ? darfFahren(schiffsKat, lotse.kategorie) : darfZweiterLotse(schiffsKat, lotse.kategorie);
   if (!passtKat) return false;
-  return job.typ === undefined || darfJobTyp(job.typ, lotse.kategorie);
+  if (job.typ !== undefined && !darfJobTyp(job.typ, lotse.kategorie)) return false;
+  // Ab Kat. 4 braucht ein Job mit "EHF-Lotse benötigt" zusätzlich einen
+  // Lotsen mit aktivem Zusatz "EH" (Elbehafen).
+  if (job.ehfLotseBenoetigt && schiffsRang(schiffsKat) >= 4 && !lotse.elbehafen) return false;
+  return true;
 }
 
 /** jobId -> zugewiesene Lotsen (in Zuweisungsreihenfolge) */
