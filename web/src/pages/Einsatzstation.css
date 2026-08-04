@@ -52,6 +52,13 @@ tbody tr.fahrt-zeile--afa:hover td {
   background: rgba(34, 197, 94, 0.18);
 }
 
+/* Markierte Zeile (während "Lotse verwalten" oder Bearbeiten-Fenster
+   offen ist) — !important überstimmt sowohl die Fahrt-Färbung als auch
+   deren Hover-Varianten. */
+tbody tr.ist-ausgewaehlt td {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface)) !important;
+}
+
 /* Spaltenbreiten enger an den Inhalt: nur Name und Bemerkungen dürfen
    wachsen, alle kurzen Spalten bleiben so schmal wie möglich. */
 .lotsen-table td,

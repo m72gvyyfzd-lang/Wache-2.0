@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { LotseForm } from "../components/LotseForm";
+import { ManagePilotModal } from "../components/ManagePilotModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
@@ -19,9 +20,12 @@ function zaehlerZelle(wert: number): string {
 }
 
 export function Einsatzstation() {
-  const { lotsen, addLotse, updateLotse, deleteLotse, aktuelleFahrt, setAktuelleFahrt } = useData();
+  const { lotsen, addLotse, updateLotse, deleteLotse, tauscheLotsen, verschiebeLotse, aktuelleFahrt, setAktuelleFahrt } =
+    useData();
   const [query, setQuery] = useState("");
   const [dialog, setDialog] = useState<{ index?: number; lotse?: LotsenEintrag } | null>(null);
+  // Zeilenklick öffnet zuerst "Lotse verwalten" (Tauschen/Verschieben/Bearbeiten)
+  const [verwaltungIndex, setVerwaltungIndex] = useState<number | null>(null);
 
   const geordnet = useMemo(() => sortiereUndNummeriere(lotsen, aktuelleFahrt), [lotsen, aktuelleFahrt]);
   const rows = useMemo(() => {
@@ -29,6 +33,8 @@ export function Einsatzstation() {
     if (!q) return geordnet;
     return geordnet.filter(({ eintrag }) => eintrag.name.toLowerCase().includes(q));
   }, [geordnet, query]);
+
+  const markierterIndex = verwaltungIndex ?? dialog?.index ?? null;
 
   function handleSubmit(lotse: LotsenEintrag) {
     if (dialog?.index !== undefined) {
@@ -42,6 +48,25 @@ export function Einsatzstation() {
   function handleDelete() {
     if (dialog?.index !== undefined) deleteLotse(dialog.index);
     setDialog(null);
+  }
+
+  function handleBearbeiten() {
+    if (verwaltungIndex === null) return;
+    const eintrag = lotsen[verwaltungIndex];
+    setDialog({ index: verwaltungIndex, lotse: eintrag });
+    setVerwaltungIndex(null);
+  }
+
+  function handleTauschen(zielIndex: number) {
+    if (verwaltungIndex === null) return;
+    tauscheLotsen(verwaltungIndex, zielIndex);
+    setVerwaltungIndex(null);
+  }
+
+  function handleVerschieben(zielIndex: number) {
+    if (verwaltungIndex === null) return;
+    verschiebeLotse(verwaltungIndex, zielIndex);
+    setVerwaltungIndex(null);
   }
 
   return (
@@ -94,8 +119,11 @@ export function Einsatzstation() {
             {rows.map(({ eintrag, index, fahrtNr, bb }) => (
               <tr
                 key={index}
-                className={`row-click ${FAHRT_ZEILE_KLASSE[eintrag.fahrt] ?? ""}`}
-                onClick={() => setDialog({ index, lotse: eintrag })}
+                className={
+                  `row-click ${FAHRT_ZEILE_KLASSE[eintrag.fahrt] ?? ""}` +
+                  (index === markierterIndex ? " ist-ausgewaehlt" : "")
+                }
+                onClick={() => setVerwaltungIndex(index)}
               >
                 <td className="num">{fahrtNr ?? "·"}</td>
                 <td className="cell-name">{eintrag.name}</td>
@@ -120,6 +148,18 @@ export function Einsatzstation() {
           </tbody>
         </table>
       </Panel>
+
+      {verwaltungIndex !== null && (
+        <Modal title="Lotse verwalten" onClose={() => setVerwaltungIndex(null)} maxWidth="380px">
+          <ManagePilotModal
+            andere={geordnet.filter(({ index }) => index !== verwaltungIndex).map(({ eintrag, index }) => ({ index, name: eintrag.name }))}
+            onBearbeiten={handleBearbeiten}
+            onTauschen={handleTauschen}
+            onVerschieben={handleVerschieben}
+            onAbbrechen={() => setVerwaltungIndex(null)}
+          />
+        </Modal>
+      )}
 
       {dialog && (
         <Modal title={dialog.lotse ? "Lotse bearbeiten" : "Neuer Lotse"} onClose={() => setDialog(null)} maxWidth="420px">

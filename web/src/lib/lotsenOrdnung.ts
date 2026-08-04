@@ -56,3 +56,33 @@ export function formatAbrufzeit(stunden: number | undefined): string {
   if (stunden === undefined || stunden === 1) return "";
   return stunden.toFixed(1).replace(".", ",");
 }
+
+/**
+ * "Tauschen": Lotse A (indexA) und Lotse B (indexB) tauschen ihre Position
+ * in der Liste — A landet an B's altem Platz und übernimmt dabei B's alten
+ * Fahrt-Wert, B landet an A's altem Platz und übernimmt A's alten Fahrt-Wert.
+ * Alle übrigen Felder (Name, Kat., Zähler, ...) bleiben an der jeweiligen
+ * Person hängen.
+ */
+export function tauschePositionen(lotsen: LotsenEintrag[], indexA: number, indexB: number): LotsenEintrag[] {
+  const liste = [...lotsen];
+  const fahrtA = lotsen[indexA].fahrt;
+  const fahrtB = lotsen[indexB].fahrt;
+  liste[indexB] = { ...lotsen[indexA], fahrt: fahrtB };
+  liste[indexA] = { ...lotsen[indexB], fahrt: fahrtA };
+  return liste;
+}
+
+/**
+ * "Verschieben": Der Lotse an quellIndex wird aus der Liste entfernt und
+ * direkt hinter dem Lotsen an zielIndex wieder eingefügt — dabei übernimmt
+ * er dessen Fahrt-Wert.
+ */
+export function verschiebeHinter(lotsen: LotsenEintrag[], quellIndex: number, zielIndex: number): LotsenEintrag[] {
+  const liste = [...lotsen];
+  const zielFahrt = lotsen[zielIndex].fahrt;
+  const [bewegter] = liste.splice(quellIndex, 1);
+  const zielNachEntfernen = zielIndex > quellIndex ? zielIndex - 1 : zielIndex;
+  liste.splice(zielNachEntfernen + 1, 0, { ...bewegter, fahrt: zielFahrt });
+  return liste;
+}

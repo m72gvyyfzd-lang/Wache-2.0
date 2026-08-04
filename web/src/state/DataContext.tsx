@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { mockJobs, mockLotsenliste } from "../data/mockData";
 import type { AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
+import { tauschePositionen, verschiebeHinter } from "../lib/lotsenOrdnung";
 import {
   ladeAktuelleFahrt,
   ladeJobIdZaehler,
@@ -22,6 +23,10 @@ interface DataContextValue {
   addLotse: (lotse: LotsenEintrag) => void;
   updateLotse: (index: number, lotse: LotsenEintrag) => void;
   deleteLotse: (index: number) => void;
+  /** Tauscht die Positionen zweier Lotsen (inkl. gegenseitiger Fahrt-Übernahme) */
+  tauscheLotsen: (indexA: number, indexB: number) => void;
+  /** Verschiebt den Lotsen an quellIndex hinter den an zielIndex (inkl. Fahrt-Übernahme) */
+  verschiebeLotse: (quellIndex: number, zielIndex: number) => void;
   aktuelleFahrt: AktuelleFahrt;
   setAktuelleFahrt: (fahrt: AktuelleFahrt) => void;
 }
@@ -59,6 +64,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [],
   );
   const deleteLotse = useCallback((index: number) => setLotsen((prev) => prev.filter((_, i) => i !== index)), []);
+  const tauscheLotsen = useCallback(
+    (indexA: number, indexB: number) => setLotsen((prev) => tauschePositionen(prev, indexA, indexB)),
+    [],
+  );
+  const verschiebeLotse = useCallback(
+    (quellIndex: number, zielIndex: number) => setLotsen((prev) => verschiebeHinter(prev, quellIndex, zielIndex)),
+    [],
+  );
 
   const setAktuelleFahrt = useCallback((fahrt: AktuelleFahrt) => {
     setAktuelleFahrtState(fahrt);
@@ -76,6 +89,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addLotse,
         updateLotse,
         deleteLotse,
+        tauscheLotsen,
+        verschiebeLotse,
         aktuelleFahrt,
         setAktuelleFahrt,
       }}
