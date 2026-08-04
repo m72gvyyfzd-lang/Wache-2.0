@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { getAbteilzeitSettings } from "@wache/core";
 import { mockJobs, mockLotsenliste } from "../data/mockData";
 import type { AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
+import { abteilzeitVon } from "../lib/coreJob";
 import { tauschePositionen, verschiebeHinter } from "../lib/lotsenOrdnung";
 import {
   ladeAktuelleFahrt,
@@ -37,6 +39,7 @@ interface DataContextValue {
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
+const settings = getAbteilzeitSettings("Wechsel Tide");
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [jobs, setJobs] = useState<JobEintrag[]>(() => ladeJobs(mockJobs));
@@ -58,10 +61,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     speichereJobIdZaehler(naechsteJobId.current);
     setJobs((prev) => [...prev, { ...job, id }]);
   }, []);
-  const updateJob = useCallback(
-    (id: number, job: JobEintrag) => setJobs((prev) => prev.map((j) => (j.id === id ? { ...job, id } : j))),
-    [],
-  );
+  const updateJob = useCallback((id: number, job: JobEintrag) => {
+    setJobs((prev) => {
+      const aktualisiert = prev.map((j) => (j.id === id ? { ...job, id } : j));
+      // Kaskade: AG-Jobs, die mit diesem Job verknüpft sind, übernehmen dessen
+      // (neu berechnete) Abteilzeit — Hamburg/NOK-Jobs können selbst nicht
+      // AG-verknüpft sein, daher keine Rekursionsgefahr.
+      if (job.liste === "andere") return aktualisiert;
+      const neueAbteilzeit = abteilzeitVon({ ...job, id }, settings);
+      return aktualisiert.map((j) =>
+        j.liste === "andere" && j.typ === "AG" && j.agJobId === id ? { ...j, abtZeitManuell: neueAbteilzeit } : j,
+      );
+    });
+  }, []);
   const deleteJob = useCallback((id: number) => setJobs((prev) => prev.filter((j) => j.id !== id)), []);
 
   const addLotse = useCallback((lotse: LotsenEintrag) => setLotsen((prev) => [...prev, lotse]), []);

@@ -32,6 +32,12 @@
   width: 1%;
 }
 
+/* Von/Type, Kat., Abt. Zeit, Lots. (Jobs-Seite) zentriert */
+.einsatz-table td.zentriert,
+.einsatz-table th.zentriert {
+  text-align: center;
+}
+
 /* Auswahl je Seite: das Zeilen-Hover aus index.css abschalten und nur die
    Spaltengruppe hervorheben, über der der Zeiger tatsächlich steht */
 .einsatz-table tbody tr:hover td {

@@ -53,11 +53,11 @@ export function Einsatzplanung() {
             </tr>
             <tr>
               <th className="num">#</th>
-              <th>Von / Type</th>
+              <th className="zentriert">Von / Type</th>
               <th>Schiffsname</th>
-              <th className="num">Kat.</th>
-              <th className="num">Abt. Zeit</th>
-              <th className="num">Lots.</th>
+              <th className="num zentriert">Kat.</th>
+              <th className="num zentriert">Abt. Zeit</th>
+              <th className="num zentriert">Lots.</th>
               <th className="einsatz-table__divider" aria-hidden="true" />
               <th className="num">#</th>
               <th>Name</th>
@@ -83,20 +83,20 @@ export function Einsatzplanung() {
                       <td className={`${jobKlasse} num muted`} onClick={jobKlick}>
                         {i + 1}
                       </td>
-                      <td className={jobKlasse} onClick={jobKlick}>
+                      <td className={`${jobKlasse} zentriert`} onClick={jobKlick}>
                         <Badge>{vonTypeLabel(paar.eintrag)}</Badge>
                       </td>
                       <td className={`${jobKlasse} cell-name`} onClick={jobKlick}>
                         {paar.eintrag.schiffsname ?? "–"}
                       </td>
-                      <td className={`${jobKlasse} num muted`} onClick={jobKlick}>
+                      <td className={`${jobKlasse} num muted zentriert`} onClick={jobKlick}>
                         {paar.eintrag.kategorie ?? "·"}
                       </td>
-                      <td className={`${jobKlasse} num`} onClick={jobKlick}>
+                      <td className={`${jobKlasse} num zentriert`} onClick={jobKlick}>
                         {formatUhrzeit(paar.abteilzeit)}
                       </td>
                       <td
-                        className={`${jobKlasse} num`}
+                        className={`${jobKlasse} num zentriert`}
                         onClick={jobKlick}
                         onDoubleClick={() => {
                           setJobAuswahl(paar.eintrag.id);
