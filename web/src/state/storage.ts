@@ -12,6 +12,7 @@ const LOTSEN_KEY_V2 = "wache.lotsen.v2";
 const JOB_ID_ZAEHLER_KEY = "wache.jobid.v1";
 const AKTUELLE_FAHRT_KEY = "wache.aktuelleFahrt.v1";
 const LETZTE_V_NR_KEY = "wache.letzteVNr.v1";
+const V_NR_START_KEY = "wache.vNrStart.v1";
 
 const JOB_DATUM_FELDER = [
   "hh",
@@ -123,4 +124,18 @@ export function ladeLetzteVNr(fallback: number): number {
 
 export function speichereLetzteVNr(wert: number): void {
   localStorage.setItem(LETZTE_V_NR_KEY, String(wert));
+}
+
+/** Start-V-Nr. der Lotsen-Liste in der Einsatzplanung: wird beim ersten
+ *  Aufruf einmalig aus "letzte V-Nr." + 1 gebildet und danach fest
+ *  gespeichert — ändert sich nicht mehr automatisch mit, auch wenn die
+ *  Settings-Wert später geändert wird. Erst ein Reset (noch nicht gebaut)
+ *  soll ihn neu setzen. */
+export function ladeVNrStart(letzteVNr: number): number {
+  const raw = localStorage.getItem(V_NR_START_KEY);
+  const gespeichert = raw !== null ? Number(raw) : Number.NaN;
+  if (Number.isInteger(gespeichert)) return gespeichert;
+  const start = letzteVNr + 1;
+  localStorage.setItem(V_NR_START_KEY, String(start));
+  return start;
 }

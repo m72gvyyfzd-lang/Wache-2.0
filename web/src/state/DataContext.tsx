@@ -10,6 +10,7 @@ import {
   ladeJobs,
   ladeLetzteVNr,
   ladeLotsen,
+  ladeVNrStart,
   speichereAktuelleFahrt,
   speichereJobIdZaehler,
   speichereJobs,
@@ -36,6 +37,9 @@ interface DataContextValue {
   /** letzte vergebene V-Nr. (0–999), Settings-Tab */
   letzteVNr: number;
   setLetzteVNr: (wert: number) => void;
+  /** Start-V-Nr. der Lotsen-Liste in der Einsatzplanung — einmalig aus
+   *  letzteVNr+1 gebildet, bleibt danach fest bis zu einem künftigen Reset. */
+  vNrStart: number;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -46,6 +50,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [lotsen, setLotsen] = useState<LotsenEintrag[]>(() => ladeLotsen(mockLotsenliste));
   const [aktuelleFahrt, setAktuelleFahrtState] = useState<AktuelleFahrt>(() => ladeAktuelleFahrt("MoFa"));
   const [letzteVNr, setLetzteVNrState] = useState<number>(() => ladeLetzteVNr(0));
+  const [vNrStart] = useState<number>(() => ladeVNrStart(letzteVNr));
 
   // Persistenter ID-Zähler: einmal vergebene IDs werden nie wiederverwendet,
   // damit spätere Verweise (z.B. AG-Verknüpfung) eindeutig bleiben.
@@ -118,6 +123,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setAktuelleFahrt,
         letzteVNr,
         setLetzteVNr,
+        vNrStart,
       }}
     >
       {children}

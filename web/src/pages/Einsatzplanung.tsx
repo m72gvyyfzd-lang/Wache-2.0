@@ -15,15 +15,12 @@ import "./Einsatzplanung.css";
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
 export function Einsatzplanung() {
-  const { jobs, lotsen, aktuelleFahrt, updateJob } = useData();
+  const { jobs, lotsen, aktuelleFahrt, updateJob, vNrStart } = useData();
   const jobsSortiert = sortiereEintraege(jobs, settings);
-  // nur Bereitschafts-Lotsen (fahrt === "") stehen an der Einsatzstation zur
-  // Verfügung — nach BB (Laufnummer innerhalb dieser Gruppe) sortiert; die
-  // aktuelle Fahrt beeinflusst nur die Reihenfolge der MoFa/MiFa/AFA-Gruppen,
-  // nicht die BB-Nummerierung selbst
-  const lotsenSortiert = sortiereUndNummeriere(lotsen, aktuelleFahrt)
-    .filter((eintrag) => eintrag.bb !== undefined)
-    .sort((a, b) => a.bb! - b.bb!);
+  // Komplette Lotsenliste der Einsatzstation: 1. Prio Fahrt ≠ leer (in der
+  // dort geltenden Fahrt-Rotationsreihenfolge), 2. Prio Fahrt = leer — genau
+  // die Reihenfolge, die sortiereUndNummeriere bereits liefert.
+  const lotsenSortiert = sortiereUndNummeriere(lotsen, aktuelleFahrt);
   const zeilen = Math.max(jobsSortiert.length, lotsenSortiert.length);
 
   // Unabhängige Auswahl je Seite: ein Job UND ein Lotse können gleichzeitig
@@ -59,7 +56,7 @@ export function Einsatzplanung() {
               <th className="num zentriert">Abt. Zeit</th>
               <th className="num zentriert">Lots.</th>
               <th className="einsatz-table__divider" aria-hidden="true" />
-              <th className="num">#</th>
+              <th className="num">V-Nr.</th>
               <th>Name</th>
               <th className="num">Kat.</th>
               <th>EH</th>
@@ -117,7 +114,7 @@ export function Einsatzplanung() {
                   {lotse ? (
                     <>
                       <td className={`${lotseKlasse} num muted`} onClick={lotseKlick}>
-                        {lotse.bb}
+                        {vNrStart + i}
                       </td>
                       <td className={`${lotseKlasse} cell-name`} onClick={lotseKlick}>
                         {lotse.eintrag.name}
