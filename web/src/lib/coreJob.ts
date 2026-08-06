@@ -49,13 +49,20 @@ export function vonTypeLabel(eintrag: JobEintrag): string {
 }
 
 /** Anzahl benötigter Lotsen (Einsatzplanung, Spalte "Lots."). Jeder Job
- *  braucht standardmäßig genau einen Lotsen — Ausnahme AG, dort wird die im
- *  Job-Formular eingetragene Anzahl übernommen. Ein manueller Override
- *  (lotsenAnzahl) sticht in jedem Fall alles andere aus. */
+ *  braucht standardmäßig genau einen Lotsen — Ausnahme AG, dort zählt
+ *  agLotsenAnzahl (einstellbar im Job-Formular oder per Quick-Edit in der
+ *  Einsatzplanung — beide schreiben dasselbe Feld). */
 export function benoetigteLotsenAnzahl(eintrag: JobEintrag): number {
-  if (eintrag.lotsenAnzahl !== undefined) return eintrag.lotsenAnzahl;
   if (eintrag.liste === "andere" && eintrag.typ === "AG") return eintrag.agLotsenAnzahl ?? 1;
   return 1;
+}
+
+/** True, wenn ein AG-Job auf einen inzwischen gelöschten Hamburg/NOK-Job
+ *  verweist — seine Abteilzeit wird dann nicht mehr über die
+ *  updateJob-Kaskade aktualisiert (siehe DataContext). */
+export function istVerwaisterAgJob(eintrag: JobEintrag, alleJobs: JobEintrag[]): boolean {
+  if (eintrag.liste !== "andere" || eintrag.typ !== "AG" || eintrag.agJobId === undefined) return false;
+  return !alleJobs.some((j) => j.id === eintrag.agJobId);
 }
 
 export interface EintragMitAbteilzeit {

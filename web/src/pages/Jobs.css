@@ -1,0 +1,14 @@
+/* Verwaister AG-Job (verknüpfter Hamburg/NOK-Job wurde gelöscht) */
+.zeile-warnung td {
+  background: rgba(181, 67, 47, 0.08);
+  color: #b5432f;
+}
+
+.zeile-warnung:hover td {
+  background: rgba(181, 67, 47, 0.14);
+}
+
+.warnung-text {
+  margin: 0;
+  color: var(--ink);
+}

@@ -7,9 +7,10 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import type { JobEintrag, JobListe } from "../data/types";
-import { benoetigteLotsenAnzahl, sortiereEintraege, type EintragMitAbteilzeit } from "../lib/coreJob";
+import { benoetigteLotsenAnzahl, istVerwaisterAgJob, sortiereEintraege, type EintragMitAbteilzeit } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { useData } from "../state/DataContext";
+import "./Jobs.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
@@ -88,11 +89,13 @@ function CheckpointListe({ titel, beschreibung, zeilen, checkpointLabels, checkp
 
 interface AndereListeProps {
   zeilen: EintragMitAbteilzeit[];
+  alleJobs: JobEintrag[];
   onNeu: () => void;
   onZeile: (job: JobEintrag) => void;
+  onWarnung: (job: JobEintrag) => void;
 }
 
-function AndereListe({ zeilen, onNeu, onZeile }: AndereListeProps) {
+function AndereListe({ zeilen, alleJobs, onNeu, onZeile, onWarnung }: AndereListeProps) {
   return (
     <Panel
       title="Andere Jobs"
@@ -116,16 +119,23 @@ function AndereListe({ zeilen, onNeu, onZeile }: AndereListeProps) {
           </tr>
         </thead>
         <tbody>
-          {zeilen.map(({ eintrag, abteilzeit }, i) => (
-            <tr key={eintrag.id} className="row-click" onClick={() => onZeile(eintrag)}>
-              <td className="num muted">{i + 1}</td>
-              <td>{eintrag.typ}</td>
-              <td className="cell-name">{eintrag.schiffsname ?? "–"}</td>
-              <td className="num muted">{eintrag.kategorie ?? "·"}</td>
-              <td className="num">{formatUhrzeit(abteilzeit)}</td>
-              <td className="num muted">{benoetigteLotsenAnzahl(eintrag)}</td>
-            </tr>
-          ))}
+          {zeilen.map(({ eintrag, abteilzeit }, i) => {
+            const verwaist = istVerwaisterAgJob(eintrag, alleJobs);
+            return (
+              <tr
+                key={eintrag.id}
+                className={"row-click" + (verwaist ? " zeile-warnung" : "")}
+                onClick={() => (verwaist ? onWarnung(eintrag) : onZeile(eintrag))}
+              >
+                <td className="num muted">{i + 1}</td>
+                <td>{eintrag.typ}</td>
+                <td className="cell-name">{eintrag.schiffsname ?? "–"}</td>
+                <td className="num muted">{eintrag.kategorie ?? "·"}</td>
+                <td className="num">{formatUhrzeit(abteilzeit)}</td>
+                <td className="num muted">{benoetigteLotsenAnzahl(eintrag)}</td>
+              </tr>
+            );
+          })}
           {zeilen.length === 0 && (
             <tr>
               <td colSpan={6} className="muted" style={{ textAlign: "center", padding: 20 }}>
@@ -142,6 +152,9 @@ function AndereListe({ zeilen, onNeu, onZeile }: AndereListeProps) {
 export function Jobs() {
   const { jobs, addJob, updateJob, deleteJob } = useData();
   const [dialog, setDialog] = useState<{ liste: JobListe; eintrag?: JobEintrag } | null>(null);
+  // Klick auf einen verwaisten AG-Job (verknüpfter Job wurde gelöscht)
+  // öffnet zuerst die Alarminfo statt direkt das Bearbeitungsformular
+  const [warnJob, setWarnJob] = useState<JobEintrag | null>(null);
 
   // jede Liste eigenständig nach Abteilzeit sortiert (früheste oben);
   // sortiert sich nach jedem Speichern automatisch neu
@@ -194,8 +207,10 @@ export function Jobs() {
       />
       <AndereListe
         zeilen={andere}
+        alleJobs={jobs}
         onNeu={() => setDialog({ liste: "andere" })}
         onZeile={(eintrag) => setDialog({ liste: "andere", eintrag })}
+        onWarnung={setWarnJob}
       />
 
       {dialog && (
@@ -203,6 +218,33 @@ export function Jobs() {
           {dialog.liste === "hamburg" && <JobFormHamburg {...formProps} />}
           {dialog.liste === "nok" && <JobFormNok {...formProps} />}
           {dialog.liste === "andere" && <JobFormAndere {...formProps} verknuepfbareJobs={verknuepfbar} />}
+        </Modal>
+      )}
+
+      {warnJob && (
+        <Modal title={warnJob.schiffsname || "AG-Job"} onClose={() => setWarnJob(null)} maxWidth="360px">
+          <div className="job-form">
+            <p className="warnung-text">
+              Der mit diesem AG-Job verknüpfte Hamburg/NOK-Job wurde gelöscht. Die Abteilzeit wird dadurch nicht mehr
+              automatisch aktualisiert.
+            </p>
+            <div className="job-form__actions">
+              <button type="button" className="btn btn--ghost" onClick={() => setWarnJob(null)}>
+                Schließen
+              </button>
+              <span className="job-form__spacer" />
+              <button
+                type="button"
+                className="btn btn--accent"
+                onClick={() => {
+                  setDialog({ liste: "andere", eintrag: warnJob });
+                  setWarnJob(null);
+                }}
+              >
+                Bearbeiten
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

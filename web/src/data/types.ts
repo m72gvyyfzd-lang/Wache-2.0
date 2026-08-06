@@ -49,11 +49,6 @@ export interface JobEintrag {
   /** Hamburg/NOK: manueller Override der berechneten Abteilzeit.
    *  Andere Jobs: die direkt eingegebene Abteilzeit. */
   abtZeitManuell?: Date;
-
-  /** Override für die Anzahl benötigter Lotsen (Einsatzplanung, Spalte
-   *  "Lots."). undefined = automatisch berechnet, siehe
-   *  lib/coreJob.ts::benoetigteLotsenAnzahl. */
-  lotsenAnzahl?: number;
 }
 
 /**

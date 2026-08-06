@@ -74,7 +74,7 @@ export function Einsatzplanung() {
   // markiert sein (z.B. Job 1 + Lotse 2). Erneuter Klick wählt wieder ab.
   const [jobAuswahl, setJobAuswahl] = useState<number | null>(null);
   const [lotseAuswahl, setLotseAuswahl] = useState<number | null>(null);
-  // Doppelklick auf "Lots." öffnet das Bearbeitungsfenster für die Anzahl
+  // Doppelklick auf "Lots." (nur bei AG-Jobs) öffnet das Bearbeitungsfenster
   const [lotsenAnzahlJob, setLotsenAnzahlJob] = useState<JobEintrag | null>(null);
   // Doppelklick auf "Abt. Zeit" öffnet das Bearbeitungsfenster für die Zeit
   const [abtZeitJob, setAbtZeitJob] = useState<JobEintrag | null>(null);
@@ -84,9 +84,19 @@ export function Einsatzplanung() {
   // bereits abgerufen)
   const [anStationLotse, setAnStationLotse] = useState<LotseMitOrdnung | null>(null);
 
+  // Nur AG-Jobs haben eine editierbare Lotsenanzahl — der Override schreibt
+  // direkt agLotsenAnzahl (statt eines separaten Feldes), damit das
+  // AG-Formular im Jobs-Tab immer den aktuellen Stand zeigt. Der im
+  // Schiffsnamen eingebrannte "(X AG)"-Zusatz wird passend mit erneuert.
   function handleLotsenAnzahlUebernehmen(wert: number) {
     if (!lotsenAnzahlJob) return;
-    updateJob(lotsenAnzahlJob.id, { ...lotsenAnzahlJob, lotsenAnzahl: wert });
+    const verknuepft = jobs.find((j) => j.id === lotsenAnzahlJob.agJobId);
+    const basis = verknuepft?.schiffsname ?? "";
+    updateJob(lotsenAnzahlJob.id, {
+      ...lotsenAnzahlJob,
+      agLotsenAnzahl: wert,
+      schiffsname: basis ? `${basis} (${wert} AG)` : undefined,
+    });
     setJobAuswahl(null);
     setLotsenAnzahlJob(null);
   }
@@ -191,10 +201,14 @@ export function Einsatzplanung() {
                       <td
                         className={`${jobKlasse} num zentriert`}
                         onClick={jobKlick}
-                        onDoubleClick={() => {
-                          setJobAuswahl(paar.eintrag.id);
-                          setLotsenAnzahlJob(paar.eintrag);
-                        }}
+                        onDoubleClick={
+                          paar.eintrag.liste === "andere" && paar.eintrag.typ === "AG"
+                            ? () => {
+                                setJobAuswahl(paar.eintrag.id);
+                                setLotsenAnzahlJob(paar.eintrag);
+                              }
+                            : undefined
+                        }
                       >
                         {benoetigteLotsenAnzahl(paar.eintrag)}
                       </td>
@@ -208,7 +222,7 @@ export function Einsatzplanung() {
                   {lotse ? (
                     <>
                       <td
-                        className={`${lotseKlasse} num vnr-schmal ${zugewieseneLotsen.has(lotse.eintrag) ? "fett" : "muted"}`}
+                        className={`${lotseKlasse} num vnr-schmal ${zugewieseneLotsen.has(lotse.eintrag) || lotse.eintrag.abgerufen ? "fett" : "muted"}`}
                         onClick={lotseKlick}
                       >
                         {vNrProLotse.get(lotse.eintrag) ?? ""}
