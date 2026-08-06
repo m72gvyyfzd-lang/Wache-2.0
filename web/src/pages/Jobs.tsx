@@ -22,6 +22,7 @@ interface CheckpointListeProps {
   titel: string;
   beschreibung: string;
   zeilen: EintragMitAbteilzeit[];
+  abgeteiltProJob: Map<number, number>;
   checkpointLabels: [string, string, string];
   checkpoints: (job: JobEintrag) => [Date | undefined, Date | undefined, Date | undefined];
   onNeu: () => void;
@@ -30,7 +31,7 @@ interface CheckpointListeProps {
 
 /** Hamburg- und NOK-Liste haben identische Spalten, nur die drei
  *  Checkpoint-Bezeichnungen und -Felder unterscheiden sich. */
-function CheckpointListe({ titel, beschreibung, zeilen, checkpointLabels, checkpoints, onNeu, onZeile }: CheckpointListeProps) {
+function CheckpointListe({ titel, beschreibung, zeilen, abgeteiltProJob, checkpointLabels, checkpoints, onNeu, onZeile }: CheckpointListeProps) {
   const [label1, label2, label3] = checkpointLabels;
   return (
     <Panel
@@ -60,6 +61,7 @@ function CheckpointListe({ titel, beschreibung, zeilen, checkpointLabels, checkp
         <tbody>
           {zeilen.map(({ eintrag, abteilzeit }, i) => {
             const [zeit1, zeit2, zeit3] = checkpoints(eintrag);
+            const abgeteilt = abgeteiltProJob.get(eintrag.id) ?? 0;
             return (
               <tr key={eintrag.id} className="row-click" onClick={() => onZeile(eintrag)}>
                 <td className="num muted">{i + 1}</td>
@@ -70,7 +72,9 @@ function CheckpointListe({ titel, beschreibung, zeilen, checkpointLabels, checkp
                 <td className="num">{formatCheckpoint(zeit2)}</td>
                 <td className="num">{formatCheckpoint(zeit3)}</td>
                 <td className="num">{formatUhrzeit(abteilzeit)}</td>
-                <td className="num muted">{benoetigteLotsenAnzahl(eintrag)}</td>
+                <td className={abgeteilt > 0 ? "num lots-rest" : "num muted"}>
+                  {benoetigteLotsenAnzahl(eintrag) - abgeteilt}
+                </td>
               </tr>
             );
           })}
@@ -90,12 +94,13 @@ function CheckpointListe({ titel, beschreibung, zeilen, checkpointLabels, checkp
 interface AndereListeProps {
   zeilen: EintragMitAbteilzeit[];
   alleJobs: JobEintrag[];
+  abgeteiltProJob: Map<number, number>;
   onNeu: () => void;
   onZeile: (job: JobEintrag) => void;
   onWarnung: (job: JobEintrag) => void;
 }
 
-function AndereListe({ zeilen, alleJobs, onNeu, onZeile, onWarnung }: AndereListeProps) {
+function AndereListe({ zeilen, alleJobs, abgeteiltProJob, onNeu, onZeile, onWarnung }: AndereListeProps) {
   return (
     <Panel
       title="Andere Jobs"
@@ -121,6 +126,7 @@ function AndereListe({ zeilen, alleJobs, onNeu, onZeile, onWarnung }: AndereList
         <tbody>
           {zeilen.map(({ eintrag, abteilzeit }, i) => {
             const verwaist = istVerwaisterAgJob(eintrag, alleJobs);
+            const abgeteilt = abgeteiltProJob.get(eintrag.id) ?? 0;
             return (
               <tr
                 key={eintrag.id}
@@ -132,7 +138,9 @@ function AndereListe({ zeilen, alleJobs, onNeu, onZeile, onWarnung }: AndereList
                 <td className="cell-name">{eintrag.schiffsname ?? "–"}</td>
                 <td className="num muted">{eintrag.kategorie ?? "·"}</td>
                 <td className="num">{formatUhrzeit(abteilzeit)}</td>
-                <td className="num muted">{benoetigteLotsenAnzahl(eintrag)}</td>
+                <td className={abgeteilt > 0 ? "num lots-rest" : "num muted"}>
+                  {benoetigteLotsenAnzahl(eintrag) - abgeteilt}
+                </td>
               </tr>
             );
           })}
@@ -150,17 +158,23 @@ function AndereListe({ zeilen, alleJobs, onNeu, onZeile, onWarnung }: AndereList
 }
 
 export function Jobs() {
-  const { jobs, addJob, updateJob, deleteJob } = useData();
+  const { jobs, addJob, updateJob, deleteJob, abteilungen } = useData();
   const [dialog, setDialog] = useState<{ liste: JobListe; eintrag?: JobEintrag } | null>(null);
   // Klick auf einen verwaisten AG-Job (verknüpfter Job wurde gelöscht)
   // öffnet zuerst die Alarminfo statt direkt das Bearbeitungsformular
   const [warnJob, setWarnJob] = useState<JobEintrag | null>(null);
 
+  // Voll abgeteilte Jobs sind auch hier ausgeblendet (Rückgängig blendet
+  // sie wieder ein); AG-Jobs zeigen bis dahin die Rest-Anzahl in "Lots.".
+  const abgeteiltProJob = new Map<number, number>();
+  for (const a of abteilungen) abgeteiltProJob.set(a.jobId, (abgeteiltProJob.get(a.jobId) ?? 0) + 1);
+  const sichtbar = (j: JobEintrag) => benoetigteLotsenAnzahl(j) - (abgeteiltProJob.get(j.id) ?? 0) > 0;
+
   // jede Liste eigenständig nach Abteilzeit sortiert (früheste oben);
   // sortiert sich nach jedem Speichern automatisch neu
-  const hamburg = sortiereEintraege(jobs.filter((j) => j.liste === "hamburg"), settings);
-  const nok = sortiereEintraege(jobs.filter((j) => j.liste === "nok"), settings);
-  const andere = sortiereEintraege(jobs.filter((j) => j.liste === "andere"), settings);
+  const hamburg = sortiereEintraege(jobs.filter((j) => j.liste === "hamburg" && sichtbar(j)), settings);
+  const nok = sortiereEintraege(jobs.filter((j) => j.liste === "nok" && sichtbar(j)), settings);
+  const andere = sortiereEintraege(jobs.filter((j) => j.liste === "andere" && sichtbar(j)), settings);
   const verknuepfbar = jobs.filter((j) => j.liste !== "andere");
 
   function handleSubmit(job: JobEintrag) {
@@ -191,6 +205,7 @@ export function Jobs() {
         titel="Hamburg"
         beschreibung="Elbe-Route: HH → FkW → Stade"
         zeilen={hamburg}
+        abgeteiltProJob={abgeteiltProJob}
         checkpointLabels={["HH", "FkW", "Stade"]}
         checkpoints={(job) => [job.hh, job.buetzfleth ? job.geplAbgang : job.fkw, job.stade]}
         onNeu={() => setDialog({ liste: "hamburg" })}
@@ -200,6 +215,7 @@ export function Jobs() {
         titel="NOK"
         beschreibung="Kanal-Route: Holt. → Ticker → Kuden"
         zeilen={nok}
+        abgeteiltProJob={abgeteiltProJob}
         checkpointLabels={["Holt.", "Ticker", "Kuden"]}
         checkpoints={(job) => [job.holt, job.ticker, job.kuden]}
         onNeu={() => setDialog({ liste: "nok" })}
@@ -208,6 +224,7 @@ export function Jobs() {
       <AndereListe
         zeilen={andere}
         alleJobs={jobs}
+        abgeteiltProJob={abgeteiltProJob}
         onNeu={() => setDialog({ liste: "andere" })}
         onZeile={(eintrag) => setDialog({ liste: "andere", eintrag })}
         onWarnung={setWarnJob}

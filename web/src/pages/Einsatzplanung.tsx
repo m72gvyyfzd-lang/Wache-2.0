@@ -13,7 +13,7 @@ import type { JobEintrag, LotsenEintrag } from "../data/types";
 import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { sortiereUndNummeriere, type LotseMitOrdnung } from "../lib/lotsenOrdnung";
-import { abteilzeitProLotse, geplanterAbruf, planeEinsatzstation } from "../lib/planungEinsatzstation";
+import { abteilzeitProLotse, eignungsWarnung, geplanterAbruf, planeEinsatzstation } from "../lib/planungEinsatzstation";
 import { useData } from "../state/DataContext";
 import "./Einsatzplanung.css";
 
@@ -111,9 +111,17 @@ export function Einsatzplanung() {
   const [abteilenFrage, setAbteilenFrage] = useState(false);
 
   // Aktuelle Auswahl für das Abteilen — Button erscheint nur, wenn beides
-  // markiert ist.
+  // markiert ist. Aktiv wird er erst, wenn der Lotse abgerufen (also an
+  // der Einsatzstation) ist.
   const abteilenJob = jobAuswahl !== null ? (jobs.find((j) => j.id === jobAuswahl) ?? null) : null;
   const abteilenLotse = lotseAuswahl !== null ? (lotsenSortiert[lotseAuswahl] ?? null) : null;
+  const abteilenMoeglich = abteilenLotse?.eintrag.abgerufen ?? false;
+  // Warnung, wenn der gewählte Lotse die Anforderungen des Jobs nicht
+  // erfüllt (Kat., Job-Typ, EH) — abteilen bleibt trotzdem möglich.
+  const abteilenWarnung =
+    abteilenJob && abteilenLotse
+      ? eignungsWarnung(abteilenJob, abteilenLotse.eintrag, (abgeteiltProJob.get(abteilenJob.id) ?? 0) === 0)
+      : undefined;
 
   function handleAbteilenJa() {
     if (!abteilenJob || !abteilenLotse) return;
@@ -136,11 +144,12 @@ export function Einsatzplanung() {
     setAbteilenFrage(false);
   }
 
+  const dennoch = abteilenWarnung ? "dennoch " : "";
   const abteilenFrageText =
     abteilenJob && abteilenLotse
       ? istOhneVNrJob(abteilenJob)
-        ? `Soll ${abteilenLotse.eintrag.name} zu ${[vonTypeLabel(abteilenJob), abteilenJob.schiffsname].filter(Boolean).join(" ")} abgeteilt werden?`
-        : `Soll ${abteilenLotse.eintrag.name} zu ${abteilenJob.schiffsname ?? "?"} mit der V-Nr. ${vNrProLotse.get(abteilenLotse.eintrag) ?? naechsteFreieVNr} abgeteilt werden?`
+        ? `Soll ${abteilenLotse.eintrag.name} zu ${[vonTypeLabel(abteilenJob), abteilenJob.schiffsname].filter(Boolean).join(" ")} ${dennoch}abgeteilt werden?`
+        : `Soll ${abteilenLotse.eintrag.name} zu ${abteilenJob.schiffsname ?? "?"} mit der V-Nr. ${vNrProLotse.get(abteilenLotse.eintrag) ?? naechsteFreieVNr} ${dennoch}abgeteilt werden?`
       : "";
 
   // Nur AG-Jobs haben eine editierbare Lotsenanzahl — der Override schreibt
@@ -202,7 +211,12 @@ export function Einsatzplanung() {
         count={`${zeilen} Zeilen`}
         action={
           abteilenJob && abteilenLotse ? (
-            <button type="button" className="btn btn--accent einsatz-abteilen" onClick={() => setAbteilenFrage(true)}>
+            <button
+              type="button"
+              className="btn btn--accent einsatz-abteilen"
+              disabled={!abteilenMoeglich}
+              onClick={() => setAbteilenFrage(true)}
+            >
               Abteilen
             </button>
           ) : undefined
@@ -387,8 +401,14 @@ export function Einsatzplanung() {
       )}
 
       {abteilenFrage && abteilenJob && abteilenLotse && (
-        <Modal title="Abteilen" onClose={() => setAbteilenFrage(false)} maxWidth="380px">
-          <FrageModal frage={abteilenFrageText} onJa={handleAbteilenJa} onNein={() => setAbteilenFrage(false)} />
+        <Modal title="Abteilen" onClose={() => setAbteilenFrage(false)} maxWidth="380px" titelZentriert>
+          <FrageModal
+            frage={abteilenFrageText}
+            warnung={abteilenWarnung}
+            zentriert
+            onJa={handleAbteilenJa}
+            onNein={() => setAbteilenFrage(false)}
+          />
         </Modal>
       )}
     </div>

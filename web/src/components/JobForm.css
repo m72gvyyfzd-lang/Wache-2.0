@@ -118,3 +118,14 @@
   margin: 0;
   color: var(--ink);
 }
+
+.frage-modal__warnung {
+  margin: 0;
+  color: #b5432f;
+  font-weight: 700;
+}
+
+.frage-modal--zentriert .frage-modal__text,
+.frage-modal--zentriert .frage-modal__warnung {
+  text-align: center;
+}

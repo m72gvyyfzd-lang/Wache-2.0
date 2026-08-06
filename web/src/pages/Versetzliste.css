@@ -23,9 +23,17 @@
   background: color-mix(in srgb, var(--accent) 16%, var(--surface)) !important;
 }
 
-/* Eigene Karte nur für den Rückgängig-Button, zentriert */
-.versetz-aktionen {
+/* Kopfzeile statt Seitenüberschrift: Rückgängig-Button rechtsbündig,
+   Abstand analog zum page-header der anderen Seiten */
+.versetz-kopf {
   display: flex;
-  justify-content: center;
-  padding: 18px;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 18px;
+  min-height: 40px;
+}
+
+.versetz-kopf .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }

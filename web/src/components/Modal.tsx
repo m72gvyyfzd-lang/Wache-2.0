@@ -8,9 +8,11 @@ interface ModalProps {
   /** überschreibt die Standard-max-width (560px) aus Modal.css, z.B. für
    *  schmalere Formulare */
   maxWidth?: string;
+  /** Überschrift zentrieren (z.B. Abteilen-Fragefenster) */
+  titelZentriert?: boolean;
 }
 
-export function Modal({ title, onClose, children, maxWidth }: ModalProps) {
+export function Modal({ title, onClose, children, maxWidth, titelZentriert }: ModalProps) {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -22,7 +24,7 @@ export function Modal({ title, onClose, children, maxWidth }: ModalProps) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
-        className="modal"
+        className={"modal" + (titelZentriert ? " modal--titel-zentriert" : "")}
         style={maxWidth ? { maxWidth } : undefined}
         role="dialog"
         aria-modal="true"

@@ -113,6 +113,12 @@
   transform: translateX(-50%);
 }
 
+/* Gesperrt, solange der gewählte Lotse nicht abgerufen ist */
+.einsatz-abteilen:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* Lots.-Spalte: Rest-Anzahl auffällig, sobald schon Lotsen abgeteilt sind */
 .einsatz-table td.lots-rest {
   color: var(--accent);

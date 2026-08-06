@@ -47,6 +47,13 @@
   font-size: 1.05rem;
 }
 
+/* Zentrierte Überschrift (z.B. Abteilen-Fragefenster): der Schließen-Knopf
+   bleibt rechts, die h2 nimmt die volle Breite ein */
+.modal--titel-zentriert .modal__head h2 {
+  flex: 1;
+  text-align: center;
+}
+
 .modal__close {
   appearance: none;
   border: none;

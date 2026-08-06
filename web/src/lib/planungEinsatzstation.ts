@@ -17,15 +17,19 @@ import type { AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
 import { benoetigteLotsenAnzahl, sortiereEintraege, type EintragMitAbteilzeit } from "./coreJob";
 import { sortiereUndNummeriere } from "./lotsenOrdnung";
 
-function istGeeignet(job: JobEintrag, lotse: LotsenEintrag, istErster: boolean): boolean {
+/** Prüft dieselben Bedingungen wie die Planung, liefert aber den Grund als
+ *  Warnungstext (für das Abteilen-Fragefenster). undefined = alles passt. */
+export function eignungsWarnung(job: JobEintrag, lotse: LotsenEintrag, istErster: boolean): string | undefined {
   const schiffsKat = job.kategorie ?? "";
   const passtKat = istErster ? darfFahren(schiffsKat, lotse.kategorie) : darfZweiterLotse(schiffsKat, lotse.kategorie);
-  if (!passtKat) return false;
-  if (job.typ !== undefined && !darfJobTyp(job.typ, lotse.kategorie)) return false;
-  // Ab Kat. 4 braucht ein Job mit "EHF-Lotse benötigt" zusätzlich einen
-  // Lotsen mit aktivem Zusatz "EH" (Elbehafen).
-  if (job.ehfLotseBenoetigt && schiffsRang(schiffsKat) >= 4 && !lotse.elbehafen) return false;
-  return true;
+  if (!passtKat) return "Kat. des Lotsen zu klein";
+  if (job.typ !== undefined && !darfJobTyp(job.typ, lotse.kategorie)) return `Kat. des Lotsen reicht nicht für ${job.typ}`;
+  if (job.ehfLotseBenoetigt && schiffsRang(schiffsKat) >= 4 && !lotse.elbehafen) return "Lotse nicht in EH-Liste";
+  return undefined;
+}
+
+function istGeeignet(job: JobEintrag, lotse: LotsenEintrag, istErster: boolean): boolean {
+  return eignungsWarnung(job, lotse, istErster) === undefined;
 }
 
 /** jobId -> zugewiesene Lotsen (in Zuweisungsreihenfolge).

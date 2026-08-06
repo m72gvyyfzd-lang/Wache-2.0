@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Badge } from "../components/Badge";
 import { FrageModal } from "../components/FrageModal";
 import { Modal } from "../components/Modal";
-import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import type { Abteilung } from "../data/types";
 import { formatUhrzeit } from "../lib/format";
@@ -42,7 +41,13 @@ export function Versetzliste() {
 
   return (
     <div>
-      <PageHeader title="Versetzliste" />
+      {/* Kopfzeile auf Ebene der (entfallenen) Seitenüberschrift: nur der
+          rechtsbündige Rückgängig-Button, ohne eigene Karte */}
+      <div className="versetz-kopf">
+        <button type="button" className="btn btn--accent" disabled={!ausgewaehlt} onClick={() => setFrageOffen(true)}>
+          Abteilung rückgängig machen
+        </button>
+      </div>
 
       <Panel
         title="Lotsen im Revier"
@@ -129,17 +134,6 @@ export function Versetzliste() {
           </tbody>
         </table>
       </Panel>
-
-      <section className="panel versetz-aktionen">
-        <button
-          type="button"
-          className="btn btn--accent"
-          disabled={!ausgewaehlt}
-          onClick={() => setFrageOffen(true)}
-        >
-          Abteilung rückgängig machen
-        </button>
-      </section>
 
       {frageOffen && ausgewaehlt && (
         <Modal title="Abteilung rückgängig" onClose={() => setFrageOffen(false)} maxWidth="380px">
