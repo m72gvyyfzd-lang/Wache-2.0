@@ -51,11 +51,16 @@ export function Einsatzplanung() {
 
   // V-Nr.: fortlaufend ab vNrStart, aber Lotsen mit einer Zuweisung aus
   // OHNE_V_NR_TYPEN bekommen keine — der Zähler bleibt für sie stehen und
-  // geht an den nächsten Lotsen ohne diese Restriktion.
+  // geht an den nächsten Lotsen ohne diese Restriktion. Statt der V-Nr.
+  // zeigt die Spalte dann die Kurzform des Job-Typs.
   const ohneVNr = new Set<LotsenEintrag>();
+  const typProLotse = new Map<LotsenEintrag, string>();
   for (const { eintrag: job } of jobsSortiert) {
     if (job.liste === "andere" && job.typ && OHNE_V_NR_TYPEN.has(job.typ)) {
-      for (const l of zuweisungen.get(job.id) ?? []) ohneVNr.add(l);
+      for (const l of zuweisungen.get(job.id) ?? []) {
+        ohneVNr.add(l);
+        typProLotse.set(l, vonTypeLabel(job));
+      }
     }
   }
   const vNrProLotse = new Map<LotsenEintrag, number>();
@@ -225,7 +230,7 @@ export function Einsatzplanung() {
                         className={`${lotseKlasse} num vnr-schmal ${zugewieseneLotsen.has(lotse.eintrag) || lotse.eintrag.abgerufen ? "fett" : "muted"}`}
                         onClick={lotseKlick}
                       >
-                        {vNrProLotse.get(lotse.eintrag) ?? ""}
+                        {vNrProLotse.get(lotse.eintrag) ?? typProLotse.get(lotse.eintrag) ?? ""}
                       </td>
                       <td
                         className={`${lotseKlasse} cell-name ${lotse.eintrag.abgerufen ? "fett" : "muted"}`}
