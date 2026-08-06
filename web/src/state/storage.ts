@@ -1,7 +1,7 @@
 /** localStorage-Persistenz für die manuell gepflegten Jobs/Lotsen-Daten.
  *  Date-Felder werden bei JSON.stringify automatisch zu ISO-Strings und
  *  müssen beim Laden wieder in Date-Objekte zurückverwandelt werden. */
-import type { AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
+import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
 
 // v3: interne Job-ID (id) statt jobNr, AG-Verknüpfung über agJobId.
 const JOBS_KEY = "wache.jobs.v3";
@@ -13,6 +13,7 @@ const JOB_ID_ZAEHLER_KEY = "wache.jobid.v1";
 const AKTUELLE_FAHRT_KEY = "wache.aktuelleFahrt.v1";
 const LETZTE_V_NR_KEY = "wache.letzteVNr.v1";
 const V_NR_START_KEY = "wache.vNrStart.v1";
+const ABTEILUNGEN_KEY = "wache.abteilungen.v1";
 
 const JOB_DATUM_FELDER = [
   "hh",
@@ -115,6 +116,26 @@ export function ladeLotsen(fallback: LotsenEintrag[]): LotsenEintrag[] {
 
 export function speichereLotsen(lotsen: LotsenEintrag[]): void {
   localStorage.setItem(LOTSEN_KEY, JSON.stringify(lotsen));
+}
+
+export function ladeAbteilungen(): Abteilung[] {
+  const raw = localStorage.getItem(ABTEILUNGEN_KEY);
+  if (!raw) return [];
+  try {
+    const eintraege = JSON.parse(raw) as Record<string, unknown>[];
+    return eintraege.map((eintrag) => {
+      const abteilung: Record<string, unknown> = { ...eintrag };
+      const wert = eintrag.abteilZeit;
+      abteilung.abteilZeit = typeof wert === "string" ? new Date(wert) : new Date(0);
+      return abteilung as unknown as Abteilung;
+    });
+  } catch {
+    return [];
+  }
+}
+
+export function speichereAbteilungen(abteilungen: Abteilung[]): void {
+  localStorage.setItem(ABTEILUNGEN_KEY, JSON.stringify(abteilungen));
 }
 
 export function ladeAktuelleFahrt(fallback: AktuelleFahrt): AktuelleFahrt {

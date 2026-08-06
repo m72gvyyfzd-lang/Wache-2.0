@@ -1,16 +1,18 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
 import { mockJobs, mockLotsenliste } from "../data/mockData";
-import type { AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
+import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
 import { abteilzeitVon } from "../lib/coreJob";
 import { tauschePositionen, verschiebeHinter } from "../lib/lotsenOrdnung";
 import {
+  ladeAbteilungen,
   ladeAktuelleFahrt,
   ladeJobIdZaehler,
   ladeJobs,
   ladeLetzteVNr,
   ladeLotsen,
   ladeVNrStart,
+  speichereAbteilungen,
   speichereAktuelleFahrt,
   speichereJobIdZaehler,
   speichereJobs,
@@ -40,6 +42,14 @@ interface DataContextValue {
   /** Start-V-Nr. der Lotsen-Liste in der Einsatzplanung — einmalig aus
    *  letzteVNr+1 gebildet, bleibt danach fest bis zu einem künftigen Reset. */
   vNrStart: number;
+  /** Versetzliste: alle Abteilungen (Job-Lotse-Verbindungen) */
+  abteilungen: Abteilung[];
+  /** Teilt den Lotsen (Index in der Lotsenliste) dem Job ab: legt den
+   *  Abteilungs-Datensatz an und blendet den Lotsen aus. */
+  teileAb: (abteilung: Omit<Abteilung, "id">, lotsenIndex: number) => void;
+  /** Macht eine Abteilung rückgängig: entfernt den Datensatz und blendet
+   *  den Lotsen wieder ein. */
+  macheAbteilungRueckgaengig: (id: number) => void;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -51,6 +61,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [aktuelleFahrt, setAktuelleFahrtState] = useState<AktuelleFahrt>(() => ladeAktuelleFahrt("MoFa"));
   const [letzteVNr, setLetzteVNrState] = useState<number>(() => ladeLetzteVNr(0));
   const [vNrStart] = useState<number>(() => ladeVNrStart(letzteVNr));
+  const [abteilungen, setAbteilungen] = useState<Abteilung[]>(() => ladeAbteilungen());
 
   // Persistenter ID-Zähler: einmal vergebene IDs werden nie wiederverwendet,
   // damit spätere Verweise (z.B. AG-Verknüpfung) eindeutig bleiben.
@@ -59,6 +70,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => speichereJobs(jobs), [jobs]);
   useEffect(() => speichereLotsen(lotsen), [lotsen]);
+  useEffect(() => speichereAbteilungen(abteilungen), [abteilungen]);
 
   const addJob = useCallback((job: JobEintrag) => {
     const id = naechsteJobId.current!;
@@ -96,6 +108,29 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const teileAb = useCallback((abteilung: Omit<Abteilung, "id">, lotsenIndex: number) => {
+    setAbteilungen((prev) => {
+      const id = prev.reduce((max, a) => Math.max(max, a.id), 0) + 1;
+      return [...prev, { ...abteilung, id }];
+    });
+    setLotsen((prev) => prev.map((l, i) => (i === lotsenIndex ? { ...l, abgeteilt: true } : l)));
+  }, []);
+
+  const macheAbteilungRueckgaengig = useCallback(
+    (id: number) => {
+      const abteilung = abteilungen.find((a) => a.id === id);
+      setAbteilungen((prev) => prev.filter((a) => a.id !== id));
+      if (!abteilung) return;
+      // Lotse über den Namen wiederfinden — Indizes können sich seit dem
+      // Abteilen verschoben haben (z.B. durch Löschen anderer Lotsen).
+      setLotsen((prev) => {
+        const index = prev.findIndex((l) => l.name === abteilung.lotsenName && l.abgeteilt);
+        return index === -1 ? prev : prev.map((l, i) => (i === index ? { ...l, abgeteilt: false } : l));
+      });
+    },
+    [abteilungen],
+  );
+
   const setAktuelleFahrt = useCallback((fahrt: AktuelleFahrt) => {
     setAktuelleFahrtState(fahrt);
     speichereAktuelleFahrt(fahrt);
@@ -124,6 +159,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         letzteVNr,
         setLetzteVNr,
         vNrStart,
+        abteilungen,
+        teileAb,
+        macheAbteilungRueckgaengig,
       }}
     >
       {children}

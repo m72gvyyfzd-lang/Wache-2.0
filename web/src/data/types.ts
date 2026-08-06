@@ -100,4 +100,34 @@ export interface LotsenEintrag {
    *  Abrufzeit) oder manuell nachträglich korrigiert. undefined = noch
    *  nicht abgerufen. */
   anStationZeit?: Date;
+
+  /** true, sobald der Lotse einem Job "abgeteilt" wurde (siehe Abteilung).
+   *  Der Datensatz bleibt erhalten, wird aber in Einsatzplanung und
+   *  Einsatzstation ausgeblendet — Rückgängigmachen stellt alles wieder
+   *  her. */
+  abgeteilt?: boolean;
+}
+
+/**
+ * "Abteilung": verbindet einen Job mit dem Lotsen, der ihn übernimmt.
+ * Die Anzeige-Werte werden im Moment des Abteilens eingefroren
+ * (insbesondere die sonst live berechnete V-Nr.), damit sich der Eintrag
+ * auf der Versetzliste nachträglich nicht mehr verändert. Die
+ * Originaldatensätze bleiben unangetastet und werden nur ausgeblendet.
+ */
+export interface Abteilung {
+  /** eigene fortlaufende ID (unabhängig von der Job-ID) */
+  id: number;
+  /** interne ID des Jobs — für AG-Restzählung und Rückgängig */
+  jobId: number;
+  /** V-Nr. des Lotsen im Moment des Abteilens; undefined = Vergabe-Liste */
+  vNr?: number;
+  /** Kurzform der Von/Type-Spalte (SoRa, NeRa, HH, NOK, ...) */
+  typLabel: string;
+  schiffsname?: string;
+  lotsenName: string;
+  lotsenKategorie: string;
+  elbehafen: boolean;
+  /** Zeitpunkt des Abteilens (Klickzeit) */
+  abteilZeit: Date;
 }

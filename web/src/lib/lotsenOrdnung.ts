@@ -31,7 +31,9 @@ export interface LotseMitOrdnung {
 }
 
 export function sortiereUndNummeriere(lotsen: LotsenEintrag[], aktuelleFahrt: AktuelleFahrt): LotseMitOrdnung[] {
-  const indiziert = lotsen.map((eintrag, index) => ({ eintrag, index }));
+  // Abgeteilte Lotsen sind aus allen Listen ausgeblendet — der index bleibt
+  // trotzdem der Original-Index der vollen Liste (für Bearbeiten/Löschen).
+  const indiziert = lotsen.map((eintrag, index) => ({ eintrag, index })).filter(({ eintrag }) => !eintrag.abgeteilt);
   const sortiert = [...indiziert].sort((a, b) => {
     const rang = fahrtRang(a.eintrag.fahrt, aktuelleFahrt) - fahrtRang(b.eintrag.fahrt, aktuelleFahrt);
     return rang !== 0 ? rang : a.index - b.index;

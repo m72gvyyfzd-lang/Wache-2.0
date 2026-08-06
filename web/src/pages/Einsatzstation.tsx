@@ -75,7 +75,7 @@ export function Einsatzstation() {
 
       <Panel
         title="Lotsenliste"
-        count={query ? `${rows.length} / ${lotsen.length}` : `${lotsen.length} Einträge`}
+        count={query ? `${rows.length} / ${geordnet.length}` : `${geordnet.length} Einträge`}
         action={
           <button type="button" className="btn btn--small btn--accent" onClick={() => setDialog({})}>
             + Neuer Lotse

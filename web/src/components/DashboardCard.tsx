@@ -21,7 +21,7 @@ export function DashboardCard() {
         <StatTile label="Anstehende Jobs" value={jobs.length} accent />
         <StatTile label="Nächste Abteilzeit" value={naechster ? formatUhrzeit(naechster.abteilzeit) : "–"} />
         <StatTile label="HH / NOK / Anmeldungen" value={`${anzahlHH} / ${anzahlNOK} / ${anzahlAnmeldungen}`} />
-        <StatTile label="Verfügbare Lotsen" value={lotsen.filter((l) => l.fahrt === "").length} />
+        <StatTile label="Verfügbare Lotsen" value={lotsen.filter((l) => l.fahrt === "" && !l.abgeteilt).length} />
       </div>
     </div>
   );

@@ -1,0 +1,31 @@
+.versetz-table td.zentriert,
+.versetz-table th.zentriert {
+  text-align: center;
+}
+
+.versetz-table td.schmal,
+.versetz-table th.schmal {
+  width: 1%;
+}
+
+/* "Ankunft S-Stn": nur die lange Kopfzeile umbricht */
+.versetz-table th.kopf-umbruch {
+  white-space: normal;
+  max-width: 80px;
+}
+
+.versetz-table td.fett {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.versetz-table tr.ist-ausgewaehlt td {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface)) !important;
+}
+
+/* Eigene Karte nur für den Rückgängig-Button, zentriert */
+.versetz-aktionen {
+  display: flex;
+  justify-content: center;
+  padding: 18px;
+}

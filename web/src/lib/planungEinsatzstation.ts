@@ -28,19 +28,22 @@ function istGeeignet(job: JobEintrag, lotse: LotsenEintrag, istErster: boolean):
   return true;
 }
 
-/** jobId -> zugewiesene Lotsen (in Zuweisungsreihenfolge) */
+/** jobId -> zugewiesene Lotsen (in Zuweisungsreihenfolge).
+ *  abgeteiltProJob: bereits abgeteilte Lotsen je Job — die Planung besetzt
+ *  nur noch den Rest (voll abgeteilte Jobs bekommen niemanden mehr). */
 export function planeEinsatzstation(
   jobs: JobEintrag[],
   lotsen: LotsenEintrag[],
   aktuelleFahrt: AktuelleFahrt,
   settings: AbteilzeitSettings,
+  abgeteiltProJob?: Map<number, number>,
 ): Map<number, LotsenEintrag[]> {
   const jobsSortiert = sortiereEintraege(jobs, settings);
   let kandidaten = sortiereUndNummeriere(lotsen, aktuelleFahrt).map(({ eintrag }) => eintrag);
   const zuweisungen = new Map<number, LotsenEintrag[]>();
 
   for (const { eintrag: job } of jobsSortiert) {
-    const benoetigt = benoetigteLotsenAnzahl(job);
+    const benoetigt = benoetigteLotsenAnzahl(job) - (abgeteiltProJob?.get(job.id) ?? 0);
     const zugewiesen: LotsenEintrag[] = [];
     const uebrig: LotsenEintrag[] = [];
     for (const kandidat of kandidaten) {

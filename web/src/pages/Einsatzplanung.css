@@ -100,3 +100,22 @@
 .einsatz-table td.ist-ausgewaehlt {
   background: color-mix(in srgb, var(--accent) 16%, var(--surface)) !important;
 }
+
+/* "Abteilen"-Button: zentriert auf Höhe der Karten-Überschrift, erscheint
+   nur wenn ein Job und ein Lotse markiert sind */
+.panel__head {
+  position: relative;
+}
+
+.einsatz-abteilen {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Lots.-Spalte: Rest-Anzahl auffällig, sobald schon Lotsen abgeteilt sind */
+.einsatz-table td.lots-rest {
+  color: var(--accent);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}

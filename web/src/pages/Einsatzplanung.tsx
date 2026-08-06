@@ -4,6 +4,7 @@ import { AbrufenModal } from "../components/AbrufenModal";
 import { AbtZeitModal } from "../components/AbtZeitModal";
 import { AnStationModal } from "../components/AnStationModal";
 import { Badge } from "../components/Badge";
+import { FrageModal } from "../components/FrageModal";
 import { LotsenAnzahlModal } from "../components/LotsenAnzahlModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
@@ -37,39 +38,57 @@ function LotseHinweis({ kategorie, eh }: { kategorie: string; eh: boolean }) {
  *  V-Nr. rutscht dann zum nächsten Lotsen ohne diese Restriktion weiter. */
 const OHNE_V_NR_TYPEN = new Set(["Sonderradar", "Nebelradar", "2+2", "1+1", "WB", "WR"]);
 
+/** Jobs dieser Typen landen beim Abteilen ohne V-Nr. auf der Vergabe-Liste. */
+function istOhneVNrJob(job: JobEintrag): boolean {
+  return job.liste === "andere" && job.typ !== undefined && OHNE_V_NR_TYPEN.has(job.typ);
+}
+
 export function Einsatzplanung() {
-  const { jobs, lotsen, aktuelleFahrt, updateJob, updateLotse, vNrStart } = useData();
-  const jobsSortiert = sortiereEintraege(jobs, settings);
+  const { jobs, lotsen, aktuelleFahrt, updateJob, updateLotse, vNrStart, abteilungen, teileAb } = useData();
+  // Bereits abgeteilte Lotsen je Job: voll abgeteilte Jobs verschwinden aus
+  // der Liste, AG-Jobs zeigen bis dahin die Rest-Anzahl.
+  const abgeteiltProJob = new Map<number, number>();
+  for (const a of abteilungen) abgeteiltProJob.set(a.jobId, (abgeteiltProJob.get(a.jobId) ?? 0) + 1);
+  const jobsSortiert = sortiereEintraege(jobs, settings).filter(
+    ({ eintrag }) => benoetigteLotsenAnzahl(eintrag) - (abgeteiltProJob.get(eintrag.id) ?? 0) > 0,
+  );
   // Komplette Lotsenliste der Einsatzstation: 1. Prio Fahrt ≠ leer (in der
   // dort geltenden Fahrt-Rotationsreihenfolge), 2. Prio Fahrt = leer — genau
-  // die Reihenfolge, die sortiereUndNummeriere bereits liefert.
+  // die Reihenfolge, die sortiereUndNummeriere bereits liefert (abgeteilte
+  // Lotsen sind dort schon ausgeblendet).
   const lotsenSortiert = sortiereUndNummeriere(lotsen, aktuelleFahrt);
   const zeilen = Math.max(jobsSortiert.length, lotsenSortiert.length);
   // "Planung Einsatzstation" — wird bei jeder Änderung neu berechnet
-  const zuweisungen = planeEinsatzstation(jobs, lotsen, aktuelleFahrt, settings);
+  const zuweisungen = planeEinsatzstation(jobs, lotsen, aktuelleFahrt, settings, abgeteiltProJob);
   const zugewieseneLotsen = new Set(Array.from(zuweisungen.values()).flat());
 
   // V-Nr.: fortlaufend ab vNrStart, aber Lotsen mit einer Zuweisung aus
   // OHNE_V_NR_TYPEN bekommen keine — der Zähler bleibt für sie stehen und
   // geht an den nächsten Lotsen ohne diese Restriktion. Statt der V-Nr.
-  // zeigt die Spalte dann die Kurzform des Job-Typs.
+  // zeigt die Spalte dann die Kurzform des Job-Typs. Beim Abteilen
+  // vergebene Nummern sind fest verbraucht und werden übersprungen.
   const ohneVNr = new Set<LotsenEintrag>();
   const typProLotse = new Map<LotsenEintrag, string>();
   for (const { eintrag: job } of jobsSortiert) {
-    if (job.liste === "andere" && job.typ && OHNE_V_NR_TYPEN.has(job.typ)) {
+    if (istOhneVNrJob(job)) {
       for (const l of zuweisungen.get(job.id) ?? []) {
         ohneVNr.add(l);
         typProLotse.set(l, vonTypeLabel(job));
       }
     }
   }
+  const vergebeneVNrn = new Set<number>();
+  for (const a of abteilungen) if (a.vNr !== undefined) vergebeneVNrn.add(a.vNr);
   const vNrProLotse = new Map<LotsenEintrag, number>();
   let naechsteVNr = vNrStart;
   for (const { eintrag } of lotsenSortiert) {
     if (ohneVNr.has(eintrag)) continue;
+    while (vergebeneVNrn.has(naechsteVNr)) naechsteVNr += 1;
     vNrProLotse.set(eintrag, naechsteVNr);
     naechsteVNr += 1;
   }
+  while (vergebeneVNrn.has(naechsteVNr)) naechsteVNr += 1;
+  const naechsteFreieVNr = naechsteVNr;
 
   // "gepl. Abruf": Abt.Zeit des zugewiesenen Jobs minus die Abrufzeit des
   // Lotsen — wird bei jeder Änderung neu berechnet.
@@ -88,6 +107,41 @@ export function Einsatzplanung() {
   // Doppelklick auf "An Stn." öffnet das Bearbeitungsfenster (nur wenn
   // bereits abgerufen)
   const [anStationLotse, setAnStationLotse] = useState<LotseMitOrdnung | null>(null);
+  // "Abteilen": Rückfrage vor dem Verbinden von Job + Lotse
+  const [abteilenFrage, setAbteilenFrage] = useState(false);
+
+  // Aktuelle Auswahl für das Abteilen — Button erscheint nur, wenn beides
+  // markiert ist.
+  const abteilenJob = jobAuswahl !== null ? (jobs.find((j) => j.id === jobAuswahl) ?? null) : null;
+  const abteilenLotse = lotseAuswahl !== null ? (lotsenSortiert[lotseAuswahl] ?? null) : null;
+
+  function handleAbteilenJa() {
+    if (!abteilenJob || !abteilenLotse) return;
+    const ohne = istOhneVNrJob(abteilenJob);
+    teileAb(
+      {
+        jobId: abteilenJob.id,
+        vNr: ohne ? undefined : (vNrProLotse.get(abteilenLotse.eintrag) ?? naechsteFreieVNr),
+        typLabel: vonTypeLabel(abteilenJob),
+        schiffsname: abteilenJob.schiffsname,
+        lotsenName: abteilenLotse.eintrag.name,
+        lotsenKategorie: abteilenLotse.eintrag.kategorie,
+        elbehafen: abteilenLotse.eintrag.elbehafen,
+        abteilZeit: new Date(),
+      },
+      abteilenLotse.index,
+    );
+    setJobAuswahl(null);
+    setLotseAuswahl(null);
+    setAbteilenFrage(false);
+  }
+
+  const abteilenFrageText =
+    abteilenJob && abteilenLotse
+      ? istOhneVNrJob(abteilenJob)
+        ? `Soll ${abteilenLotse.eintrag.name} zu ${[vonTypeLabel(abteilenJob), abteilenJob.schiffsname].filter(Boolean).join(" ")} abgeteilt werden?`
+        : `Soll ${abteilenLotse.eintrag.name} zu ${abteilenJob.schiffsname ?? "?"} mit der V-Nr. ${vNrProLotse.get(abteilenLotse.eintrag) ?? naechsteFreieVNr} abgeteilt werden?`
+      : "";
 
   // Nur AG-Jobs haben eine editierbare Lotsenanzahl — der Override schreibt
   // direkt agLotsenAnzahl (statt eines separaten Feldes), damit das
@@ -143,7 +197,17 @@ export function Einsatzplanung() {
   return (
     <div>
       <PageHeader title="Einsatzplanung" />
-      <Panel title="Zuordnung" count={`${zeilen} Zeilen`}>
+      <Panel
+        title="Zuordnung"
+        count={`${zeilen} Zeilen`}
+        action={
+          abteilenJob && abteilenLotse ? (
+            <button type="button" className="btn btn--accent einsatz-abteilen" onClick={() => setAbteilenFrage(true)}>
+              Abteilen
+            </button>
+          ) : undefined
+        }
+      >
         <table className="einsatz-table">
           <thead>
             <tr className="einsatz-table__gruppen">
@@ -204,7 +268,10 @@ export function Einsatzplanung() {
                         {formatUhrzeit(paar.abteilzeit)}
                       </td>
                       <td
-                        className={`${jobKlasse} num zentriert`}
+                        className={
+                          `${jobKlasse} num zentriert` +
+                          ((abgeteiltProJob.get(paar.eintrag.id) ?? 0) > 0 ? " lots-rest" : "")
+                        }
                         onClick={jobKlick}
                         onDoubleClick={
                           paar.eintrag.liste === "andere" && paar.eintrag.typ === "AG"
@@ -215,7 +282,7 @@ export function Einsatzplanung() {
                             : undefined
                         }
                       >
-                        {benoetigteLotsenAnzahl(paar.eintrag)}
+                        {benoetigteLotsenAnzahl(paar.eintrag) - (abgeteiltProJob.get(paar.eintrag.id) ?? 0)}
                       </td>
                     </>
                   ) : (
@@ -316,6 +383,12 @@ export function Einsatzplanung() {
             onUebernehmen={handleAnStationUebernehmen}
             onAbbrechen={() => setAnStationLotse(null)}
           />
+        </Modal>
+      )}
+
+      {abteilenFrage && abteilenJob && abteilenLotse && (
+        <Modal title="Abteilen" onClose={() => setAbteilenFrage(false)} maxWidth="380px">
+          <FrageModal frage={abteilenFrageText} onJa={handleAbteilenJa} onNein={() => setAbteilenFrage(false)} />
         </Modal>
       )}
     </div>
