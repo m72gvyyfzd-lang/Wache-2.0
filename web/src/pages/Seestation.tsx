@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FrageModal } from "../components/FrageModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
@@ -30,15 +31,22 @@ export function Seestation() {
     seeSchiffe,
     addSeeSchiff,
     updateSeeSchiff,
+    deleteSeeSchiff,
     abteilungen,
     updateAbteilung,
     seestationLotsen,
     addSeestationLotse,
     updateSeestationLotse,
+    deleteSeestationLotse,
   } = useData();
 
-  // Schiffe nach ETA (früheste oben)
-  const schiffeSortiert = [...seeSchiffe].sort((a, b) => (a.eta?.getTime() ?? 0) - (b.eta?.getTime() ?? 0));
+  // Schiffe: angemeldete zuerst, danach nach ETA (früheste oben)
+  const schiffeSortiert = [...seeSchiffe].sort((a, b) => {
+    const angemeldetA = a.angemeldet ? 0 : 1;
+    const angemeldetB = b.angemeldet ? 0 : 1;
+    if (angemeldetA !== angemeldetB) return angemeldetA - angemeldetB;
+    return (a.eta?.getTime() ?? 0) - (b.eta?.getTime() ?? 0);
+  });
   // Lotsen: Versetzliste ("Lotsen im Revier") + manuell hinzugefügte,
   // einsortiert nach V-Nr. mit Zusatz-Reihenfolge (101 → 101 (A) → 102)
   const lotsenZeilen = sortiereSeestation([
@@ -51,7 +59,9 @@ export function Seestation() {
   const [lotseAuswahl, setLotseAuswahl] = useState<string | null>(null);
   const [neuesSchiffOffen, setNeuesSchiffOffen] = useState(false);
   const [editSchiff, setEditSchiff] = useState<SeeSchiff | null>(null);
+  const [loeschenSchiff, setLoeschenSchiff] = useState<SeeSchiff | null>(null);
   const [aktionLotse, setAktionLotse] = useState<SeestationZeile | null>(null);
+  const [abschoepfenLotse, setAbschoepfenLotse] = useState<SeestationZeile | null>(null);
   const [neuerLotseOffen, setNeuerLotseOffen] = useState(false);
 
   // Vorbelegung fürs Hinzufügen: letzte (höchste) V-Nr. der Revier-Lotsen
@@ -61,6 +71,13 @@ export function Seestation() {
     updateSeeSchiff(schiff.id, schiff);
     setSchiffAuswahl(null);
     setEditSchiff(null);
+  }
+
+  function handleSchiffLoeschenJa() {
+    if (!loeschenSchiff) return;
+    deleteSeeSchiff(loeschenSchiff.id);
+    setSchiffAuswahl(null);
+    setLoeschenSchiff(null);
   }
 
   function handleEtaStnUebernehmen(wert: Date | undefined) {
@@ -74,7 +91,7 @@ export function Seestation() {
     setAktionLotse(null);
   }
 
-  function handleAufStation() {
+  function handleAufSeestation() {
     if (!aktionLotse) return;
     if (aktionLotse.quelle === "abteilung") {
       updateAbteilung(aktionLotse.id, { aufSeestation: true });
@@ -85,27 +102,36 @@ export function Seestation() {
     setAktionLotse(null);
   }
 
+  function handleAbschoepfenJa() {
+    if (!abschoepfenLotse) return;
+    if (abschoepfenLotse.quelle === "abteilung") {
+      updateAbteilung(abschoepfenLotse.id, { abgeschoepft: true });
+    } else {
+      deleteSeestationLotse(abschoepfenLotse.id);
+    }
+    setLotseAuswahl(null);
+    setAbschoepfenLotse(null);
+  }
+
   return (
     <div>
-      <PageHeader title="Seestation" />
+      <PageHeader title="Seestation" centered />
       <Panel
-        title="Übersicht"
-        count={`${zeilen} Zeilen`}
+        actionLeft={
+          <button type="button" className="btn btn--small btn--accent" onClick={() => setNeuesSchiffOffen(true)}>
+            + Neues Schiff
+          </button>
+        }
         action={
-          <div className="seestation-aktionen">
-            <button type="button" className="btn btn--small btn--accent" onClick={() => setNeuesSchiffOffen(true)}>
-              + Neues Schiff
-            </button>
-            <button type="button" className="btn btn--small btn--accent" onClick={() => setNeuerLotseOffen(true)}>
-              + Lotse hinzufügen
-            </button>
-          </div>
+          <button type="button" className="btn btn--small btn--accent" onClick={() => setNeuerLotseOffen(true)}>
+            + Lotse hinzufügen
+          </button>
         }
       >
         <table className="seestation-table">
           <thead>
             <tr className="seestation-table__gruppen">
-              <th colSpan={5}>ETAs Seestation</th>
+              <th colSpan={5}>ETA Seestation</th>
               <th className="seestation-table__divider" aria-hidden="true" />
               <th colSpan={5}>Auf Seestation</th>
             </tr>
@@ -228,8 +254,27 @@ export function Seestation() {
       )}
 
       {editSchiff && (
-        <Modal title={editSchiff.schiffsname} onClose={() => setEditSchiff(null)} maxWidth="340px">
-          <SeeSchiffEditModal schiff={editSchiff} onOk={handleSchiffOk} onAbbrechen={() => setEditSchiff(null)} />
+        <Modal title={editSchiff.schiffsname} onClose={() => setEditSchiff(null)} maxWidth="360px" titelZentriert>
+          <SeeSchiffEditModal
+            schiff={editSchiff}
+            onOk={handleSchiffOk}
+            onLoeschen={() => {
+              setLoeschenSchiff(editSchiff);
+              setEditSchiff(null);
+            }}
+            onAbbrechen={() => setEditSchiff(null)}
+          />
+        </Modal>
+      )}
+
+      {loeschenSchiff && (
+        <Modal title="Schiff löschen" onClose={() => setLoeschenSchiff(null)} maxWidth="380px" titelZentriert>
+          <FrageModal
+            frage={`Soll ${loeschenSchiff.schiffsname} wirklich gelöscht werden?`}
+            zentriert
+            onJa={handleSchiffLoeschenJa}
+            onNein={() => setLoeschenSchiff(null)}
+          />
         </Modal>
       )}
 
@@ -237,9 +282,25 @@ export function Seestation() {
         <Modal title={aktionLotse.name} onClose={() => setAktionLotse(null)} maxWidth="360px">
           <SeestationLotseAktionModal
             initialEtaStn={aktionLotse.etaStn}
+            aufStation={aktionLotse.aufStation}
             onUebernehmen={handleEtaStnUebernehmen}
-            onAufStation={handleAufStation}
+            onAufStation={handleAufSeestation}
+            onAbschoepfen={() => {
+              setAbschoepfenLotse(aktionLotse);
+              setAktionLotse(null);
+            }}
             onAbbrechen={() => setAktionLotse(null)}
+          />
+        </Modal>
+      )}
+
+      {abschoepfenLotse && (
+        <Modal title="Lotse abschöpfen" onClose={() => setAbschoepfenLotse(null)} maxWidth="380px" titelZentriert>
+          <FrageModal
+            frage={`Lotsen ${abschoepfenLotse.name} wirklich abschöpfen?`}
+            zentriert
+            onJa={handleAbschoepfenJa}
+            onNein={() => setAbschoepfenLotse(null)}
           />
         </Modal>
       )}

@@ -18,3 +18,18 @@ export function toLocalTimeInput(datum: Date | undefined): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(datum.getHours())}:${pad(datum.getMinutes())}`;
 }
+
+/** Nur das Datum für <input type="date"> ("YYYY-MM-DD", lokale Zeit). */
+export function toLocalDateInput(datum: Date | undefined): string {
+  if (!datum) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${datum.getFullYear()}-${pad(datum.getMonth() + 1)}-${pad(datum.getDate())}`;
+}
+
+/** Führt getrennte Datum-/Zeit-Eingaben (aus type="date" + type="time")
+ *  wieder zu einem Date zusammen. */
+export function ausDatumUndZeit(datum: string, zeit: string): Date | undefined {
+  if (!datum || !zeit) return undefined;
+  const ergebnis = new Date(`${datum}T${zeit}`);
+  return Number.isNaN(ergebnis.getTime()) ? undefined : ergebnis;
+}

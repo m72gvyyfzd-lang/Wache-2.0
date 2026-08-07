@@ -60,10 +60,12 @@ interface DataContextValue {
   seeSchiffe: SeeSchiff[];
   addSeeSchiff: (schiff: Omit<SeeSchiff, "id">) => void;
   updateSeeSchiff: (id: number, schiff: SeeSchiff) => void;
+  deleteSeeSchiff: (id: number) => void;
   /** Seestation: manuell hinzugefügte Lotsen (nur auf dieser Liste) */
   seestationLotsen: SeestationLotse[];
   addSeestationLotse: (lotse: Omit<SeestationLotse, "id">) => void;
   updateSeestationLotse: (id: number, aenderung: Partial<SeestationLotse>) => void;
+  deleteSeestationLotse: (id: number) => void;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -162,6 +164,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateSeeSchiff = useCallback((id: number, schiff: SeeSchiff) => {
     setSeeSchiffe((prev) => prev.map((s) => (s.id === id ? { ...schiff, id } : s)));
   }, []);
+  const deleteSeeSchiff = useCallback((id: number) => setSeeSchiffe((prev) => prev.filter((s) => s.id !== id)), []);
 
   const addSeestationLotse = useCallback((lotse: Omit<SeestationLotse, "id">) => {
     setSeestationLotsen((prev) => {
@@ -172,6 +175,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateSeestationLotse = useCallback((id: number, aenderung: Partial<SeestationLotse>) => {
     setSeestationLotsen((prev) => prev.map((l) => (l.id === id ? { ...l, ...aenderung, id } : l)));
   }, []);
+  const deleteSeestationLotse = useCallback(
+    (id: number) => setSeestationLotsen((prev) => prev.filter((l) => l.id !== id)),
+    [],
+  );
 
   const setAktuelleFahrt = useCallback((fahrt: AktuelleFahrt) => {
     setAktuelleFahrtState(fahrt);
@@ -208,9 +215,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         seeSchiffe,
         addSeeSchiff,
         updateSeeSchiff,
+        deleteSeeSchiff,
         seestationLotsen,
         addSeestationLotse,
         updateSeestationLotse,
+        deleteSeestationLotse,
       }}
     >
       {children}

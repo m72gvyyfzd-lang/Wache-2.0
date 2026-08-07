@@ -137,6 +137,11 @@ export interface Abteilung {
    *  Station") — er verschwindet dann aus "Lotsen im Revier" und wird auf
    *  der Seestation fett dargestellt. */
   aufSeestation?: boolean;
+  /** true, sobald der Lotse auf der Seestation "abgeschöpft" wurde — er
+   *  verschwindet dann auch aus "Auf Seestation". Der Datensatz bleibt
+   *  (wie abgeteilt/aufSeestation) erhalten, u.a. damit die AG-Restzählung
+   *  und die Job-Ausblendung in Tafel Brb korrekt bleiben. */
+  abgeschoepft?: boolean;
 }
 
 /**

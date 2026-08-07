@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { LOTSEN_KATEGORIEN } from "@wache/core";
 import type { SeeSchiff, SeestationLotse } from "../data/types";
-import { fromLocalInput, toLocalInput, toLocalTimeInput } from "../lib/datetime";
+import { ausDatumUndZeit, fromLocalInput, toLocalDateInput, toLocalTimeInput } from "../lib/datetime";
 import { SchiffKatSelect } from "./formShared";
 import "./JobForm.css";
 import "./SeestationModals.css";
@@ -67,12 +67,15 @@ export function SeeSchiffNeuModal({ onEinfuegen, onAbbrechen }: SeeSchiffNeuModa
 interface SeeSchiffEditModalProps {
   schiff: SeeSchiff;
   onOk: (schiff: SeeSchiff) => void;
+  onLoeschen: () => void;
   onAbbrechen: () => void;
 }
 
-/** Doppelklick auf ein Schiff: ETA + Switches bearbeiten. */
-export function SeeSchiffEditModal({ schiff, onOk, onAbbrechen }: SeeSchiffEditModalProps) {
-  const [eta, setEta] = useState(toLocalInput(schiff.eta));
+/** Doppelklick auf ein Schiff: ETA (getrennt Datum/Zeit) + Switches
+ *  bearbeiten, oder den Eintrag löschen. */
+export function SeeSchiffEditModal({ schiff, onOk, onLoeschen, onAbbrechen }: SeeSchiffEditModalProps) {
+  const [etaDatum, setEtaDatum] = useState(toLocalDateInput(schiff.eta));
+  const [etaZeit, setEtaZeit] = useState(toLocalTimeInput(schiff.eta));
   const [angemeldet, setAngemeldet] = useState(schiff.angemeldet ?? false);
   const [e3st, setE3st] = useState(schiff.e3st ?? false);
   const [doppeldecker, setDoppeldecker] = useState(schiff.doppeldecker ?? false);
@@ -81,7 +84,7 @@ export function SeeSchiffEditModal({ schiff, onOk, onAbbrechen }: SeeSchiffEditM
   function handleOk() {
     onOk({
       ...schiff,
-      eta: fromLocalInput(eta) ?? schiff.eta,
+      eta: ausDatumUndZeit(etaDatum, etaZeit) ?? schiff.eta,
       angemeldet,
       e3st,
       doppeldecker,
@@ -93,23 +96,32 @@ export function SeeSchiffEditModal({ schiff, onOk, onAbbrechen }: SeeSchiffEditM
     <div className="job-form">
       <div className="job-form__row">
         <label>
-          ETA
-          <input type="datetime-local" value={eta} onChange={(e) => setEta(e.target.value)} />
+          ETA-Datum
+          <input type="date" value={etaDatum} onChange={(e) => setEtaDatum(e.target.value)} />
+        </label>
+        <label>
+          ETA-Zeit
+          <input type="time" value={etaZeit} onChange={(e) => setEtaZeit(e.target.value)} />
+        </label>
+        <Switch label="angemeldet" checked={angemeldet} onChange={setAngemeldet} />
+      </div>
+      <div className="job-form__row">
+        <Switch label="E3/ST" checked={e3st} onChange={setE3st} />
+        <Switch label="Doppeldecker" checked={doppeldecker} onChange={setDoppeldecker} />
+        <label className="job-form__check">
+          <span>
+            <input type="checkbox" checked={ehf} onChange={(e) => setEhf(e.target.checked)} /> EHF
+          </span>
         </label>
       </div>
-      <Switch label="angemeldet" checked={angemeldet} onChange={setAngemeldet} />
-      <Switch label="E3/ST" checked={e3st} onChange={setE3st} />
-      <Switch label="Doppeldecker" checked={doppeldecker} onChange={setDoppeldecker} />
-      <label className="job-form__check seestation-ehf">
-        <span>
-          <input type="checkbox" checked={ehf} onChange={(e) => setEhf(e.target.checked)} /> EHF
-        </span>
-      </label>
       <div className="job-form__actions">
+        <button type="button" className="btn btn--danger" onClick={onLoeschen}>
+          Löschen
+        </button>
+        <span className="job-form__spacer" />
         <button type="button" className="btn btn--ghost" onClick={onAbbrechen}>
           Abbrechen
         </button>
-        <span className="job-form__spacer" />
         <button type="button" className="btn btn--accent" onClick={handleOk}>
           OK
         </button>
@@ -120,17 +132,24 @@ export function SeeSchiffEditModal({ schiff, onOk, onAbbrechen }: SeeSchiffEditM
 
 interface SeestationLotseAktionModalProps {
   initialEtaStn: Date | undefined;
+  /** true = Lotse ist bereits vor Ort — dann nur Abbrechen/Abschöpfen */
+  aufStation: boolean;
   onUebernehmen: (etaStn: Date | undefined) => void;
   onAufStation: () => void;
+  onAbschoepfen: () => void;
   onAbbrechen: () => void;
 }
 
-/** Doppelklick auf einen Lotsen der Liste "Auf Seestation": ETA Stn
- *  korrigieren oder den Lotsen als angekommen ("Auf Station") markieren. */
+/** Doppelklick auf einen Lotsen der Liste "Auf Seestation". Noch nicht vor
+ *  Ort: ETA Stn korrigieren oder als angekommen ("Auf Seestation")
+ *  markieren. Bereits vor Ort: nur noch "Abschöpfen" (Lotse verlässt die
+ *  Seestation, Eintrag verschwindet aus der Liste). */
 export function SeestationLotseAktionModal({
   initialEtaStn,
+  aufStation,
   onUebernehmen,
   onAufStation,
+  onAbschoepfen,
   onAbbrechen,
 }: SeestationLotseAktionModalProps) {
   const [basis] = useState(() => initialEtaStn ?? new Date());
@@ -144,6 +163,22 @@ export function SeestationLotseAktionModal({
     return ergebnis;
   }
 
+  if (aufStation) {
+    return (
+      <div className="job-form">
+        <div className="job-form__actions">
+          <button type="button" className="btn btn--ghost" onClick={onAbbrechen}>
+            Abbrechen
+          </button>
+          <span className="job-form__spacer" />
+          <button type="button" className="btn btn--danger" onClick={onAbschoepfen}>
+            Abgeschöpft
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="job-form">
       <div className="job-form__row">
@@ -151,17 +186,17 @@ export function SeestationLotseAktionModal({
           ETA Stn:
           <input type="time" value={zeit} onChange={(e) => setZeit(e.target.value)} />
         </label>
+        <button type="button" className="btn" onClick={() => onUebernehmen(neueEta())}>
+          Übernehmen
+        </button>
       </div>
       <div className="job-form__actions">
         <button type="button" className="btn btn--ghost" onClick={onAbbrechen}>
           Abbrechen
         </button>
         <span className="job-form__spacer" />
-        <button type="button" className="btn" onClick={() => onUebernehmen(neueEta())}>
-          Übernehmen
-        </button>
         <button type="button" className="btn btn--accent" onClick={onAufStation}>
-          Auf Station
+          Auf Seestation
         </button>
       </div>
     </div>

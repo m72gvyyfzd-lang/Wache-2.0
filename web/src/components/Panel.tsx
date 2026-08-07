@@ -2,19 +2,23 @@ import type { ReactNode } from "react";
 import "./Panel.css";
 
 interface PanelProps {
-  title: string;
+  title?: string;
   description?: string;
   count?: string;
+  /** Action-Element links (an der Stelle des Titels) */
+  actionLeft?: ReactNode;
+  /** Action-Element rechts (Standardposition, wie bisher) */
   action?: ReactNode;
   children: ReactNode;
 }
 
-export function Panel({ title, description, count, action, children }: PanelProps) {
+export function Panel({ title, description, count, actionLeft, action, children }: PanelProps) {
   return (
     <section className="panel">
       <div className="panel__head">
+        {actionLeft}
         <div>
-          <h2>{title}</h2>
+          {title && <h2>{title}</h2>}
           {description && <div className="panel__desc">{description}</div>}
         </div>
         <div className="panel__head-right">

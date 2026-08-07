@@ -45,11 +45,6 @@
   transform: translateX(18px);
 }
 
-/* EHF-Häkchen linksbündig unter den Switches */
-.seestation-ehf {
-  justify-content: flex-start;
-}
-
 .seestation-vnr {
   text-align: center;
   font-family: var(--font-mono);

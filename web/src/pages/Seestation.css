@@ -51,10 +51,10 @@
   color: var(--ink-muted);
 }
 
-/* E3/ST: ETA-Zelle dezent rot */
+/* E3/ST: nur der Hintergrund der ETA-Zelle wird dezent rot, die
+   Schriftfarbe bleibt unverändert (z.B. weiterhin fett bei angemeldet) */
 .seestation-table td.eta-rot {
   background: rgba(181, 67, 47, 0.14);
-  color: #b5432f;
 }
 
 /* Auswahl/Hover je Seite (links Spalten 1–5, Divider 6, rechts ab 7) */

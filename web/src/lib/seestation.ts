@@ -37,7 +37,7 @@ export function sortiereSeestation(zeilen: SeestationZeile[]): SeestationZeile[]
 
 export function zeilenAusAbteilungen(abteilungen: Abteilung[]): SeestationZeile[] {
   return abteilungen
-    .filter((a) => a.vNr !== undefined)
+    .filter((a) => a.vNr !== undefined && !a.abgeschoepft)
     .map((a) => ({
       key: `abteilung-${a.id}`,
       quelle: "abteilung" as const,
