@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { FrageModal } from "../components/FrageModal";
-import { LotsenAnzahlModal } from "../components/LotsenAnzahlModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
@@ -48,6 +47,12 @@ export function Seestation() {
   // verschwinden aus "ETA Seestation" (analog zu Tafel Brb/Einsatzplanung).
   const abgeteiltProSchiff = new Map<number, number>();
   for (const sa of seeAbteilungen) abgeteiltProSchiff.set(sa.seeSchiffId, (abgeteiltProSchiff.get(sa.seeSchiffId) ?? 0) + 1);
+  // "Lots." zeigt wie bei AG-Jobs in der Einsatzplanung die noch
+  // verbleibende (nicht die ursprüngliche) Anzahl — sinkt mit jedem
+  // Seestation-Abteilen.
+  function verbleibendeLotsen(schiff: SeeSchiff): number {
+    return seeLotsenAnzahl(schiff) - (abgeteiltProSchiff.get(schiff.id) ?? 0);
+  }
 
   // Schiffe: angemeldete zuerst, danach nach ETA (früheste oben)
   const schiffeSortiert = [...seeSchiffe]
@@ -78,16 +83,6 @@ export function Seestation() {
   const [neuerLotseOffen, setNeuerLotseOffen] = useState(false);
   // "Abteilen": Rückfrage vor dem Verbinden von Schiff + Lotse
   const [abteilenFrage, setAbteilenFrage] = useState(false);
-  // Doppelklick auf "Lots." öffnet das Bearbeitungsfenster (analog AG-Job
-  // in der Einsatzplanung)
-  const [lotsenAnzahlSchiff, setLotsenAnzahlSchiff] = useState<SeeSchiff | null>(null);
-
-  function handleLotsenAnzahlUebernehmen(wert: number) {
-    if (!lotsenAnzahlSchiff) return;
-    updateSeeSchiff(lotsenAnzahlSchiff.id, { ...lotsenAnzahlSchiff, lotsenAnzahl: wert });
-    setSchiffAuswahl(null);
-    setLotsenAnzahlSchiff(null);
-  }
 
   // Vorbelegung fürs Hinzufügen: letzte (höchste) V-Nr. der Revier-Lotsen
   const vNrProfil = zeilenAusAbteilungen(abteilungen).reduce((max, z) => Math.max(max, z.vNr), 0);
@@ -301,15 +296,8 @@ export function Seestation() {
                         {schiff.kategorie ?? "·"}
                         {schiff.ehfLotseBenoetigt && <span className="planung-hinweis"> (EH)</span>}
                       </td>
-                      <td
-                        className={`${schiffKlasse} num zentriert`}
-                        onClick={schiffKlick}
-                        onDoubleClick={() => {
-                          setSchiffAuswahl(schiff.id);
-                          setLotsenAnzahlSchiff(schiff);
-                        }}
-                      >
-                        {seeLotsenAnzahl(schiff)}
+                      <td className={`${schiffKlasse} num zentriert`} onClick={schiffKlick} onDoubleClick={schiffDoppelklick}>
+                        {verbleibendeLotsen(schiff) > 1 ? verbleibendeLotsen(schiff) : ""}
                       </td>
                     </>
                   ) : (
@@ -437,16 +425,6 @@ export function Seestation() {
             zentriert
             onJa={handleAbteilenJa}
             onNein={() => setAbteilenFrage(false)}
-          />
-        </Modal>
-      )}
-
-      {lotsenAnzahlSchiff && (
-        <Modal title={lotsenAnzahlSchiff.schiffsname} onClose={() => setLotsenAnzahlSchiff(null)} maxWidth="300px">
-          <LotsenAnzahlModal
-            initial={seeLotsenAnzahl(lotsenAnzahlSchiff)}
-            onUebernehmen={handleLotsenAnzahlUebernehmen}
-            onAbbrechen={() => setLotsenAnzahlSchiff(null)}
           />
         </Modal>
       )}

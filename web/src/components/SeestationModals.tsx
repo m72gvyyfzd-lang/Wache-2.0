@@ -78,6 +78,7 @@ export function SeeSchiffEditModal({ schiff, onOk, onLoeschen, onAbbrechen }: Se
   const [etaZeit, setEtaZeit] = useState(toLocalTimeInput(schiff.eta));
   const [angemeldet, setAngemeldet] = useState(schiff.angemeldet ?? false);
   const [e3st, setE3st] = useState(schiff.e3st ?? false);
+  const [doppeldecker, setDoppeldecker] = useState(schiff.doppeldecker ?? false);
   const [ehf, setEhf] = useState(schiff.ehfLotseBenoetigt ?? false);
 
   function handleOk() {
@@ -86,6 +87,7 @@ export function SeeSchiffEditModal({ schiff, onOk, onLoeschen, onAbbrechen }: Se
       eta: ausDatumUndZeit(etaDatum, etaZeit) ?? schiff.eta,
       angemeldet,
       e3st,
+      doppeldecker,
       ehfLotseBenoetigt: ehf,
     });
   }
@@ -105,6 +107,7 @@ export function SeeSchiffEditModal({ schiff, onOk, onLoeschen, onAbbrechen }: Se
       </div>
       <div className="job-form__row">
         <Switch label="E3/ST" checked={e3st} onChange={setE3st} />
+        <Switch label="Doppeldecker" checked={doppeldecker} onChange={setDoppeldecker} />
         <label className="job-form__check">
           <span>
             <input type="checkbox" checked={ehf} onChange={(e) => setEhf(e.target.checked)} /> EHF

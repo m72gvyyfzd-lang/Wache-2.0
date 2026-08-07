@@ -8,9 +8,9 @@ import { darfFahren, darfZweiterLotse, schiffsRang } from "@wache/core";
 import type { SeeSchiff } from "../data/types";
 import type { SeestationZeile } from "./seestation";
 
-/** Anzahl benötigter Lotsen eines See-Schiffs (Spalte "Lots."), Standard 1. */
+/** Anzahl benötigter Lotsen eines See-Schiffs: Standard 1, Doppeldecker 2. */
 export function seeLotsenAnzahl(schiff: SeeSchiff): number {
-  return schiff.lotsenAnzahl ?? 1;
+  return schiff.doppeldecker ? 2 : 1;
 }
 
 /** Prüft dieselben Bedingungen wie die Zuweisung, liefert aber den Grund als

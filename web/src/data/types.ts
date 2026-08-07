@@ -168,10 +168,8 @@ export interface SeeSchiff {
   angemeldet?: boolean;
   /** ETA-Zelle dezent rot */
   e3st?: boolean;
-  /** Anzahl benötigter Lotsen (Spalte "Lots.") — analog zu agLotsenAnzahl
-   *  bei AG-Jobs nur per Doppelklick auf die Lots.-Spalte editierbar,
-   *  undefined = 1. */
-  lotsenAnzahl?: number;
+  /** Doppeldecker: braucht 2 Lotsen statt 1 */
+  doppeldecker?: boolean;
   /** EHF-Lotse benötigt — gleiche Regel wie bei Jobs (ab Kat. 4 nur EH) */
   ehfLotseBenoetigt?: boolean;
 }
