@@ -130,4 +130,53 @@ export interface Abteilung {
   elbehafen: boolean;
   /** Zeitpunkt des Abteilens (Klickzeit) */
   abteilZeit: Date;
+  /** manueller Override für "Ankunft S-Stn"/"ETA Stn" (Standard-Berechnung:
+   *  Abteilzeit + 3,5 Std.) */
+  etaStnManuell?: Date;
+  /** true, sobald der Lotse auf der Seestation angekommen ist ("Auf
+   *  Station") — er verschwindet dann aus "Lotsen im Revier" und wird auf
+   *  der Seestation fett dargestellt. */
+  aufSeestation?: boolean;
+}
+
+/**
+ * Schiff, das von See kommend an der Seestation mit Lotsen besetzt werden
+ * muss (Liste "ETAs Seestation"). Eigenständige Datensätze, unabhängig von
+ * den Jobs der Tafel Brb.
+ */
+export interface SeeSchiff {
+  id: number;
+  schiffsname: string;
+  /** geplante Ankunftszeit an der Seestation */
+  eta: Date;
+  /** Schiffskategorie (siehe core::SCHIFFS_KATEGORIEN) */
+  kategorie?: string;
+  /** Zeile fett, wenn das Schiff angemeldet ist */
+  angemeldet?: boolean;
+  /** ETA-Zelle dezent rot */
+  e3st?: boolean;
+  /** Doppeldecker: braucht 2 Lotsen statt 1 */
+  doppeldecker?: boolean;
+  /** EHF-Lotse benötigt — gleiche Regel wie bei Jobs (ab Kat. 4 nur EH) */
+  ehfLotseBenoetigt?: boolean;
+}
+
+/**
+ * Manuell auf der Seestation hinzugefügter Lotse — existiert nur auf der
+ * Liste "Auf Seestation", nicht in der Einsatzstation o.ä. Die V-Nr. wird
+ * mit einem Zusatz (A–D) zwischen die bestehenden Nummern einsortiert,
+ * z.B. 101 → 101 (A) → 101 (B) → 102.
+ */
+export interface SeestationLotse {
+  id: number;
+  vNr: number;
+  zusatz: "A" | "B" | "C" | "D";
+  name: string;
+  /** Lotsenkategorie (siehe core::LOTSEN_KATEGORIEN) */
+  kategorie: string;
+  elbehafen: boolean;
+  /** ETA Stn (Pflichtangabe beim Einfügen) */
+  etaStn?: Date;
+  /** true = vor Ort auf der Seestation */
+  aufStation?: boolean;
 }

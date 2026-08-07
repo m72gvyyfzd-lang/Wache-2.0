@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
-import { mockJobs, mockLotsenliste } from "../data/mockData";
-import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
+import { mockJobs, mockLotsenliste, mockSeeSchiffe } from "../data/mockData";
+import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag, SeeSchiff, SeestationLotse } from "../data/types";
 import { abteilzeitVon } from "../lib/coreJob";
 import { tauschePositionen, verschiebeHinter } from "../lib/lotsenOrdnung";
 import {
@@ -11,6 +11,8 @@ import {
   ladeJobs,
   ladeLetzteVNr,
   ladeLotsen,
+  ladeSeeSchiffe,
+  ladeSeestationLotsen,
   ladeVNrStart,
   speichereAbteilungen,
   speichereAktuelleFahrt,
@@ -18,6 +20,8 @@ import {
   speichereJobs,
   speichereLetzteVNr,
   speichereLotsen,
+  speichereSeeSchiffe,
+  speichereSeestationLotsen,
 } from "./storage";
 
 interface DataContextValue {
@@ -50,6 +54,16 @@ interface DataContextValue {
   /** Macht eine Abteilung rückgängig: entfernt den Datensatz und blendet
    *  den Lotsen wieder ein. */
   macheAbteilungRueckgaengig: (id: number) => void;
+  /** Ändert einzelne Felder einer Abteilung (z.B. aufSeestation, ETA Stn) */
+  updateAbteilung: (id: number, aenderung: Partial<Abteilung>) => void;
+  /** Seestation: Schiffe von See (Liste "ETAs Seestation") */
+  seeSchiffe: SeeSchiff[];
+  addSeeSchiff: (schiff: Omit<SeeSchiff, "id">) => void;
+  updateSeeSchiff: (id: number, schiff: SeeSchiff) => void;
+  /** Seestation: manuell hinzugefügte Lotsen (nur auf dieser Liste) */
+  seestationLotsen: SeestationLotse[];
+  addSeestationLotse: (lotse: Omit<SeestationLotse, "id">) => void;
+  updateSeestationLotse: (id: number, aenderung: Partial<SeestationLotse>) => void;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -62,6 +76,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [letzteVNr, setLetzteVNrState] = useState<number>(() => ladeLetzteVNr(0));
   const [vNrStart] = useState<number>(() => ladeVNrStart(letzteVNr));
   const [abteilungen, setAbteilungen] = useState<Abteilung[]>(() => ladeAbteilungen());
+  const [seeSchiffe, setSeeSchiffe] = useState<SeeSchiff[]>(() => ladeSeeSchiffe(mockSeeSchiffe));
+  const [seestationLotsen, setSeestationLotsen] = useState<SeestationLotse[]>(() => ladeSeestationLotsen());
 
   // Persistenter ID-Zähler: einmal vergebene IDs werden nie wiederverwendet,
   // damit spätere Verweise (z.B. AG-Verknüpfung) eindeutig bleiben.
@@ -71,6 +87,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => speichereJobs(jobs), [jobs]);
   useEffect(() => speichereLotsen(lotsen), [lotsen]);
   useEffect(() => speichereAbteilungen(abteilungen), [abteilungen]);
+  useEffect(() => speichereSeeSchiffe(seeSchiffe), [seeSchiffe]);
+  useEffect(() => speichereSeestationLotsen(seestationLotsen), [seestationLotsen]);
 
   const addJob = useCallback((job: JobEintrag) => {
     const id = naechsteJobId.current!;
@@ -131,6 +149,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [abteilungen],
   );
 
+  const updateAbteilung = useCallback((id: number, aenderung: Partial<Abteilung>) => {
+    setAbteilungen((prev) => prev.map((a) => (a.id === id ? { ...a, ...aenderung, id } : a)));
+  }, []);
+
+  const addSeeSchiff = useCallback((schiff: Omit<SeeSchiff, "id">) => {
+    setSeeSchiffe((prev) => {
+      const id = prev.reduce((max, s) => Math.max(max, s.id), 0) + 1;
+      return [...prev, { ...schiff, id }];
+    });
+  }, []);
+  const updateSeeSchiff = useCallback((id: number, schiff: SeeSchiff) => {
+    setSeeSchiffe((prev) => prev.map((s) => (s.id === id ? { ...schiff, id } : s)));
+  }, []);
+
+  const addSeestationLotse = useCallback((lotse: Omit<SeestationLotse, "id">) => {
+    setSeestationLotsen((prev) => {
+      const id = prev.reduce((max, l) => Math.max(max, l.id), 0) + 1;
+      return [...prev, { ...lotse, id }];
+    });
+  }, []);
+  const updateSeestationLotse = useCallback((id: number, aenderung: Partial<SeestationLotse>) => {
+    setSeestationLotsen((prev) => prev.map((l) => (l.id === id ? { ...l, ...aenderung, id } : l)));
+  }, []);
+
   const setAktuelleFahrt = useCallback((fahrt: AktuelleFahrt) => {
     setAktuelleFahrtState(fahrt);
     speichereAktuelleFahrt(fahrt);
@@ -162,6 +204,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         abteilungen,
         teileAb,
         macheAbteilungRueckgaengig,
+        updateAbteilung,
+        seeSchiffe,
+        addSeeSchiff,
+        updateSeeSchiff,
+        seestationLotsen,
+        addSeestationLotse,
+        updateSeestationLotse,
       }}
     >
       {children}

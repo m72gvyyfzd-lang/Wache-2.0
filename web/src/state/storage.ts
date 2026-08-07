@@ -1,7 +1,7 @@
 /** localStorage-Persistenz für die manuell gepflegten Jobs/Lotsen-Daten.
  *  Date-Felder werden bei JSON.stringify automatisch zu ISO-Strings und
  *  müssen beim Laden wieder in Date-Objekte zurückverwandelt werden. */
-import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
+import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag, SeeSchiff, SeestationLotse } from "../data/types";
 
 // v3: interne Job-ID (id) statt jobNr, AG-Verknüpfung über agJobId.
 const JOBS_KEY = "wache.jobs.v3";
@@ -14,6 +14,8 @@ const AKTUELLE_FAHRT_KEY = "wache.aktuelleFahrt.v1";
 const LETZTE_V_NR_KEY = "wache.letzteVNr.v1";
 const V_NR_START_KEY = "wache.vNrStart.v1";
 const ABTEILUNGEN_KEY = "wache.abteilungen.v1";
+const SEE_SCHIFFE_KEY = "wache.seeschiffe.v1";
+const SEESTATION_LOTSEN_KEY = "wache.seestationLotsen.v1";
 
 const JOB_DATUM_FELDER = [
   "hh",
@@ -127,6 +129,8 @@ export function ladeAbteilungen(): Abteilung[] {
       const abteilung: Record<string, unknown> = { ...eintrag };
       const wert = eintrag.abteilZeit;
       abteilung.abteilZeit = typeof wert === "string" ? new Date(wert) : new Date(0);
+      const eta = eintrag.etaStnManuell;
+      abteilung.etaStnManuell = typeof eta === "string" ? new Date(eta) : undefined;
       return abteilung as unknown as Abteilung;
     });
   } catch {
@@ -136,6 +140,39 @@ export function ladeAbteilungen(): Abteilung[] {
 
 export function speichereAbteilungen(abteilungen: Abteilung[]): void {
   localStorage.setItem(ABTEILUNGEN_KEY, JSON.stringify(abteilungen));
+}
+
+/** Generischer Lader für Listen mit genau einem Date-Feld. */
+function ladeListeMitDatum<T>(key: string, datumsFeld: string, fallback: T[]): T[] {
+  const raw = localStorage.getItem(key);
+  if (!raw) return fallback;
+  try {
+    const eintraege = JSON.parse(raw) as Record<string, unknown>[];
+    return eintraege.map((eintrag) => {
+      const kopie: Record<string, unknown> = { ...eintrag };
+      const wert = eintrag[datumsFeld];
+      kopie[datumsFeld] = typeof wert === "string" ? new Date(wert) : undefined;
+      return kopie as unknown as T;
+    });
+  } catch {
+    return fallback;
+  }
+}
+
+export function ladeSeeSchiffe(fallback: SeeSchiff[]): SeeSchiff[] {
+  return ladeListeMitDatum(SEE_SCHIFFE_KEY, "eta", fallback);
+}
+
+export function speichereSeeSchiffe(schiffe: SeeSchiff[]): void {
+  localStorage.setItem(SEE_SCHIFFE_KEY, JSON.stringify(schiffe));
+}
+
+export function ladeSeestationLotsen(): SeestationLotse[] {
+  return ladeListeMitDatum(SEESTATION_LOTSEN_KEY, "etaStn", []);
+}
+
+export function speichereSeestationLotsen(lotsen: SeestationLotse[]): void {
+  localStorage.setItem(SEESTATION_LOTSEN_KEY, JSON.stringify(lotsen));
 }
 
 export function ladeAktuelleFahrt(fallback: AktuelleFahrt): AktuelleFahrt {

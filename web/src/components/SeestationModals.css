@@ -1,0 +1,57 @@
+/* Schiebeschalter (angemeldet, E3/ST, Doppeldecker) */
+.seestation-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.seestation-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.seestation-switch__slider {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: var(--line);
+  transition: background 0.15s ease;
+}
+
+.seestation-switch__slider::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+
+.seestation-switch input:checked + .seestation-switch__slider {
+  background: var(--accent);
+}
+
+.seestation-switch input:checked + .seestation-switch__slider::after {
+  transform: translateX(18px);
+}
+
+/* EHF-Häkchen linksbündig unter den Switches */
+.seestation-ehf {
+  justify-content: flex-start;
+}
+
+.seestation-vnr {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}

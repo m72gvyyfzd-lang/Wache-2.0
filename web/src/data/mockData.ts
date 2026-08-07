@@ -4,7 +4,7 @@
  * Datenquelle (PDF-Extraktion / Live-Anbindung) angeschlossen wird.
  */
 
-import type { JobEintrag, LotsenEintrag } from "./types";
+import type { JobEintrag, LotsenEintrag, SeeSchiff } from "./types";
 
 export const mockJobs: JobEintrag[] = [
   // Liste Hamburg (Elbe): HH -> FkW -> Stade
@@ -44,6 +44,21 @@ export const mockJobs: JobEintrag[] = [
  * "leer" bei fahrt = Bereitschaft an der Einsatzstation (BB-Gruppe);
  * MoFa/MiFa/AFA = in dieser Fahrt unterwegs, nicht an der Station verfügbar.
  */
+/** Beispielschiffe für die Liste "ETAs Seestation" (von See einkommend). */
+export const mockSeeSchiffe: SeeSchiff[] = [
+  { id: 1, schiffsname: "MS MORGENROT", eta: new Date("2026-08-02T07:30:00"), kategorie: "2", angemeldet: true },
+  { id: 2, schiffsname: "MS EISBRECHER", eta: new Date("2026-08-02T09:15:00"), kategorie: "5", e3st: true },
+  {
+    id: 3,
+    schiffsname: "MS GIGANTIA",
+    eta: new Date("2026-08-02T11:00:00"),
+    kategorie: "AGF 3/7",
+    doppeldecker: true,
+    angemeldet: true,
+  },
+  { id: 4, schiffsname: "MS TANKSTERN", eta: new Date("2026-08-02T13:45:00"), kategorie: "4", ehfLotseBenoetigt: true },
+];
+
 export const mockLotsenliste: LotsenEintrag[] = [
   {
     name: "Mustermann, Max",

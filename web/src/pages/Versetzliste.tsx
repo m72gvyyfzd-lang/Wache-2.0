@@ -5,6 +5,7 @@ import { Modal } from "../components/Modal";
 import { Panel } from "../components/Panel";
 import type { Abteilung } from "../data/types";
 import { formatUhrzeit } from "../lib/format";
+import { etaSeestation } from "../lib/seestation";
 import { useData } from "../state/DataContext";
 import "./Versetzliste.css";
 
@@ -21,7 +22,12 @@ export function Versetzliste() {
   const [auswahl, setAuswahl] = useState<number | null>(null);
   const [frageOffen, setFrageOffen] = useState(false);
 
-  const revier = abteilungen.filter((a) => a.vNr !== undefined).sort((a, b) => a.vNr! - b.vNr!);
+  // Lotsen, die schon auf der Seestation angekommen sind ("Auf Station"),
+  // verschwinden aus dieser Liste — sie stehen dann nur noch im Tab
+  // Seestation.
+  const revier = abteilungen
+    .filter((a) => a.vNr !== undefined && !a.aufSeestation)
+    .sort((a, b) => a.vNr! - b.vNr!);
   const vergabe = abteilungen
     .filter((a) => a.vNr === undefined)
     .sort((a, b) => a.abteilZeit.getTime() - b.abteilZeit.getTime());
@@ -80,7 +86,7 @@ export function Versetzliste() {
                 <td className="num muted zentriert">{a.lotsenKategorie}</td>
                 <td className="num zentriert">{a.elbehafen ? "✓" : ""}</td>
                 <td className="num zentriert">{formatUhrzeit(a.abteilZeit)}</td>
-                <td className="num muted zentriert">–</td>
+                <td className="num muted zentriert">{formatUhrzeit(etaSeestation(a))}</td>
                 <td className="num muted zentriert">–</td>
               </tr>
             ))}

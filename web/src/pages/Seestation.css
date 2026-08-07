@@ -1,0 +1,86 @@
+/* Zweigeteilte Tabelle im Stil der Einsatzplanung */
+.seestation-table__divider {
+  width: 32px;
+  padding: 0 !important;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  background: var(--surface-2);
+  text-align: center;
+}
+
+.seestation-table__gruppen th {
+  text-align: center;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  padding: 10px 14px 6px;
+}
+
+.seestation-table th,
+.seestation-table td {
+  white-space: nowrap;
+}
+
+.seestation-table td.num,
+.seestation-table th.num {
+  width: 1%;
+}
+
+.seestation-table td.zentriert,
+.seestation-table th.zentriert {
+  text-align: center;
+}
+
+.seestation-table td.cell-name {
+  white-space: normal;
+  max-width: 220px;
+}
+
+.seestation-table th.kopf-umbruch {
+  white-space: normal;
+  max-width: 70px;
+}
+
+/* angemeldetes Schiff bzw. Lotse auf Station: fett */
+.seestation-table td.fett {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* Lotsen, die noch nicht auf Station sind: dezent */
+.seestation-table td.gedimmt {
+  color: var(--ink-muted);
+}
+
+/* E3/ST: ETA-Zelle dezent rot */
+.seestation-table td.eta-rot {
+  background: rgba(181, 67, 47, 0.14);
+  color: #b5432f;
+}
+
+/* Auswahl/Hover je Seite (links Spalten 1–5, Divider 6, rechts ab 7) */
+.seestation-table tbody tr:hover td {
+  background: transparent;
+}
+
+.seestation-table td.seestation-table__seite {
+  cursor: pointer;
+}
+
+.seestation-table tbody tr:has(> td.seestation-table__seite:nth-child(-n + 5):hover) td.seestation-table__seite:nth-child(-n + 5),
+.seestation-table tbody tr:has(> td.seestation-table__seite:nth-child(n + 7):hover) td.seestation-table__seite:nth-child(n + 7) {
+  background: var(--surface-2);
+}
+
+.seestation-table td.ist-ausgewaehlt {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface)) !important;
+}
+
+/* E3/ST-Markierung soll auch bei Hover sichtbar bleiben */
+.seestation-table tbody tr:has(> td.seestation-table__seite:nth-child(-n + 5):hover) td.eta-rot {
+  background: rgba(181, 67, 47, 0.2);
+}
+
+.seestation-aktionen {
+  display: flex;
+  gap: 8px;
+}
