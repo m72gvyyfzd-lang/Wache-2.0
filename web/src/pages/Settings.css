@@ -1,4 +1,8 @@
 .settings-feld-zeile {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
   padding: 16px 20px;
 }
 
@@ -18,4 +22,9 @@
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-size: 1rem;
+}
+
+.settings-testdaten-meldung {
+  font-size: 0.85rem;
+  color: var(--ink-muted);
 }

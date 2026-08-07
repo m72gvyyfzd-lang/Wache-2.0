@@ -22,18 +22,33 @@ interface SeeSchiffNeuModalProps {
   onAbbrechen: () => void;
 }
 
-/** "+ Neues Schiff": nur die Grunddaten — die Switches kommen erst im
- *  Bearbeitungsfenster. */
+/** "+ Neues Schiff": Grunddaten plus dieselben Switches wie im
+ *  Bearbeitungsfenster, damit ein neu angelegtes Schiff nicht sofort danach
+ *  erneut geöffnet werden muss. ETA-Datum ist mit dem heutigen Datum
+ *  vorbelegt. */
 export function SeeSchiffNeuModal({ onEinfuegen, onAbbrechen }: SeeSchiffNeuModalProps) {
   const [schiffsname, setSchiffsname] = useState("");
-  const [eta, setEta] = useState("");
+  const [etaDatum, setEtaDatum] = useState(() => toLocalDateInput(new Date()));
+  const [etaZeit, setEtaZeit] = useState("");
   const [kategorie, setKategorie] = useState("");
+  const [angemeldet, setAngemeldet] = useState(false);
+  const [e3st, setE3st] = useState(false);
+  const [doppeldecker, setDoppeldecker] = useState(false);
+  const [ehf, setEhf] = useState(false);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const etaDatum = fromLocalInput(eta);
-    if (!etaDatum) return;
-    onEinfuegen({ schiffsname: schiffsname.trim().toUpperCase(), eta: etaDatum, kategorie: kategorie || undefined });
+    const eta = ausDatumUndZeit(etaDatum, etaZeit);
+    if (!eta) return;
+    onEinfuegen({
+      schiffsname: schiffsname.trim().toUpperCase(),
+      eta,
+      kategorie: kategorie || undefined,
+      angemeldet,
+      e3st,
+      doppeldecker,
+      ehfLotseBenoetigt: ehf,
+    });
   }
 
   return (
@@ -46,10 +61,24 @@ export function SeeSchiffNeuModal({ onEinfuegen, onAbbrechen }: SeeSchiffNeuModa
       </div>
       <div className="job-form__row">
         <label>
-          ETA
-          <input type="datetime-local" value={eta} onChange={(e) => setEta(e.target.value)} required />
+          ETA-Datum
+          <input type="date" value={etaDatum} onChange={(e) => setEtaDatum(e.target.value)} required />
         </label>
-        <SchiffKatSelect value={kategorie} onChange={setKategorie} />
+        <label>
+          ETA-Zeit
+          <input type="time" value={etaZeit} onChange={(e) => setEtaZeit(e.target.value)} required />
+        </label>
+        <SchiffKatSelect value={kategorie} onChange={setKategorie} className="job-form__kat-schmal" />
+        <Switch label="angemeldet" checked={angemeldet} onChange={setAngemeldet} />
+      </div>
+      <div className="job-form__row">
+        <Switch label="E3/ST" checked={e3st} onChange={setE3st} />
+        <Switch label="Doppeldecker" checked={doppeldecker} onChange={setDoppeldecker} />
+        <label className="job-form__check">
+          <span>
+            <input type="checkbox" checked={ehf} onChange={(e) => setEhf(e.target.checked)} /> EHF
+          </span>
+        </label>
       </div>
       <div className="job-form__actions">
         <button type="button" className="btn btn--ghost" onClick={onAbbrechen}>

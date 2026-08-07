@@ -7,11 +7,12 @@ import { formatUhrzeit } from "../lib/format";
 interface SchiffKatSelectProps {
   value: string;
   onChange: (wert: string) => void;
+  className?: string;
 }
 
-export function SchiffKatSelect({ value, onChange }: SchiffKatSelectProps) {
+export function SchiffKatSelect({ value, onChange, className }: SchiffKatSelectProps) {
   return (
-    <label>
+    <label className={className}>
       Kat.
       <select value={value} onChange={(e) => onChange(e.target.value)}>
         <option value="">–</option>

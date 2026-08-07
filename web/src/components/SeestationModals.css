@@ -50,3 +50,9 @@
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+
+/* Schmales Kat.-Dropdown im Neues-Schiff-Formular, damit ETA-Datum,
+   ETA-Zeit, Kat. und der angemeldet-Schalter in einer Zeile bleiben. */
+.job-form__row > .job-form__kat-schmal {
+  flex: 0 0 84px;
+}
