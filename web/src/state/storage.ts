@@ -27,6 +27,7 @@ const SEESTATION_LOTSEN_KEY = "wache.seestationLotsen.v1";
 const SEE_ABTEILUNGEN_KEY = "wache.seeAbteilungen.v1";
 const A_NR_ZAEHLER_KEY = "wache.aNrZaehler.v1";
 const VERBRAUCHTE_V_NR_KEY = "wache.verbrauchteVNrn.v1";
+const ALARM_TON_KEY = "wache.alarmTon.v1";
 
 const JOB_DATUM_FELDER = [
   "hh",
@@ -259,4 +260,12 @@ export function ladeVerbrauchteVNrn(): number[] {
 
 export function speichereVerbrauchteVNrn(vNrn: number[]): void {
   localStorage.setItem(VERBRAUCHTE_V_NR_KEY, JSON.stringify(vNrn));
+}
+
+export function ladeAlarmTonAktiv(): boolean {
+  return localStorage.getItem(ALARM_TON_KEY) === "1";
+}
+
+export function speichereAlarmTonAktiv(aktiv: boolean): void {
+  localStorage.setItem(ALARM_TON_KEY, aktiv ? "1" : "0");
 }
