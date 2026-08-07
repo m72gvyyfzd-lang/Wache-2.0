@@ -44,7 +44,8 @@ function istOhneVNrJob(job: JobEintrag): boolean {
 }
 
 export function Einsatzplanung() {
-  const { jobs, lotsen, aktuelleFahrt, updateJob, updateLotse, vNrStart, abteilungen, teileAb } = useData();
+  const { jobs, lotsen, aktuelleFahrt, updateJob, updateLotse, vNrStart, abteilungen, teileAb, verbrauchteVNrn } =
+    useData();
   // Bereits abgeteilte Lotsen je Job: voll abgeteilte Jobs verschwinden aus
   // der Liste, AG-Jobs zeigen bis dahin die Rest-Anzahl.
   const abgeteiltProJob = new Map<number, number>();
@@ -66,7 +67,10 @@ export function Einsatzplanung() {
   // OHNE_V_NR_TYPEN bekommen keine — der Zähler bleibt für sie stehen und
   // geht an den nächsten Lotsen ohne diese Restriktion. Statt der V-Nr.
   // zeigt die Spalte dann die Kurzform des Job-Typs. Beim Abteilen
-  // vergebene Nummern sind fest verbraucht und werden übersprungen.
+  // vergebene Nummern sind dauerhaft verbraucht (siehe verbrauchteVNrn) und
+  // werden übersprungen — auch wenn sich die vNr einer Abteilung später
+  // ändert (z.B. durch Verschieben auf der Seestation) oder rückgängig
+  // gemacht wird, wird die Nummer nicht wieder frei.
   const ohneVNr = new Set<LotsenEintrag>();
   const typProLotse = new Map<LotsenEintrag, string>();
   for (const { eintrag: job } of jobsSortiert) {
@@ -77,8 +81,7 @@ export function Einsatzplanung() {
       }
     }
   }
-  const vergebeneVNrn = new Set<number>();
-  for (const a of abteilungen) if (a.vNr !== undefined) vergebeneVNrn.add(a.vNr);
+  const vergebeneVNrn = new Set(verbrauchteVNrn);
   const vNrProLotse = new Map<LotsenEintrag, number>();
   let naechsteVNr = vNrStart;
   for (const { eintrag } of lotsenSortiert) {

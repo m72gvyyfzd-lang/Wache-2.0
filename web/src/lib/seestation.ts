@@ -37,7 +37,7 @@ export function sortiereSeestation(zeilen: SeestationZeile[]): SeestationZeile[]
 
 export function zeilenAusAbteilungen(abteilungen: Abteilung[]): SeestationZeile[] {
   return abteilungen
-    .filter((a) => a.vNr !== undefined && !a.abgeschoepft)
+    .filter((a) => a.vNr !== undefined && !a.abgeschoepft && !a.ankert && !a.seeAbgeteilt)
     .map((a) => ({
       key: `abteilung-${a.id}`,
       quelle: "abteilung" as const,
@@ -52,16 +52,18 @@ export function zeilenAusAbteilungen(abteilungen: Abteilung[]): SeestationZeile[
 }
 
 export function zeilenAusSeestationLotsen(lotsen: SeestationLotse[]): SeestationZeile[] {
-  return lotsen.map((l) => ({
-    key: `manuell-${l.id}`,
-    quelle: "manuell" as const,
-    id: l.id,
-    vNr: l.vNr,
-    zusatz: l.zusatz,
-    name: l.name,
-    kategorie: l.kategorie,
-    elbehafen: l.elbehafen,
-    etaStn: l.etaStn,
-    aufStation: l.aufStation ?? false,
-  }));
+  return lotsen
+    .filter((l) => !l.abgeschoepft && !l.seeAbgeteilt)
+    .map((l) => ({
+      key: `manuell-${l.id}`,
+      quelle: "manuell" as const,
+      id: l.id,
+      vNr: l.vNr,
+      zusatz: l.zusatz,
+      name: l.name,
+      kategorie: l.kategorie,
+      elbehafen: l.elbehafen,
+      etaStn: l.etaStn,
+      aufStation: l.aufStation ?? false,
+    }));
 }

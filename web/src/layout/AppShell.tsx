@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: "/einsatzplanung", label: "Einsatzplanung" },
   { to: "/versetzliste", label: "Versetzliste" },
   { to: "/seestation", label: "Seestation" },
+  { to: "/versetzliste-seestation", label: "Versetzliste Seestation" },
   { to: "/einsatzstation", label: "Einsatzstation" },
   { to: "/settings", label: "Settings" },
 ];

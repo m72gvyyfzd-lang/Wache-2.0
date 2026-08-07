@@ -142,6 +142,14 @@ export interface Abteilung {
    *  (wie abgeteilt/aufSeestation) erhalten, u.a. damit die AG-Restzählung
    *  und die Job-Ausblendung in Tafel Brb korrekt bleiben. */
   abgeschoepft?: boolean;
+  /** true, solange der Lotse "ankert" — er kommt dann nicht an der
+   *  Seestation an und wird aus "Auf Seestation" ausgeblendet. Reversibel:
+   *  beim Zurückschalten erscheint er dort wieder mit seiner V-Nr. */
+  ankert?: boolean;
+  /** true, sobald der Lotse per Seestation-Abteilen einem See-Schiff
+   *  zugewiesen wurde (siehe SeeAbteilung) — er verschwindet dann aus
+   *  "Auf Seestation", der Datensatz bleibt erhalten. */
+  seeAbgeteilt?: boolean;
 }
 
 /**
@@ -184,4 +192,41 @@ export interface SeestationLotse {
   etaStn?: Date;
   /** true = vor Ort auf der Seestation */
   aufStation?: boolean;
+  /** true, sobald der Lotse auf der Seestation "abgeschöpft" wurde — er
+   *  verschwindet dann aus "Auf Seestation" und erscheint stattdessen auf
+   *  der Liste "Abgeschöpfte Lotsen" (Tab Versetzliste Seestation). Der
+   *  Datensatz bleibt erhalten (kein Löschen), damit er über die
+   *  Rückgängig-Funktion wiederhergestellt werden kann. */
+  abgeschoepft?: boolean;
+  /** true, sobald der Lotse per Seestation-Abteilen einem See-Schiff
+   *  zugewiesen wurde (siehe SeeAbteilung) — er verschwindet dann aus
+   *  "Auf Seestation", der Datensatz bleibt erhalten. */
+  seeAbgeteilt?: boolean;
+}
+
+/**
+ * "SeeAbteilung": verbindet ein See-Schiff (Liste "ETA Seestation") mit dem
+ * Lotsen der Seestation, der es übernimmt — das Gegenstück zu Abteilung,
+ * nur für die Seestation. Erzeugt einen Eintrag auf der Liste "Versetz auf
+ * Seestation" (Tab Versetzliste Seestation) mit eigener, fortlaufender
+ * A-Nr. (nie wiederverwendet, unabhängig von der V-Nr.-Zählung). Der
+ * Quell-Lotse (Abteilung oder SeestationLotse) wird nur ausgeblendet
+ * (seeAbgeteilt), nicht gelöscht — Rückgängig macht beides sichtbar.
+ */
+export interface SeeAbteilung {
+  /** eigene fortlaufende ID */
+  id: number;
+  seeSchiffId: number;
+  schiffsname: string;
+  /** A-Nr. im Moment des Abteilens, fortlaufend ab 1000 */
+  aNr: number;
+  /** woher der Lotse stammt — für Rückgängig */
+  lotsenQuelle: "abteilung" | "manuell";
+  /** ID des Quell-Datensatzes (Abteilung.id bzw. SeestationLotse.id) */
+  lotsenId: number;
+  lotsenName: string;
+  lotsenKategorie: string;
+  elbehafen: boolean;
+  /** Zeitpunkt des Abteilens (Klickzeit) */
+  abteilZeit: Date;
 }

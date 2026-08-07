@@ -1,7 +1,15 @@
 /** localStorage-Persistenz für die manuell gepflegten Jobs/Lotsen-Daten.
  *  Date-Felder werden bei JSON.stringify automatisch zu ISO-Strings und
  *  müssen beim Laden wieder in Date-Objekte zurückverwandelt werden. */
-import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag, SeeSchiff, SeestationLotse } from "../data/types";
+import type {
+  Abteilung,
+  AktuelleFahrt,
+  JobEintrag,
+  LotsenEintrag,
+  SeeAbteilung,
+  SeeSchiff,
+  SeestationLotse,
+} from "../data/types";
 
 // v3: interne Job-ID (id) statt jobNr, AG-Verknüpfung über agJobId.
 const JOBS_KEY = "wache.jobs.v3";
@@ -16,6 +24,9 @@ const V_NR_START_KEY = "wache.vNrStart.v1";
 const ABTEILUNGEN_KEY = "wache.abteilungen.v1";
 const SEE_SCHIFFE_KEY = "wache.seeschiffe.v1";
 const SEESTATION_LOTSEN_KEY = "wache.seestationLotsen.v1";
+const SEE_ABTEILUNGEN_KEY = "wache.seeAbteilungen.v1";
+const A_NR_ZAEHLER_KEY = "wache.aNrZaehler.v1";
+const VERBRAUCHTE_V_NR_KEY = "wache.verbrauchteVNrn.v1";
 
 const JOB_DATUM_FELDER = [
   "hh",
@@ -206,4 +217,46 @@ export function ladeVNrStart(letzteVNr: number): number {
   const start = letzteVNr + 1;
   localStorage.setItem(V_NR_START_KEY, String(start));
   return start;
+}
+
+export function ladeSeeAbteilungen(): SeeAbteilung[] {
+  return ladeListeMitDatum(SEE_ABTEILUNGEN_KEY, "abteilZeit", []);
+}
+
+export function speichereSeeAbteilungen(seeAbteilungen: SeeAbteilung[]): void {
+  localStorage.setItem(SEE_ABTEILUNGEN_KEY, JSON.stringify(seeAbteilungen));
+}
+
+/** Nächste zu vergebende A-Nr.: gespeicherter Zähler, sonst max(aNr)+1 der
+ *  geladenen SeeAbteilungen bzw. 1000 als Start — bleibt wie die Job-ID
+ *  auch nach Rückgängig/Löschungen eindeutig und wird nie wiederverwendet. */
+export function ladeANrZaehler(seeAbteilungen: SeeAbteilung[]): number {
+  const raw = localStorage.getItem(A_NR_ZAEHLER_KEY);
+  const gespeichert = raw ? Number(raw) : Number.NaN;
+  const mindestens = seeAbteilungen.reduce((max, a) => Math.max(max, a.aNr), 999) + 1;
+  return Number.isInteger(gespeichert) ? Math.max(gespeichert, mindestens) : mindestens;
+}
+
+export function speichereANrZaehler(wert: number): void {
+  localStorage.setItem(A_NR_ZAEHLER_KEY, String(wert));
+}
+
+/** Persistente Liste bereits per Einsatzplanung-Abteilen vergebener V-Nrn.
+ *  Append-only: eine V-Nr. bleibt hier auch dann verbraucht, wenn sich das
+ *  vNr-Feld der zugehörigen Abteilung später ändert (z.B. durch Verschieben
+ *  auf der Seestation) oder die Abteilung rückgängig gemacht wird. Erst ein
+ *  künftiges Reset setzt diese Liste wieder auf leer zurück. */
+export function ladeVerbrauchteVNrn(): number[] {
+  const raw = localStorage.getItem(VERBRAUCHTE_V_NR_KEY);
+  if (!raw) return [];
+  try {
+    const werte = JSON.parse(raw) as unknown[];
+    return werte.filter((w): w is number => typeof w === "number");
+  } catch {
+    return [];
+  }
+}
+
+export function speichereVerbrauchteVNrn(vNrn: number[]): void {
+  localStorage.setItem(VERBRAUCHTE_V_NR_KEY, JSON.stringify(vNrn));
 }

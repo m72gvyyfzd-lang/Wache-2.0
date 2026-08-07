@@ -7,7 +7,7 @@ import "./JobForm.css";
 import "./SeestationModals.css";
 
 /** Schiebeschalter im iOS-Stil (Checkbox mit Switch-Optik). */
-function Switch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (wert: boolean) => void }) {
+export function Switch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (wert: boolean) => void }) {
   return (
     <label className="seestation-switch">
       <span className="seestation-switch__label">{label}</span>
@@ -130,30 +130,48 @@ export function SeeSchiffEditModal({ schiff, onOk, onLoeschen, onAbbrechen }: Se
   );
 }
 
+interface VerschiebenZiel {
+  id: number;
+  label: string;
+}
+
 interface SeestationLotseAktionModalProps {
   initialEtaStn: Date | undefined;
-  /** true = Lotse ist bereits vor Ort — dann nur Abbrechen/Abschöpfen */
+  /** true = Lotse ist bereits vor Ort — dann nur Abbrechen/Verschieben/Abschöpfen */
   aufStation: boolean;
+  /** true = "Verschieben" anbieten (nur Lotsen aus der Versetzliste,
+   *  quelle === "abteilung" — manuelle Seestation-Lotsen haben ein anderes
+   *  V-Nr.-Schema und sind daher ausgenommen) */
+  zeigeVerschieben: boolean;
+  /** andere Lotsen, hinter die verschoben werden kann (ebenfalls auf der
+   *  Seestation, quelle === "abteilung", ohne den Lotsen selbst) */
+  verschiebenZiele: VerschiebenZiel[];
   onUebernehmen: (etaStn: Date | undefined) => void;
   onAufStation: () => void;
+  onVerschieben: (zielId: number) => void;
   onAbschoepfen: () => void;
   onAbbrechen: () => void;
 }
 
 /** Doppelklick auf einen Lotsen der Liste "Auf Seestation". Noch nicht vor
  *  Ort: ETA Stn korrigieren oder als angekommen ("Auf Seestation")
- *  markieren. Bereits vor Ort: nur noch "Abschöpfen" (Lotse verlässt die
- *  Seestation, Eintrag verschwindet aus der Liste). */
+ *  markieren. Bereits vor Ort: Verschieben (Positionstausch mit V-Nr.-Zusatz)
+ *  oder "Abschöpfen" (Lotse verlässt die Seestation). */
 export function SeestationLotseAktionModal({
   initialEtaStn,
   aufStation,
+  zeigeVerschieben,
+  verschiebenZiele,
   onUebernehmen,
   onAufStation,
+  onVerschieben,
   onAbschoepfen,
   onAbbrechen,
 }: SeestationLotseAktionModalProps) {
   const [basis] = useState(() => initialEtaStn ?? new Date());
   const [zeit, setZeit] = useState(toLocalTimeInput(initialEtaStn));
+  const [verschiebenOffen, setVerschiebenOffen] = useState(false);
+  const [ziel, setZiel] = useState("");
 
   function neueEta(): Date | undefined {
     if (zeit === "") return initialEtaStn;
@@ -163,14 +181,51 @@ export function SeestationLotseAktionModal({
     return ergebnis;
   }
 
+  function toggleVerschieben() {
+    setVerschiebenOffen((offen) => !offen);
+    setZiel("");
+  }
+
   if (aufStation) {
     return (
       <div className="job-form">
+        {zeigeVerschieben && (
+          <div className={"job-form__row" + (!verschiebenOffen ? " job-form__verborgen" : "")}>
+            <label className="job-form__grow2">
+              Einfügen hinter…
+              <select value={ziel} onChange={(e) => setZiel(e.target.value)}>
+                <option value="">–</option>
+                {verschiebenZiele.map((z) => (
+                  <option key={z.id} value={z.id}>
+                    {z.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="btn btn--accent"
+              disabled={ziel === ""}
+              onClick={() => onVerschieben(Number(ziel))}
+            >
+              OK
+            </button>
+          </div>
+        )}
         <div className="job-form__actions">
           <button type="button" className="btn btn--ghost" onClick={onAbbrechen}>
             Abbrechen
           </button>
           <span className="job-form__spacer" />
+          {zeigeVerschieben && (
+            <button
+              type="button"
+              className={"btn" + (verschiebenOffen ? " btn--accent" : "")}
+              onClick={toggleVerschieben}
+            >
+              Verschieben
+            </button>
+          )}
           <button type="button" className="btn btn--danger" onClick={onAbschoepfen}>
             Abgeschöpft
           </button>

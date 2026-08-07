@@ -3,6 +3,7 @@ import { Badge } from "../components/Badge";
 import { FrageModal } from "../components/FrageModal";
 import { Modal } from "../components/Modal";
 import { Panel } from "../components/Panel";
+import { Switch } from "../components/SeestationModals";
 import type { Abteilung } from "../data/types";
 import { formatUhrzeit } from "../lib/format";
 import { etaSeestation } from "../lib/seestation";
@@ -16,11 +17,41 @@ function eintragLabel(abteilung: Abteilung): string {
   return [abteilung.typLabel, abteilung.schiffsname].filter(Boolean).join(" ");
 }
 
+/** Doppelklick auf "Ankert": Switch umschalten, mit Abbrechen/OK. */
+function AnkertModal({
+  initial,
+  onUebernehmen,
+  onAbbrechen,
+}: {
+  initial: boolean;
+  onUebernehmen: (wert: boolean) => void;
+  onAbbrechen: () => void;
+}) {
+  const [ankert, setAnkert] = useState(initial);
+  return (
+    <div className="job-form">
+      <div className="job-form__row">
+        <Switch label="ankert" checked={ankert} onChange={setAnkert} />
+      </div>
+      <div className="job-form__actions">
+        <button type="button" className="btn btn--ghost" onClick={onAbbrechen}>
+          Abbrechen
+        </button>
+        <span className="job-form__spacer" />
+        <button type="button" className="btn btn--accent" onClick={() => onUebernehmen(ankert)}>
+          OK
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function Versetzliste() {
-  const { abteilungen, macheAbteilungRueckgaengig } = useData();
+  const { abteilungen, macheAbteilungRueckgaengig, updateAbteilung } = useData();
   // Auswahl gilt über beide Listen hinweg — erneuter Klick wählt wieder ab
   const [auswahl, setAuswahl] = useState<number | null>(null);
   const [frageOffen, setFrageOffen] = useState(false);
+  const [ankertAbteilung, setAnkertAbteilung] = useState<Abteilung | null>(null);
 
   // Lotsen, die schon auf der Seestation angekommen sind ("Auf Station"),
   // verschwinden aus dieser Liste — sie stehen dann nur noch im Tab
@@ -87,7 +118,9 @@ export function Versetzliste() {
                 <td className="num zentriert">{a.elbehafen ? "✓" : ""}</td>
                 <td className="num zentriert">{formatUhrzeit(a.abteilZeit)}</td>
                 <td className="num muted zentriert">{formatUhrzeit(etaSeestation(a))}</td>
-                <td className="num muted zentriert">–</td>
+                <td className="num muted zentriert" onDoubleClick={() => setAnkertAbteilung(a)}>
+                  {a.ankert ? "⚓️" : "–"}
+                </td>
               </tr>
             ))}
             {revier.length === 0 && (
@@ -147,6 +180,19 @@ export function Versetzliste() {
             frage={`Soll die Abteilung von ${ausgewaehlt.lotsenName} zu ${eintragLabel(ausgewaehlt)} rückgängig gemacht werden?`}
             onJa={handleRueckgaengigJa}
             onNein={() => setFrageOffen(false)}
+          />
+        </Modal>
+      )}
+
+      {ankertAbteilung && (
+        <Modal title="Ankert" onClose={() => setAnkertAbteilung(null)} maxWidth="300px" titelZentriert>
+          <AnkertModal
+            initial={ankertAbteilung.ankert ?? false}
+            onUebernehmen={(wert) => {
+              updateAbteilung(ankertAbteilung.id, { ankert: wert });
+              setAnkertAbteilung(null);
+            }}
+            onAbbrechen={() => setAnkertAbteilung(null)}
           />
         </Modal>
       )}

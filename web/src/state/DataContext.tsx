@@ -1,27 +1,41 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
 import { mockJobs, mockLotsenliste, mockSeeSchiffe } from "../data/mockData";
-import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag, SeeSchiff, SeestationLotse } from "../data/types";
+import type {
+  Abteilung,
+  AktuelleFahrt,
+  JobEintrag,
+  LotsenEintrag,
+  SeeAbteilung,
+  SeeSchiff,
+  SeestationLotse,
+} from "../data/types";
 import { abteilzeitVon } from "../lib/coreJob";
 import { tauschePositionen, verschiebeHinter } from "../lib/lotsenOrdnung";
 import {
   ladeAbteilungen,
   ladeAktuelleFahrt,
+  ladeANrZaehler,
   ladeJobIdZaehler,
   ladeJobs,
   ladeLetzteVNr,
   ladeLotsen,
+  ladeSeeAbteilungen,
   ladeSeeSchiffe,
   ladeSeestationLotsen,
+  ladeVerbrauchteVNrn,
   ladeVNrStart,
   speichereAbteilungen,
   speichereAktuelleFahrt,
+  speichereANrZaehler,
   speichereJobIdZaehler,
   speichereJobs,
   speichereLetzteVNr,
   speichereLotsen,
+  speichereSeeAbteilungen,
   speichereSeeSchiffe,
   speichereSeestationLotsen,
+  speichereVerbrauchteVNrn,
 } from "./storage";
 
 interface DataContextValue {
@@ -56,6 +70,10 @@ interface DataContextValue {
   macheAbteilungRueckgaengig: (id: number) => void;
   /** Ändert einzelne Felder einer Abteilung (z.B. aufSeestation, ETA Stn) */
   updateAbteilung: (id: number, aenderung: Partial<Abteilung>) => void;
+  /** Persistente Liste bereits per teileAb vergebener V-Nrn — bleibt auch
+   *  nach Verschieben (Seestation) oder Rückgängig verbraucht, bis zu einem
+   *  künftigen Reset. */
+  verbrauchteVNrn: number[];
   /** Seestation: Schiffe von See (Liste "ETAs Seestation") */
   seeSchiffe: SeeSchiff[];
   addSeeSchiff: (schiff: Omit<SeeSchiff, "id">) => void;
@@ -66,6 +84,19 @@ interface DataContextValue {
   addSeestationLotse: (lotse: Omit<SeestationLotse, "id">) => void;
   updateSeestationLotse: (id: number, aenderung: Partial<SeestationLotse>) => void;
   deleteSeestationLotse: (id: number) => void;
+  /** Versetzliste Seestation: alle SeeAbteilungen (Schiff-Lotse-Verbindungen) */
+  seeAbteilungen: SeeAbteilung[];
+  /** Teilt den Lotsen (Abteilung oder SeestationLotse) dem See-Schiff ab:
+   *  legt den SeeAbteilung-Datensatz mit neuer A-Nr. an und blendet den
+   *  Quell-Lotsen aus "Auf Seestation" aus. */
+  teileSeeAb: (
+    seeAbteilung: Omit<SeeAbteilung, "id" | "aNr">,
+    lotsenQuelle: "abteilung" | "manuell",
+    lotsenId: number,
+  ) => void;
+  /** Macht eine SeeAbteilung rückgängig: entfernt den Datensatz und blendet
+   *  den Quell-Lotsen wieder in "Auf Seestation" ein. */
+  macheSeeAbteilungRueckgaengig: (id: number) => void;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -80,17 +111,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [abteilungen, setAbteilungen] = useState<Abteilung[]>(() => ladeAbteilungen());
   const [seeSchiffe, setSeeSchiffe] = useState<SeeSchiff[]>(() => ladeSeeSchiffe(mockSeeSchiffe));
   const [seestationLotsen, setSeestationLotsen] = useState<SeestationLotse[]>(() => ladeSeestationLotsen());
+  const [seeAbteilungen, setSeeAbteilungen] = useState<SeeAbteilung[]>(() => ladeSeeAbteilungen());
+  const [verbrauchteVNrn, setVerbrauchteVNrn] = useState<number[]>(() => ladeVerbrauchteVNrn());
 
   // Persistenter ID-Zähler: einmal vergebene IDs werden nie wiederverwendet,
   // damit spätere Verweise (z.B. AG-Verknüpfung) eindeutig bleiben.
   const naechsteJobId = useRef<number | null>(null);
   if (naechsteJobId.current === null) naechsteJobId.current = ladeJobIdZaehler(jobs);
+  // Persistenter A-Nr.-Zähler (Versetzliste Seestation) — analog zur Job-ID,
+  // startet bei 1000, wird nie wiederverwendet.
+  const naechsteANr = useRef<number | null>(null);
+  if (naechsteANr.current === null) naechsteANr.current = ladeANrZaehler(seeAbteilungen);
 
   useEffect(() => speichereJobs(jobs), [jobs]);
   useEffect(() => speichereLotsen(lotsen), [lotsen]);
   useEffect(() => speichereAbteilungen(abteilungen), [abteilungen]);
   useEffect(() => speichereSeeSchiffe(seeSchiffe), [seeSchiffe]);
   useEffect(() => speichereSeestationLotsen(seestationLotsen), [seestationLotsen]);
+  useEffect(() => speichereSeeAbteilungen(seeAbteilungen), [seeAbteilungen]);
+  useEffect(() => speichereVerbrauchteVNrn(verbrauchteVNrn), [verbrauchteVNrn]);
 
   const addJob = useCallback((job: JobEintrag) => {
     const id = naechsteJobId.current!;
@@ -134,6 +173,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return [...prev, { ...abteilung, id }];
     });
     setLotsen((prev) => prev.map((l, i) => (i === lotsenIndex ? { ...l, abgeteilt: true } : l)));
+    // V-Nr. dauerhaft als verbraucht markieren — bleibt es auch, wenn die
+    // Abteilung später rückgängig gemacht oder ihre vNr durch Verschieben
+    // (Seestation) geändert wird.
+    if (abteilung.vNr !== undefined) {
+      const vNr = abteilung.vNr;
+      setVerbrauchteVNrn((prev) => (prev.includes(vNr) ? prev : [...prev, vNr]));
+    }
   }, []);
 
   const macheAbteilungRueckgaengig = useCallback(
@@ -180,6 +226,42 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const teileSeeAb = useCallback(
+    (seeAbteilung: Omit<SeeAbteilung, "id" | "aNr">, lotsenQuelle: "abteilung" | "manuell", lotsenId: number) => {
+      const aNr = naechsteANr.current!;
+      naechsteANr.current = aNr + 1;
+      speichereANrZaehler(naechsteANr.current);
+      setSeeAbteilungen((prev) => {
+        const id = prev.reduce((max, a) => Math.max(max, a.id), 0) + 1;
+        return [...prev, { ...seeAbteilung, id, aNr }];
+      });
+      if (lotsenQuelle === "abteilung") {
+        setAbteilungen((prev) => prev.map((a) => (a.id === lotsenId ? { ...a, seeAbgeteilt: true } : a)));
+      } else {
+        setSeestationLotsen((prev) => prev.map((l) => (l.id === lotsenId ? { ...l, seeAbgeteilt: true } : l)));
+      }
+    },
+    [],
+  );
+
+  const macheSeeAbteilungRueckgaengig = useCallback(
+    (id: number) => {
+      const seeAbteilung = seeAbteilungen.find((a) => a.id === id);
+      setSeeAbteilungen((prev) => prev.filter((a) => a.id !== id));
+      if (!seeAbteilung) return;
+      if (seeAbteilung.lotsenQuelle === "abteilung") {
+        setAbteilungen((prev) =>
+          prev.map((a) => (a.id === seeAbteilung.lotsenId ? { ...a, seeAbgeteilt: false } : a)),
+        );
+      } else {
+        setSeestationLotsen((prev) =>
+          prev.map((l) => (l.id === seeAbteilung.lotsenId ? { ...l, seeAbgeteilt: false } : l)),
+        );
+      }
+    },
+    [seeAbteilungen],
+  );
+
   const setAktuelleFahrt = useCallback((fahrt: AktuelleFahrt) => {
     setAktuelleFahrtState(fahrt);
     speichereAktuelleFahrt(fahrt);
@@ -212,6 +294,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         teileAb,
         macheAbteilungRueckgaengig,
         updateAbteilung,
+        verbrauchteVNrn,
         seeSchiffe,
         addSeeSchiff,
         updateSeeSchiff,
@@ -220,6 +303,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addSeestationLotse,
         updateSeestationLotse,
         deleteSeestationLotse,
+        seeAbteilungen,
+        teileSeeAb,
+        macheSeeAbteilungRueckgaengig,
       }}
     >
       {children}

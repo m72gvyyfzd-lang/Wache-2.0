@@ -6,6 +6,7 @@ import { Jobs } from "./pages/Jobs";
 import { Seestation } from "./pages/Seestation";
 import { Settings } from "./pages/Settings";
 import { Versetzliste } from "./pages/Versetzliste";
+import { VersetzlisteSeestation } from "./pages/VersetzlisteSeestation";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/einsatzplanung" element={<Einsatzplanung />} />
         <Route path="/versetzliste" element={<Versetzliste />} />
         <Route path="/seestation" element={<Seestation />} />
+        <Route path="/versetzliste-seestation" element={<VersetzlisteSeestation />} />
         <Route path="/einsatzstation" element={<Einsatzstation />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
