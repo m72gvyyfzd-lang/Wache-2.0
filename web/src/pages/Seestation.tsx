@@ -26,7 +26,7 @@ import {
   simuliereSeestation,
   type SeestationProjektion,
 } from "../lib/seestationAbteilen";
-import { projizierteSeestationZeilen } from "../lib/vorschau";
+import { vorschauKandidaten } from "../lib/vorschau";
 import { useData } from "../state/DataContext";
 import "./Seestation.css";
 
@@ -41,8 +41,8 @@ function SeestationHinweis({ namen }: { namen: string[] }) {
 
 /** Vorschau-Modus: projizierte Versorgungslage zum Ankunftszeitpunkt des
  *  Schiffs — Lotsen, die noch unterwegs sind, mit ihrer Ankunftszeit;
- *  erst geplante Lotsen (noch in der Einsatzplanung) dezent blau;
- *  danach noch unbesetzbare Plätze rot markiert. */
+ *  freie Lotsen der Einsatzstation (noch ohne Job, per AG holbar) dezent
+ *  blau; danach noch unbesetzbare Plätze rot markiert. */
 function VorschauHinweis({ projektion }: { projektion: SeestationProjektion | undefined }) {
   if (!projektion) return null;
   const { zugewiesen, fehlt } = projektion;
@@ -119,15 +119,25 @@ export function Seestation() {
   // "Vorausberechnung" — wird bei jeder Änderung neu berechnet
   const zuweisungenSee = planeSeestation(schiffeSortiert, lotsenZeilen, abgeteiltProSchiff);
   // Vorschau: zuschaltbare Projektion, die auch noch anreisende Lotsen
-  // einrechnet (Ankunft min. 1 Std. vor Schiffs-ETA) sowie erst GEPLANTE
-  // Lotsen aus der Einsatzplanung (Abteilzeit + Anfahrt, dezent blau)
+  // einrechnet (Ankunft min. 1 Std. vor Schiffs-ETA). Reicht das nicht,
+  // werden die FREIEN Lotsen der Einsatzstation (ohne potentiellen Job in
+  // der Planung Einsatzstation) als Kandidaten herangezogen — angezeigt
+  // (dezent blau) werden aber nur die, die die Vorausberechnung zum
+  // Decken eines Defizits tatsächlich einplant.
   const [vorschau, setVorschau] = useState(false);
-  const projizierte = vorschau ? projizierteSeestationZeilen(jobs, lotsen, aktuelleFahrt, abteilungen, settings) : [];
+  const kandidaten = vorschau ? vorschauKandidaten(jobs, lotsen, aktuelleFahrt, abteilungen, settings) : [];
+  const vorschauProjektion = vorschau
+    ? simuliereSeestation(seeSchiffe, [...lotsenZeilen, ...kandidaten], abgeteiltProSchiff, VORLAUF_AUF_STATION_MS)
+    : null;
+  const benoetigteKandidaten = new Set<string>();
+  if (vorschauProjektion) {
+    for (const projektion of vorschauProjektion.values()) {
+      for (const z of projektion.zugewiesen) if (z.projiziert) benoetigteKandidaten.add(z.key);
+    }
+  }
+  const projizierte = kandidaten.filter((k) => benoetigteKandidaten.has(k.key));
   const anzeigeLotsen = [...lotsenZeilen, ...projizierte];
   const zeilen = Math.max(schiffeSortiert.length, anzeigeLotsen.length);
-  const vorschauProjektion = vorschau
-    ? simuliereSeestation(seeSchiffe, anzeigeLotsen, abgeteiltProSchiff, VORLAUF_AUF_STATION_MS)
-    : null;
 
   const [schiffAuswahl, setSchiffAuswahl] = useState<number | null>(null);
   // Mehrere Lotsen wählbar, wenn das gewählte Schiff mehr als einen
