@@ -17,7 +17,14 @@ import {
   zeilenAusSeestationLotsen,
   type SeestationZeile,
 } from "../lib/seestation";
-import { eignungsWarnungSeestation, planeSeestation, seeLotsenAnzahl } from "../lib/seestationAbteilen";
+import { VORLAUF_AUF_STATION_MS } from "../lib/meldungen";
+import {
+  eignungsWarnungSeestation,
+  planeSeestation,
+  seeLotsenAnzahl,
+  simuliereSeestation,
+  type SeestationProjektion,
+} from "../lib/seestationAbteilen";
 import { useData } from "../state/DataContext";
 import "./Seestation.css";
 
@@ -26,6 +33,25 @@ import "./Seestation.css";
 function SeestationHinweis({ namen }: { namen: string[] }) {
   if (namen.length === 0) return null;
   return <span className="planung-hinweis"> ({namen.join(", ")})</span>;
+}
+
+/** Vorschau-Modus: projizierte Versorgungslage zum Ankunftszeitpunkt des
+ *  Schiffs — Lotsen, die noch unterwegs sind, mit ihrer Ankunftszeit;
+ *  unbesetzbare Plätze rot markiert. */
+function VorschauHinweis({ projektion }: { projektion: SeestationProjektion | undefined }) {
+  if (!projektion) return null;
+  const teile = projektion.zugewiesen.map((z) => (z.aufStation ? z.name : `${z.name} ab ${formatUhrzeit(z.etaStn)}`));
+  return (
+    <span className="planung-hinweis">
+      {teile.length > 0 && <> ({teile.join(", ")})</>}
+      {projektion.fehlt > 0 && (
+        <span className="vorschau-defizit">
+          {" "}
+          −{projektion.fehlt} Lotse{projektion.fehlt === 1 ? "" : "n"}
+        </span>
+      )}
+    </span>
+  );
 }
 
 export function Seestation() {
@@ -72,6 +98,12 @@ export function Seestation() {
   const zeilen = Math.max(schiffeSortiert.length, lotsenZeilen.length);
   // "Vorausberechnung" — wird bei jeder Änderung neu berechnet
   const zuweisungenSee = planeSeestation(schiffeSortiert, lotsenZeilen, abgeteiltProSchiff);
+  // Vorschau: zuschaltbare Projektion, die auch noch anreisende Lotsen
+  // einrechnet (Ankunft min. 1 Std. vor Schiffs-ETA) und Defizite zeigt
+  const [vorschau, setVorschau] = useState(false);
+  const vorschauProjektion = vorschau
+    ? simuliereSeestation(seeSchiffe, lotsenZeilen, abgeteiltProSchiff, VORLAUF_AUF_STATION_MS)
+    : null;
 
   const [schiffAuswahl, setSchiffAuswahl] = useState<number | null>(null);
   // Mehrere Lotsen wählbar, wenn das gewählte Schiff mehr als einen
@@ -218,9 +250,18 @@ export function Seestation() {
       <PageHeader title="Seestation" centered />
       <Panel
         actionLeft={
-          <button type="button" className="btn btn--small btn--accent" onClick={() => setNeuesSchiffOffen(true)}>
-            + Neues Schiff
-          </button>
+          <div className="seestation-kopf-links">
+            <button type="button" className="btn btn--small btn--accent" onClick={() => setNeuesSchiffOffen(true)}>
+              + Neues Schiff
+            </button>
+            <button
+              type="button"
+              className={"btn btn--small" + (vorschau ? " btn--accent" : "")}
+              onClick={() => setVorschau((v) => !v)}
+            >
+              Vorschau
+            </button>
+          </div>
         }
         action={
           <>
@@ -316,7 +357,11 @@ export function Seestation() {
                       </td>
                       <td className={`${schiffKlasse} cell-name`} onClick={schiffKlick} onDoubleClick={schiffDoppelklick}>
                         {schiff.schiffsname}
-                        <SeestationHinweis namen={(zuweisungenSee.get(schiff.id) ?? []).map((z) => z.name)} />
+                        {vorschauProjektion ? (
+                          <VorschauHinweis projektion={vorschauProjektion.get(schiff.id)} />
+                        ) : (
+                          <SeestationHinweis namen={(zuweisungenSee.get(schiff.id) ?? []).map((z) => z.name)} />
+                        )}
                       </td>
                       <td className={`${schiffKlasse} num zentriert`} onClick={schiffKlick} onDoubleClick={schiffDoppelklick}>
                         {schiff.kategorie ?? "·"}

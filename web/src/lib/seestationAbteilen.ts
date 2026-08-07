@@ -73,3 +73,57 @@ export function planeSeestation(
 
   return zuweisungen;
 }
+
+export interface SeestationProjektion {
+  /** projizierte Lotsen (auf Station oder rechtzeitig ankommend) */
+  zugewiesen: SeestationZeile[];
+  /** unbesetzbare Plätze zum Ankunftszeitpunkt */
+  fehlt: number;
+}
+
+/**
+ * Zukunfts-Simulation der Seestation (Grundlage der Dashboard-Bilanz und
+ * der Vorschau): ALLE Schiffe der ETA-Liste, nach ETA sortiert. Ein Lotse
+ * zählt für ein Schiff, wenn er auf Station ist oder seine ETA Stn
+ * spätestens vorlaufMs vor dem Schiffs-ETA liegt; jeder Lotse wird nur
+ * einmal vergeben. Anders als planeSeestation wird ein unbesetzbarer Platz
+ * übersprungen statt abgebrochen — so zählt z.B. bei fehlendem 1. Lotsen
+ * ein noch möglicher 2. Lotse trotzdem, und fehlt bleibt exakt.
+ */
+export function simuliereSeestation(
+  seeSchiffe: SeeSchiff[],
+  lotsenZeilen: SeestationZeile[],
+  abgeteiltProSchiff: Map<number, number>,
+  vorlaufMs: number,
+): Map<number, SeestationProjektion> {
+  const schiffe = [...seeSchiffe]
+    .filter((s) => seeLotsenAnzahl(s) - (abgeteiltProSchiff.get(s.id) ?? 0) > 0)
+    .sort((a, b) => a.eta.getTime() - b.eta.getTime());
+  let pool = lotsenZeilen;
+  const ergebnis = new Map<number, SeestationProjektion>();
+
+  for (const schiff of schiffe) {
+    const ankunftsFrist = schiff.eta.getTime() - vorlaufMs;
+    const bereits = abgeteiltProSchiff.get(schiff.id) ?? 0;
+    const benoetigt = seeLotsenAnzahl(schiff) - bereits;
+    const zugewiesen: SeestationZeile[] = [];
+    let fehlt = 0;
+    for (let platz = 0; platz < benoetigt; platz++) {
+      const istErster = bereits + platz === 0;
+      const index = pool.findIndex(
+        (k) =>
+          (k.aufStation || (k.etaStn !== undefined && k.etaStn.getTime() <= ankunftsFrist)) &&
+          eignungsWarnungSeestation(schiff, k, istErster) === undefined,
+      );
+      if (index === -1) {
+        fehlt += 1;
+        continue;
+      }
+      zugewiesen.push(pool[index]);
+      pool = [...pool.slice(0, index), ...pool.slice(index + 1)];
+    }
+    ergebnis.set(schiff.id, { zugewiesen, fehlt });
+  }
+
+  return ergebnis;
+}

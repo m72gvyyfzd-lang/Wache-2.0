@@ -97,3 +97,15 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+.seestation-kopf-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Vorschau: unbesetzbare Plätze eines Schiffs */
+.vorschau-defizit {
+  color: #b5432f;
+  font-weight: 700;
+}

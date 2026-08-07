@@ -22,14 +22,8 @@ import type {
 import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "./coreJob";
 import { formatUhrzeit } from "./format";
 import { geplanterAbruf, planeEinsatzstation } from "./planungEinsatzstation";
-import {
-  ANFAHRT_SEESTATION_MS,
-  sortiereSeestation,
-  zeilenAusAbteilungen,
-  zeilenAusSeestationLotsen,
-  type SeestationZeile,
-} from "./seestation";
-import { eignungsWarnungSeestation, seeLotsenAnzahl } from "./seestationAbteilen";
+import { ANFAHRT_SEESTATION_MS, sortiereSeestation, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "./seestation";
+import { simuliereSeestation } from "./seestationAbteilen";
 
 export type MeldungsStufe = "alarm" | "warnung" | "vorschlag" | "info";
 
@@ -137,13 +131,11 @@ function seestationsMeldungen(daten: MeldungsDaten, jetzt: Date, settings: Abtei
   for (const sa of daten.seeAbteilungen)
     abgeteiltProSchiff.set(sa.seeSchiffId, (abgeteiltProSchiff.get(sa.seeSchiffId) ?? 0) + 1);
 
-  const schiffe = [...daten.seeSchiffe]
-    .filter((s) => seeLotsenAnzahl(s) - (abgeteiltProSchiff.get(s.id) ?? 0) > 0)
-    .sort((a, b) => a.eta.getTime() - b.eta.getTime());
-  let pool: SeestationZeile[] = sortiereSeestation([
+  const pool = sortiereSeestation([
     ...zeilenAusAbteilungen(daten.abteilungen),
     ...zeilenAusSeestationLotsen(daten.seestationLotsen),
   ]);
+  const projektion = simuliereSeestation(daten.seeSchiffe, pool, abgeteiltProSchiff, VORLAUF_AUF_STATION_MS);
 
   // AG-Trägerjobs: künftige Hamburg/NOK-Abfahrten, an die eine AG-Fahrt
   // gehängt werden kann (aufsteigend nach Abteilzeit).
@@ -154,25 +146,10 @@ function seestationsMeldungen(daten: MeldungsDaten, jetzt: Date, settings: Abtei
       p.abteilzeit.getTime() >= jetzt.getTime(),
   );
 
-  for (const schiff of schiffe) {
-    const ankunftsFrist = schiff.eta.getTime() - VORLAUF_AUF_STATION_MS;
-    const bereits = abgeteiltProSchiff.get(schiff.id) ?? 0;
-    const benoetigt = seeLotsenAnzahl(schiff) - bereits;
-    let fehlt = 0;
-    for (let platz = 0; platz < benoetigt; platz++) {
-      const istErster = bereits + platz === 0;
-      const index = pool.findIndex(
-        (k) =>
-          (k.aufStation || (k.etaStn !== undefined && k.etaStn.getTime() <= ankunftsFrist)) &&
-          eignungsWarnungSeestation(schiff, k, istErster) === undefined,
-      );
-      if (index === -1) {
-        fehlt += 1;
-        continue;
-      }
-      pool = [...pool.slice(0, index), ...pool.slice(index + 1)];
-    }
+  for (const schiff of daten.seeSchiffe) {
+    const fehlt = projektion.get(schiff.id)?.fehlt ?? 0;
     if (fehlt <= 0) continue;
+    const ankunftsFrist = schiff.eta.getTime() - VORLAUF_AUF_STATION_MS;
 
     // Handlungsoptionen: späteste AG-Abteilzeit = Ankunftsfrist − Anfahrt;
     // Tender-AG muss bis Ankunftsfrist − 3 Std. eingeplant sein.
