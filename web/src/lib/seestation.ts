@@ -26,10 +26,11 @@ export interface SeestationZeile {
   elbehafen: boolean;
   etaStn: Date | undefined;
   aufStation: boolean;
-  /** true = reine Vorschau-Projektion (Lotse noch in der Einsatzplanung,
-   *  Ankunft aus geplanter Abteilzeit hochgerechnet) — nicht anklickbar,
-   *  dezent blau dargestellt, ohne V-Nr. */
-  projiziert?: boolean;
+  /** gesetzt = reine Vorschau-Projektion (Lotse noch an der Einsatzstation)
+   *  — nicht anklickbar, ohne V-Nr. "verplant" = hat schon einen Job,
+   *  Ankunft aus geplanter Abteilzeit hochgerechnet (orange); "frei" = noch
+   *  ohne Job, per AG holbar, früheste Ankunft jetzt + Anfahrt (blau). */
+  projiziert?: "verplant" | "frei";
 }
 
 /** Sortierung: V-Nr. aufsteigend; bei gleicher Nummer zuerst der Lotse ohne

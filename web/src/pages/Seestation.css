@@ -110,8 +110,9 @@
   font-weight: 700;
 }
 
-/* Vorschau: erst geplante Lotsen (noch in der Einsatzplanung) — dezent
-   blau, sowohl als Listenzeile als auch als Name im Schiffshinweis */
+/* Vorschau: projizierte Lotsen der Einsatzstation, sowohl als Listenzeile
+   als auch als Name im Schiffshinweis — FREIE (ohne Job, per AG holbar)
+   dezent blau, VERPLANTE (mit Job, kommen mit ihrem Schiff raus) orange */
 .seestation-table td.vorschau-blau {
   color: #3b6ea5;
   cursor: default;
@@ -119,4 +120,13 @@
 
 .vorschau-lotse {
   color: #3b6ea5;
+}
+
+.seestation-table td.vorschau-orange {
+  color: #c77d1e;
+  cursor: default;
+}
+
+.vorschau-lotse-orange {
+  color: #c77d1e;
 }

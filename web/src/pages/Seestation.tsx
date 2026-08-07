@@ -26,7 +26,7 @@ import {
   simuliereSeestation,
   type SeestationProjektion,
 } from "../lib/seestationAbteilen";
-import { vorschauKandidaten } from "../lib/vorschau";
+import { vorschauZeilen } from "../lib/vorschau";
 import { useData } from "../state/DataContext";
 import "./Seestation.css";
 
@@ -41,8 +41,9 @@ function SeestationHinweis({ namen }: { namen: string[] }) {
 
 /** Vorschau-Modus: projizierte Versorgungslage zum Ankunftszeitpunkt des
  *  Schiffs — Lotsen, die noch unterwegs sind, mit ihrer Ankunftszeit;
- *  freie Lotsen der Einsatzstation (noch ohne Job, per AG holbar) dezent
- *  blau; danach noch unbesetzbare Plätze rot markiert. */
+ *  verplante Lotsen der Einsatzstation (kommen mit ihrem Job-Schiff raus)
+ *  orange, freie (noch ohne Job, per AG holbar) dezent blau; danach noch
+ *  unbesetzbare Plätze rot markiert. */
 function VorschauHinweis({ projektion }: { projektion: SeestationProjektion | undefined }) {
   if (!projektion) return null;
   const { zugewiesen, fehlt } = projektion;
@@ -54,7 +55,11 @@ function VorschauHinweis({ projektion }: { projektion: SeestationProjektion | un
           {zugewiesen.map((z, i) => (
             <Fragment key={z.key}>
               {i > 0 && ", "}
-              <span className={z.projiziert ? "vorschau-lotse" : undefined}>
+              <span
+                className={
+                  z.projiziert === "verplant" ? "vorschau-lotse-orange" : z.projiziert ? "vorschau-lotse" : undefined
+                }
+              >
                 {z.aufStation ? z.name : `${z.name} ab ${formatUhrzeit(z.etaStn)}`}
               </span>
             </Fragment>
@@ -119,23 +124,27 @@ export function Seestation() {
   // "Vorausberechnung" — wird bei jeder Änderung neu berechnet
   const zuweisungenSee = planeSeestation(schiffeSortiert, lotsenZeilen, abgeteiltProSchiff);
   // Vorschau: zuschaltbare Projektion, die auch noch anreisende Lotsen
-  // einrechnet (Ankunft min. 1 Std. vor Schiffs-ETA). Reicht das nicht,
-  // werden die FREIEN Lotsen der Einsatzstation (ohne potentiellen Job in
-  // der Planung Einsatzstation) als Kandidaten herangezogen — angezeigt
-  // (dezent blau) werden aber nur die, die die Vorausberechnung zum
-  // Decken eines Defizits tatsächlich einplant.
+  // einrechnet (Ankunft min. 1 Std. vor Schiffs-ETA) sowie die Lotsen der
+  // Einsatzstation: VERPLANTE (mit Job, Ankunft = Abteilzeit + Anfahrt,
+  // orange) erscheinen immer; FREIE (ohne Job, per AG holbar, blau) nur,
+  // wenn die Vorausberechnung sie zum Decken eines Defizits einplant.
   const [vorschau, setVorschau] = useState(false);
-  const kandidaten = vorschau ? vorschauKandidaten(jobs, lotsen, aktuelleFahrt, abteilungen, settings) : [];
+  const { verplante, freie } = vorschau
+    ? vorschauZeilen(jobs, lotsen, aktuelleFahrt, abteilungen, settings)
+    : { verplante: [], freie: [] };
   const vorschauProjektion = vorschau
-    ? simuliereSeestation(seeSchiffe, [...lotsenZeilen, ...kandidaten], abgeteiltProSchiff, VORLAUF_AUF_STATION_MS)
+    ? simuliereSeestation(seeSchiffe, [...lotsenZeilen, ...verplante, ...freie], abgeteiltProSchiff, VORLAUF_AUF_STATION_MS)
     : null;
-  const benoetigteKandidaten = new Set<string>();
+  const benoetigteFreie = new Set<string>();
   if (vorschauProjektion) {
     for (const projektion of vorschauProjektion.values()) {
-      for (const z of projektion.zugewiesen) if (z.projiziert) benoetigteKandidaten.add(z.key);
+      for (const z of projektion.zugewiesen) if (z.projiziert === "frei") benoetigteFreie.add(z.key);
     }
   }
-  const projizierte = kandidaten.filter((k) => benoetigteKandidaten.has(k.key));
+  // gemeinsam nach Ankunftszeit sortiert ans Listenende
+  const projizierte = [...verplante, ...freie.filter((k) => benoetigteFreie.has(k.key))].sort(
+    (a, b) => (a.etaStn?.getTime() ?? 0) - (b.etaStn?.getTime() ?? 0),
+  );
   const anzeigeLotsen = [...lotsenZeilen, ...projizierte];
   const zeilen = Math.max(schiffeSortiert.length, anzeigeLotsen.length);
 
@@ -348,7 +357,7 @@ export function Seestation() {
                 "seestation-table__seite" +
                 (lotse && lotseAuswahl.includes(lotse.key) ? " ist-ausgewaehlt" : "") +
                 (lotse?.aufStation ? " fett" : " gedimmt") +
-                (lotse?.projiziert ? " vorschau-blau" : "");
+                (lotse?.projiziert === "verplant" ? " vorschau-orange" : lotse?.projiziert ? " vorschau-blau" : "");
               const schiffKlick = schiff
                 ? () => setSchiffAuswahl((aktiv) => (aktiv === schiff.id ? null : schiff.id))
                 : undefined;
