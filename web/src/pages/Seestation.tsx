@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
+import { getAbteilzeitSettings } from "@wache/core";
 import { FrageModal } from "../components/FrageModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
@@ -25,8 +26,11 @@ import {
   simuliereSeestation,
   type SeestationProjektion,
 } from "../lib/seestationAbteilen";
+import { projizierteSeestationZeilen } from "../lib/vorschau";
 import { useData } from "../state/DataContext";
 import "./Seestation.css";
+
+const settings = getAbteilzeitSettings("Wechsel Tide");
 
 /** "Vorausberechnung": voraussichtlich zugewiesene Lotsen dezent hinter dem
  *  Schiffsnamen — analog zu PlanungHinweis in der Einsatzplanung. */
@@ -37,17 +41,31 @@ function SeestationHinweis({ namen }: { namen: string[] }) {
 
 /** Vorschau-Modus: projizierte Versorgungslage zum Ankunftszeitpunkt des
  *  Schiffs — Lotsen, die noch unterwegs sind, mit ihrer Ankunftszeit;
- *  unbesetzbare Plätze rot markiert. */
+ *  erst geplante Lotsen (noch in der Einsatzplanung) dezent blau;
+ *  danach noch unbesetzbare Plätze rot markiert. */
 function VorschauHinweis({ projektion }: { projektion: SeestationProjektion | undefined }) {
   if (!projektion) return null;
-  const teile = projektion.zugewiesen.map((z) => (z.aufStation ? z.name : `${z.name} ab ${formatUhrzeit(z.etaStn)}`));
+  const { zugewiesen, fehlt } = projektion;
   return (
     <span className="planung-hinweis">
-      {teile.length > 0 && <> ({teile.join(", ")})</>}
-      {projektion.fehlt > 0 && (
+      {zugewiesen.length > 0 && (
+        <>
+          {" ("}
+          {zugewiesen.map((z, i) => (
+            <Fragment key={z.key}>
+              {i > 0 && ", "}
+              <span className={z.projiziert ? "vorschau-lotse" : undefined}>
+                {z.aufStation ? z.name : `${z.name} ab ${formatUhrzeit(z.etaStn)}`}
+              </span>
+            </Fragment>
+          ))}
+          {")"}
+        </>
+      )}
+      {fehlt > 0 && (
         <span className="vorschau-defizit">
           {" "}
-          −{projektion.fehlt} Lotse{projektion.fehlt === 1 ? "" : "n"}
+          −{fehlt} Lotse{fehlt === 1 ? "" : "n"}
         </span>
       )}
     </span>
@@ -67,6 +85,9 @@ export function Seestation() {
     updateSeestationLotse,
     seeAbteilungen,
     teileSeeAb,
+    jobs,
+    lotsen,
+    aktuelleFahrt,
   } = useData();
 
   // Bereits abgeteilte Lotsen je See-Schiff: voll abgeteilte Schiffe
@@ -95,14 +116,17 @@ export function Seestation() {
     ...zeilenAusAbteilungen(abteilungen),
     ...zeilenAusSeestationLotsen(seestationLotsen),
   ]);
-  const zeilen = Math.max(schiffeSortiert.length, lotsenZeilen.length);
   // "Vorausberechnung" — wird bei jeder Änderung neu berechnet
   const zuweisungenSee = planeSeestation(schiffeSortiert, lotsenZeilen, abgeteiltProSchiff);
   // Vorschau: zuschaltbare Projektion, die auch noch anreisende Lotsen
-  // einrechnet (Ankunft min. 1 Std. vor Schiffs-ETA) und Defizite zeigt
+  // einrechnet (Ankunft min. 1 Std. vor Schiffs-ETA) sowie erst GEPLANTE
+  // Lotsen aus der Einsatzplanung (Abteilzeit + Anfahrt, dezent blau)
   const [vorschau, setVorschau] = useState(false);
+  const projizierte = vorschau ? projizierteSeestationZeilen(jobs, lotsen, aktuelleFahrt, abteilungen, settings) : [];
+  const anzeigeLotsen = [...lotsenZeilen, ...projizierte];
+  const zeilen = Math.max(schiffeSortiert.length, anzeigeLotsen.length);
   const vorschauProjektion = vorschau
-    ? simuliereSeestation(seeSchiffe, lotsenZeilen, abgeteiltProSchiff, VORLAUF_AUF_STATION_MS)
+    ? simuliereSeestation(seeSchiffe, anzeigeLotsen, abgeteiltProSchiff, VORLAUF_AUF_STATION_MS)
     : null;
 
   const [schiffAuswahl, setSchiffAuswahl] = useState<number | null>(null);
@@ -305,7 +329,7 @@ export function Seestation() {
           <tbody>
             {Array.from({ length: zeilen }).map((_, i) => {
               const schiff = schiffeSortiert[i];
-              const lotse = lotsenZeilen[i];
+              const lotse = anzeigeLotsen[i];
               const schiffKlasse =
                 "seestation-table__seite" +
                 (schiff && schiffAuswahl === schiff.id ? " ist-ausgewaehlt" : "") +
@@ -313,7 +337,8 @@ export function Seestation() {
               const lotseKlasse =
                 "seestation-table__seite" +
                 (lotse && lotseAuswahl.includes(lotse.key) ? " ist-ausgewaehlt" : "") +
-                (lotse?.aufStation ? " fett" : " gedimmt");
+                (lotse?.aufStation ? " fett" : " gedimmt") +
+                (lotse?.projiziert ? " vorschau-blau" : "");
               const schiffKlick = schiff
                 ? () => setSchiffAuswahl((aktiv) => (aktiv === schiff.id ? null : schiff.id))
                 : undefined;
@@ -326,21 +351,24 @@ export function Seestation() {
               // Einfachauswahl, außer das gewählte Schiff braucht noch mehr
               // als einen Lotsen (Doppeldecker) — dann bis zu dessen
               // verbleibendem Bedarf mehrere gleichzeitig wählbar.
-              const lotseKlick = lotse
-                ? () =>
-                    setLotseAuswahl((aktuell) => {
-                      if (aktuell.includes(lotse.key)) return aktuell.filter((k) => k !== lotse.key);
-                      const kapazitaet = abteilenSchiff ? Math.max(verbleibendeLotsen(abteilenSchiff), 1) : 1;
-                      if (aktuell.length >= kapazitaet) return [lotse.key];
-                      return [...aktuell, lotse.key];
-                    })
-                : undefined;
-              const lotseDoppelklick = lotse
-                ? () => {
-                    setLotseAuswahl([lotse.key]);
-                    setAktionLotse(lotse);
-                  }
-                : undefined;
+              // Projizierte Vorschau-Zeilen sind nicht anklickbar.
+              const lotseKlick =
+                lotse && !lotse.projiziert
+                  ? () =>
+                      setLotseAuswahl((aktuell) => {
+                        if (aktuell.includes(lotse.key)) return aktuell.filter((k) => k !== lotse.key);
+                        const kapazitaet = abteilenSchiff ? Math.max(verbleibendeLotsen(abteilenSchiff), 1) : 1;
+                        if (aktuell.length >= kapazitaet) return [lotse.key];
+                        return [...aktuell, lotse.key];
+                      })
+                  : undefined;
+              const lotseDoppelklick =
+                lotse && !lotse.projiziert
+                  ? () => {
+                      setLotseAuswahl([lotse.key]);
+                      setAktionLotse(lotse);
+                    }
+                  : undefined;
               return (
                 <tr key={i}>
                   {schiff ? (
@@ -380,7 +408,7 @@ export function Seestation() {
                   {lotse ? (
                     <>
                       <td className={`${lotseKlasse} num zentriert`} onClick={lotseKlick} onDoubleClick={lotseDoppelklick}>
-                        {lotse.vNr}
+                        {lotse.projiziert ? "–" : lotse.vNr}
                         {lotse.zusatz && <span className="planung-hinweis"> ({lotse.zusatz})</span>}
                       </td>
                       <td className={`${lotseKlasse} cell-name`} onClick={lotseKlick} onDoubleClick={lotseDoppelklick}>

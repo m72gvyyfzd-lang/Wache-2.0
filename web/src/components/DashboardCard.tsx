@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
 import { spieleAlarmTon, tonEntsperren } from "../lib/alarmTon";
-import { sortiereEintraege } from "../lib/coreJob";
 import { berechneMeldungen } from "../lib/meldungen";
 import { ladeAlarmTonAktiv, speichereAlarmTonAktiv } from "../state/storage";
 import { useData } from "../state/DataContext";
-import { formatUhrzeit } from "../lib/format";
 import { MeldungsListe, MeldungsTile } from "./Meldungen";
 import { StatTile } from "./StatTile";
 import "./DashboardCard.css";
@@ -70,8 +68,6 @@ export function DashboardCard() {
     if (neue.length > 0 && tonAn) spieleAlarmTon();
   }, [alarmSchluessel, tonAn]);
 
-  const jobsSortiert = sortiereEintraege(jobs, settings);
-  const naechster = jobsSortiert[0];
   const anzahlHH = jobs.filter((j) => j.liste === "hamburg").length;
   const anzahlNOK = jobs.filter((j) => j.liste === "nok").length;
   const anzahlAnmeldungen = jobs.filter((j) => j.liste === "andere").length;
@@ -90,10 +86,7 @@ export function DashboardCard() {
             <div className="ton-tile__label">Alarm-Ton</div>
             <div className="ton-tile__wert">{tonAn ? "an" : "aus"}</div>
           </button>
-          <StatTile label="Anstehende Jobs" value={jobs.length} accent />
-          <StatTile label="Nächste Abteilzeit" value={naechster ? formatUhrzeit(naechster.abteilzeit) : "–"} />
           <StatTile label="HH / NOK / Anmeldungen" value={`${anzahlHH} / ${anzahlNOK} / ${anzahlAnmeldungen}`} />
-          <StatTile label="Verfügbare Lotsen" value={lotsen.filter((l) => l.fahrt === "" && !l.abgeteilt).length} />
         </div>
       </div>
       {listeOffen && <MeldungsListe meldungen={meldungen} />}

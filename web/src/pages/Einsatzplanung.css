@@ -119,6 +119,14 @@
   cursor: not-allowed;
 }
 
+/* Überschrittene Abt. Zeit (Jobs) bzw. überschrittener gepl. Abruf
+   (Lotsen, solange nicht abgerufen): fett und rot — Gegenstück zur
+   Alarmierung im Dashboard. */
+.einsatz-table td.zeit-ueberfaellig {
+  color: #b5432f;
+  font-weight: 700;
+}
+
 /* Lots.-Spalte: Rest-Anzahl auffällig, sobald schon Lotsen abgeteilt sind */
 .einsatz-table td.lots-rest {
   color: var(--accent);

@@ -26,6 +26,10 @@ export interface SeestationZeile {
   elbehafen: boolean;
   etaStn: Date | undefined;
   aufStation: boolean;
+  /** true = reine Vorschau-Projektion (Lotse noch in der Einsatzplanung,
+   *  Ankunft aus geplanter Abteilzeit hochgerechnet) — nicht anklickbar,
+   *  dezent blau dargestellt, ohne V-Nr. */
+  projiziert?: boolean;
 }
 
 /** Sortierung: V-Nr. aufsteigend; bei gleicher Nummer zuerst der Lotse ohne

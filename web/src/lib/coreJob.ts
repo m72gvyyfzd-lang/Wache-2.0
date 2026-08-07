@@ -57,6 +57,15 @@ export function benoetigteLotsenAnzahl(eintrag: JobEintrag): number {
   return 1;
 }
 
+/** Anmeldungs-Typen, für die zugewiesene Lotsen keine V-Nr. bekommen — sie
+ *  landen beim Abteilen auf der Vergabe-Liste und fahren NICHT zur
+ *  Seestation. */
+export const OHNE_V_NR_TYPEN = new Set(["Sonderradar", "Nebelradar", "2+2", "1+1", "WB", "WR"]);
+
+export function istOhneVNrJob(job: JobEintrag): boolean {
+  return job.liste === "andere" && job.typ !== undefined && OHNE_V_NR_TYPEN.has(job.typ);
+}
+
 /** True, wenn ein AG-Job auf einen inzwischen gelöschten Hamburg/NOK-Job
  *  verweist — seine Abteilzeit wird dann nicht mehr über die
  *  updateJob-Kaskade aktualisiert (siehe DataContext). */

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
 import { AbrufenModal } from "../components/AbrufenModal";
 import { AbtZeitModal } from "../components/AbtZeitModal";
@@ -10,7 +10,7 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import type { JobEintrag, LotsenEintrag } from "../data/types";
-import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
+import { benoetigteLotsenAnzahl, istOhneVNrJob, sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { sortiereUndNummeriere, type LotseMitOrdnung } from "../lib/lotsenOrdnung";
 import { abteilzeitProLotse, eignungsWarnung, geplanterAbruf, planeEinsatzstation } from "../lib/planungEinsatzstation";
@@ -34,18 +34,17 @@ function LotseHinweis({ kategorie, eh }: { kategorie: string; eh: boolean }) {
   return <span className="planung-hinweis"> ({teile.join(", ")})</span>;
 }
 
-/** Anmeldungs-Typen, für die zugewiesene Lotsen keine V-Nr. bekommen — die
- *  V-Nr. rutscht dann zum nächsten Lotsen ohne diese Restriktion weiter. */
-const OHNE_V_NR_TYPEN = new Set(["Sonderradar", "Nebelradar", "2+2", "1+1", "WB", "WR"]);
-
-/** Jobs dieser Typen landen beim Abteilen ohne V-Nr. auf der Vergabe-Liste. */
-function istOhneVNrJob(job: JobEintrag): boolean {
-  return job.liste === "andere" && job.typ !== undefined && OHNE_V_NR_TYPEN.has(job.typ);
-}
 
 export function Einsatzplanung() {
   const { jobs, lotsen, aktuelleFahrt, updateJob, updateLotse, vNrStart, abteilungen, teileAb, verbrauchteVNrn } =
     useData();
+  // Zeit-Tick für die Überfällig-Hervorhebungen (Abt. Zeit / gepl. Abruf),
+  // damit sie auch ohne Datenänderung umspringen — wie im Dashboard.
+  const [jetzt, setJetzt] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setJetzt(new Date()), 15_000);
+    return () => clearInterval(id);
+  }, []);
   // Bereits abgeteilte Lotsen je Job: voll abgeteilte Jobs verschwinden aus
   // der Liste, AG-Jobs zeigen bis dahin die Rest-Anzahl.
   const abgeteiltProJob = new Map<number, number>();
@@ -273,7 +272,10 @@ export function Einsatzplanung() {
                         {paar.eintrag.kategorie ?? "·"}
                       </td>
                       <td
-                        className={`${jobKlasse} num zentriert`}
+                        className={
+                          `${jobKlasse} num zentriert` +
+                          (paar.abteilzeit && paar.abteilzeit.getTime() <= jetzt.getTime() ? " zeit-ueberfaellig" : "")
+                        }
                         onClick={jobKlick}
                         onDoubleClick={() => {
                           setJobAuswahl(paar.eintrag.id);
@@ -325,11 +327,20 @@ export function Einsatzplanung() {
                         {lotse.eintrag.name}
                         <LotseHinweis kategorie={lotse.eintrag.kategorie} eh={lotse.eintrag.elbehafen} />
                       </td>
-                      <td className={`${lotseKlasse} num muted zentriert`} onClick={lotseKlick}>
-                        {lotse.eintrag.abgerufen
-                          ? "–"
-                          : formatUhrzeit(geplanterAbruf(abteilzeitProLotseMap.get(lotse.eintrag), lotse.eintrag.abrufStunden))}
-                      </td>
+                      {(() => {
+                        const abruf = lotse.eintrag.abgerufen
+                          ? undefined
+                          : geplanterAbruf(abteilzeitProLotseMap.get(lotse.eintrag), lotse.eintrag.abrufStunden);
+                        const ueberfaellig = abruf !== undefined && abruf.getTime() <= jetzt.getTime();
+                        return (
+                          <td
+                            className={`${lotseKlasse} num zentriert` + (ueberfaellig ? " zeit-ueberfaellig" : " muted")}
+                            onClick={lotseKlick}
+                          >
+                            {lotse.eintrag.abgerufen ? "–" : formatUhrzeit(abruf)}
+                          </td>
+                        );
+                      })()}
                       <td
                         className={`${lotseKlasse} num zentriert anstn-fix ${lotse.eintrag.abgerufen ? "fett" : "muted"}`}
                         onClick={lotseKlick}

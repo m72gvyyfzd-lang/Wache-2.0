@@ -109,3 +109,14 @@
   color: #b5432f;
   font-weight: 700;
 }
+
+/* Vorschau: erst geplante Lotsen (noch in der Einsatzplanung) — dezent
+   blau, sowohl als Listenzeile als auch als Name im Schiffshinweis */
+.seestation-table td.vorschau-blau {
+  color: #3b6ea5;
+  cursor: default;
+}
+
+.vorschau-lotse {
+  color: #3b6ea5;
+}
