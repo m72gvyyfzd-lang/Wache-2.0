@@ -39,7 +39,15 @@ export function eignungsWarnungSeestation(
  *  abgeteiltProSchiff: bereits abgeteilte Lotsen je Schiff — die
  *  Vorausberechnung besetzt nur noch den Rest (wie planeEinsatzstation),
  *  sonst würde bei einem Doppeldecker mit bereits einem Lotsen an Bord
- *  fälschlich noch einmal für 2 statt für 1 verbleibenden Platz geplant. */
+ *  fälschlich noch einmal für 2 statt für 1 verbleibenden Platz geplant.
+ *
+ *  Pro benötigtem Platz eines Schiffs wird die verbleibende Kandidatenliste
+ *  frisch von vorn durchsucht (statt in einem einzigen Durchlauf). Sonst
+ *  könnte z.B. der einzige für den ERSTEN (strengen) Platz geeignete Lotse
+ *  weit hinten in der Liste stehen: alle davor stehenden Lotsen würden dann
+ *  fälschlich unter der strengen Regel geprüft und verworfen, obwohl sie
+ *  für einen ZWEITEN (gelockerten) Platz gereicht hätten — der aber, weil
+ *  bereits verworfen, nie erneut geprüft würde. */
 export function planeSeestation(
   schiffeSortiert: SeeSchiff[],
   lotsenZeilen: SeestationZeile[],
@@ -53,16 +61,13 @@ export function planeSeestation(
     const bereits = abgeteiltProSchiff?.get(schiff.id) ?? 0;
     const benoetigt = seeLotsenAnzahl(schiff) - bereits;
     const zugewiesen: SeestationZeile[] = [];
-    const uebrig: SeestationZeile[] = [];
-    for (const kandidat of kandidaten) {
-      const istErster = bereits + zugewiesen.length === 0;
-      if (zugewiesen.length < benoetigt && eignungsWarnungSeestation(schiff, kandidat, istErster) === undefined) {
-        zugewiesen.push(kandidat);
-      } else {
-        uebrig.push(kandidat);
-      }
+    for (let platz = 0; platz < benoetigt; platz++) {
+      const istErster = bereits + platz === 0;
+      const index = kandidaten.findIndex((k) => eignungsWarnungSeestation(schiff, k, istErster) === undefined);
+      if (index === -1) break;
+      zugewiesen.push(kandidaten[index]);
+      kandidaten = [...kandidaten.slice(0, index), ...kandidaten.slice(index + 1)];
     }
-    kandidaten = uebrig;
     zuweisungen.set(schiff.id, zugewiesen);
   }
 
