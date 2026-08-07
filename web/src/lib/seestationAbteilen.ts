@@ -35,21 +35,28 @@ export function eignungsWarnungSeestation(
  *  Reihenfolge), nur für angemeldete Schiffe — Basis für die
  *  Vorausberechnung (Hinweis hinter dem Schiffsnamen). Bereits per
  *  Seestation-Abteilen verbundene Lotsen sind aus lotsenZeilen schon
- *  ausgeblendet (seeAbgeteilt), tauchen also nicht doppelt auf. */
+ *  ausgeblendet (seeAbgeteilt), tauchen also nicht doppelt auf.
+ *  abgeteiltProSchiff: bereits abgeteilte Lotsen je Schiff — die
+ *  Vorausberechnung besetzt nur noch den Rest (wie planeEinsatzstation),
+ *  sonst würde bei einem Doppeldecker mit bereits einem Lotsen an Bord
+ *  fälschlich noch einmal für 2 statt für 1 verbleibenden Platz geplant. */
 export function planeSeestation(
   schiffeSortiert: SeeSchiff[],
   lotsenZeilen: SeestationZeile[],
+  abgeteiltProSchiff?: Map<number, number>,
 ): Map<number, SeestationZeile[]> {
   const angemeldet = schiffeSortiert.filter((s) => s.angemeldet);
   let kandidaten = lotsenZeilen.filter((z) => z.aufStation);
   const zuweisungen = new Map<number, SeestationZeile[]>();
 
   for (const schiff of angemeldet) {
-    const benoetigt = seeLotsenAnzahl(schiff);
+    const bereits = abgeteiltProSchiff?.get(schiff.id) ?? 0;
+    const benoetigt = seeLotsenAnzahl(schiff) - bereits;
     const zugewiesen: SeestationZeile[] = [];
     const uebrig: SeestationZeile[] = [];
     for (const kandidat of kandidaten) {
-      if (zugewiesen.length < benoetigt && eignungsWarnungSeestation(schiff, kandidat, zugewiesen.length === 0) === undefined) {
+      const istErster = bereits + zugewiesen.length === 0;
+      if (zugewiesen.length < benoetigt && eignungsWarnungSeestation(schiff, kandidat, istErster) === undefined) {
         zugewiesen.push(kandidat);
       } else {
         uebrig.push(kandidat);

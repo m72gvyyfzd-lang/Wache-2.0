@@ -80,7 +80,20 @@
   background: rgba(181, 67, 47, 0.2);
 }
 
-.seestation-aktionen {
-  display: flex;
-  gap: 8px;
+/* "Abteilen"-Button: zentriert auf Höhe der Karten-Überschrift, erscheint
+   nur wenn ein Schiff und mindestens ein Lotse markiert sind — analog zu
+   Einsatzplanung.css::einsatz-abteilen */
+.panel__head {
+  position: relative;
+}
+
+.seestation-abteilen {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.seestation-abteilen:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }

@@ -71,10 +71,12 @@ export function Seestation() {
   ]);
   const zeilen = Math.max(schiffeSortiert.length, lotsenZeilen.length);
   // "Vorausberechnung" — wird bei jeder Änderung neu berechnet
-  const zuweisungenSee = planeSeestation(schiffeSortiert, lotsenZeilen);
+  const zuweisungenSee = planeSeestation(schiffeSortiert, lotsenZeilen, abgeteiltProSchiff);
 
   const [schiffAuswahl, setSchiffAuswahl] = useState<number | null>(null);
-  const [lotseAuswahl, setLotseAuswahl] = useState<string | null>(null);
+  // Mehrere Lotsen wählbar, wenn das gewählte Schiff mehr als einen
+  // benötigt (Doppeldecker) — sonst wie bisher eine einzelne Auswahl.
+  const [lotseAuswahl, setLotseAuswahl] = useState<string[]>([]);
   const [neuesSchiffOffen, setNeuesSchiffOffen] = useState(false);
   const [editSchiff, setEditSchiff] = useState<SeeSchiff | null>(null);
   const [loeschenSchiff, setLoeschenSchiff] = useState<SeeSchiff | null>(null);
@@ -88,41 +90,56 @@ export function Seestation() {
   const vNrProfil = zeilenAusAbteilungen(abteilungen).reduce((max, z) => Math.max(max, z.vNr), 0);
 
   // Aktuelle Auswahl für das Seestation-Abteilen — Button erscheint, sobald
-  // ein Schiff UND ein Lotse markiert sind. Aktiv wird er erst, wenn das
-  // Schiff angemeldet und der Lotse bereits vor Ort ("Auf Seestation") ist.
+  // ein Schiff und mindestens ein Lotse markiert sind. Aktiv wird er erst,
+  // wenn das Schiff angemeldet ist und genau so viele Lotsen ausgewählt
+  // sind, wie noch benötigt werden (bei Doppeldeckern also zwei, die
+  // bereits vor Ort ("Auf Seestation") sein müssen).
   const abteilenSchiff = schiffAuswahl !== null ? (schiffeSortiert.find((s) => s.id === schiffAuswahl) ?? null) : null;
-  const abteilenLotseZeile = lotseAuswahl !== null ? (lotsenZeilen.find((z) => z.key === lotseAuswahl) ?? null) : null;
-  const abteilenMoeglich = (abteilenSchiff?.angemeldet ?? false) && (abteilenLotseZeile?.aufStation ?? false);
+  const abteilenLotseZeilen = lotseAuswahl
+    .map((key) => lotsenZeilen.find((z) => z.key === key))
+    .filter((z): z is SeestationZeile => z !== undefined);
+  const abteilenBenoetigt = abteilenSchiff ? verbleibendeLotsen(abteilenSchiff) : 0;
+  const abteilenMoeglich =
+    (abteilenSchiff?.angemeldet ?? false) &&
+    abteilenLotseZeilen.length === abteilenBenoetigt &&
+    abteilenLotseZeilen.every((z) => z.aufStation);
+  const abteilenWarnungen = abteilenSchiff
+    ? abteilenLotseZeilen
+        .map((z, i) =>
+          eignungsWarnungSeestation(abteilenSchiff, z, (abgeteiltProSchiff.get(abteilenSchiff.id) ?? 0) + i === 0),
+        )
+        .filter((w): w is string => w !== undefined)
+    : [];
   const abteilenWarnung =
-    abteilenSchiff && abteilenLotseZeile
-      ? eignungsWarnungSeestation(abteilenSchiff, abteilenLotseZeile, (abgeteiltProSchiff.get(abteilenSchiff.id) ?? 0) === 0)
-      : undefined;
+    abteilenWarnungen.length > 0 ? Array.from(new Set(abteilenWarnungen)).join(" / ") : undefined;
 
   function handleAbteilenJa() {
-    if (!abteilenSchiff || !abteilenLotseZeile) return;
-    teileSeeAb(
-      {
-        seeSchiffId: abteilenSchiff.id,
-        schiffsname: abteilenSchiff.schiffsname,
-        lotsenQuelle: abteilenLotseZeile.quelle,
-        lotsenId: abteilenLotseZeile.id,
-        lotsenName: abteilenLotseZeile.name,
-        lotsenKategorie: abteilenLotseZeile.kategorie,
-        elbehafen: abteilenLotseZeile.elbehafen,
-        abteilZeit: new Date(),
-      },
-      abteilenLotseZeile.quelle,
-      abteilenLotseZeile.id,
-    );
+    if (!abteilenSchiff || abteilenLotseZeilen.length === 0) return;
+    for (const lotse of abteilenLotseZeilen) {
+      teileSeeAb(
+        {
+          seeSchiffId: abteilenSchiff.id,
+          schiffsname: abteilenSchiff.schiffsname,
+          lotsenQuelle: lotse.quelle,
+          lotsenId: lotse.id,
+          lotsenName: lotse.name,
+          lotsenKategorie: lotse.kategorie,
+          elbehafen: lotse.elbehafen,
+          abteilZeit: new Date(),
+        },
+        lotse.quelle,
+        lotse.id,
+      );
+    }
     setSchiffAuswahl(null);
-    setLotseAuswahl(null);
+    setLotseAuswahl([]);
     setAbteilenFrage(false);
   }
 
   const dennoch = abteilenWarnung ? "dennoch " : "";
   const abteilenFrageText =
-    abteilenSchiff && abteilenLotseZeile
-      ? `Soll ${abteilenLotseZeile.name} zu ${abteilenSchiff.schiffsname} ${dennoch}abgeteilt werden?`
+    abteilenSchiff && abteilenLotseZeilen.length > 0
+      ? `Soll${abteilenLotseZeilen.length > 1 ? "en" : ""} ${abteilenLotseZeilen.map((z) => z.name).join(" und ")} zu ${abteilenSchiff.schiffsname} ${dennoch}abgeteilt werden?`
       : "";
 
   function handleSchiffOk(schiff: SeeSchiff) {
@@ -145,7 +162,7 @@ export function Seestation() {
     } else {
       updateSeestationLotse(aktionLotse.id, { etaStn: wert });
     }
-    setLotseAuswahl(null);
+    setLotseAuswahl([]);
     setAktionLotse(null);
   }
 
@@ -156,7 +173,7 @@ export function Seestation() {
     } else {
       updateSeestationLotse(aktionLotse.id, { aufStation: true });
     }
-    setLotseAuswahl(null);
+    setLotseAuswahl([]);
     setAktionLotse(null);
   }
 
@@ -181,7 +198,7 @@ export function Seestation() {
     ).length;
     const neueVNr = Number(`${basis}.${vorhandeneKinder + 1}`);
     updateAbteilung(aktionLotse.id, { vNr: neueVNr });
-    setLotseAuswahl(null);
+    setLotseAuswahl([]);
     setAktionLotse(null);
   }
 
@@ -192,7 +209,7 @@ export function Seestation() {
     } else {
       updateSeestationLotse(abschoepfenLotse.id, { abgeschoepft: true });
     }
-    setLotseAuswahl(null);
+    setLotseAuswahl([]);
     setAbschoepfenLotse(null);
   }
 
@@ -206,11 +223,11 @@ export function Seestation() {
           </button>
         }
         action={
-          <div className="seestation-aktionen">
-            {abteilenSchiff && abteilenLotseZeile && (
+          <>
+            {abteilenSchiff && abteilenLotseZeilen.length > 0 && (
               <button
                 type="button"
-                className="btn btn--small btn--accent"
+                className="btn btn--accent seestation-abteilen"
                 disabled={!abteilenMoeglich}
                 onClick={() => setAbteilenFrage(true)}
               >
@@ -220,7 +237,7 @@ export function Seestation() {
             <button type="button" className="btn btn--small btn--accent" onClick={() => setNeuerLotseOffen(true)}>
               + Lotse hinzufügen
             </button>
-          </div>
+          </>
         }
       >
         <table className="seestation-table">
@@ -254,7 +271,7 @@ export function Seestation() {
                 (schiff?.angemeldet ? " fett" : "");
               const lotseKlasse =
                 "seestation-table__seite" +
-                (lotse && lotseAuswahl === lotse.key ? " ist-ausgewaehlt" : "") +
+                (lotse && lotseAuswahl.includes(lotse.key) ? " ist-ausgewaehlt" : "") +
                 (lotse?.aufStation ? " fett" : " gedimmt");
               const schiffKlick = schiff
                 ? () => setSchiffAuswahl((aktiv) => (aktiv === schiff.id ? null : schiff.id))
@@ -265,12 +282,21 @@ export function Seestation() {
                     setEditSchiff(schiff);
                   }
                 : undefined;
+              // Einfachauswahl, außer das gewählte Schiff braucht noch mehr
+              // als einen Lotsen (Doppeldecker) — dann bis zu dessen
+              // verbleibendem Bedarf mehrere gleichzeitig wählbar.
               const lotseKlick = lotse
-                ? () => setLotseAuswahl((aktiv) => (aktiv === lotse.key ? null : lotse.key))
+                ? () =>
+                    setLotseAuswahl((aktuell) => {
+                      if (aktuell.includes(lotse.key)) return aktuell.filter((k) => k !== lotse.key);
+                      const kapazitaet = abteilenSchiff ? Math.max(verbleibendeLotsen(abteilenSchiff), 1) : 1;
+                      if (aktuell.length >= kapazitaet) return [lotse.key];
+                      return [...aktuell, lotse.key];
+                    })
                 : undefined;
               const lotseDoppelklick = lotse
                 ? () => {
-                    setLotseAuswahl(lotse.key);
+                    setLotseAuswahl([lotse.key]);
                     setAktionLotse(lotse);
                   }
                 : undefined;
@@ -417,7 +443,7 @@ export function Seestation() {
         </Modal>
       )}
 
-      {abteilenFrage && abteilenSchiff && abteilenLotseZeile && (
+      {abteilenFrage && abteilenSchiff && abteilenLotseZeilen.length > 0 && (
         <Modal title="Abteilen" onClose={() => setAbteilenFrage(false)} maxWidth="380px" titelZentriert>
           <FrageModal
             frage={abteilenFrageText}
