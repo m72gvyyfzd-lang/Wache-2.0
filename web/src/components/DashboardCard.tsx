@@ -11,7 +11,7 @@ import "./DashboardCard.css";
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
 export function DashboardCard() {
-  const { jobs, lotsen, aktuelleFahrt, abteilungen } = useData();
+  const { jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen } = useData();
 
   // Zeit-Tick: die Meldungen hängen an der Uhrzeit (gepl. Abruf etc.) und
   // werden daher regelmäßig neu berechnet, auch ohne Datenänderung.
@@ -22,8 +22,13 @@ export function DashboardCard() {
   }, []);
 
   const meldungen = useMemo(
-    () => berechneMeldungen({ jobs, lotsen, aktuelleFahrt, abteilungen }, jetzt, settings),
-    [jobs, lotsen, aktuelleFahrt, abteilungen, jetzt],
+    () =>
+      berechneMeldungen(
+        { jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen },
+        jetzt,
+        settings,
+      ),
+    [jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, jetzt],
   );
   const [listeOffen, setListeOffen] = useState(false);
 

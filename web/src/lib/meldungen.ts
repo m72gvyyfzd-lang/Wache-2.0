@@ -10,10 +10,26 @@
  * erkennt der Ton-Layer später, ob eine Meldung NEU ist (einmaliger Ton).
  */
 import type { AbteilzeitSettings } from "@wache/core";
-import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
+import type {
+  Abteilung,
+  AktuelleFahrt,
+  JobEintrag,
+  LotsenEintrag,
+  SeeAbteilung,
+  SeeSchiff,
+  SeestationLotse,
+} from "../data/types";
 import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "./coreJob";
 import { formatUhrzeit } from "./format";
 import { geplanterAbruf, planeEinsatzstation } from "./planungEinsatzstation";
+import {
+  ANFAHRT_SEESTATION_MS,
+  sortiereSeestation,
+  zeilenAusAbteilungen,
+  zeilenAusSeestationLotsen,
+  type SeestationZeile,
+} from "./seestation";
+import { eignungsWarnungSeestation, seeLotsenAnzahl } from "./seestationAbteilen";
 
 export type MeldungsStufe = "alarm" | "warnung" | "vorschlag" | "info";
 
@@ -29,11 +45,24 @@ export interface Meldung {
 /** Vorwarnzeit vor dem geplanten Abruf (Warnung orange). */
 export const ABRUF_VORWARNUNG_MS = 15 * 60_000;
 
+/** Ein Lotse muss min. 1 Std. vor dem Schiffs-ETA auf der Seestation sein. */
+export const VORLAUF_AUF_STATION_MS = 3_600_000;
+
+/** Tender-AG: braucht min. 3 Std. Vorlauf bis zur Ankunft auf Station. */
+export const TENDER_VORLAUF_MS = 3 * 3_600_000;
+
+/** Wird die letzte Handlungsmöglichkeit knapper als das, eskaliert ein
+ *  AG-Vorschlag zur Warnung. */
+const AG_ESKALATION_MS = 30 * 60_000;
+
 export interface MeldungsDaten {
   jobs: JobEintrag[];
   lotsen: LotsenEintrag[];
   aktuelleFahrt: AktuelleFahrt;
   abteilungen: Abteilung[];
+  seeSchiffe: SeeSchiff[];
+  seestationLotsen: SeestationLotse[];
+  seeAbteilungen: SeeAbteilung[];
 }
 
 const STUFEN_RANG: Record<MeldungsStufe, number> = { alarm: 0, warnung: 1, vorschlag: 2, info: 3 };
@@ -92,6 +121,102 @@ function abrufMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitS
   return meldungen;
 }
 
+/**
+ * Seestations-Bilanz: simuliert Schiff für Schiff (alle Schiffe der
+ * ETA-Liste, nach ETA sortiert), ob genügend geeignete Lotsen rechtzeitig —
+ * d.h. min. 1 Std. vor dem Schiffs-ETA — auf der Station sind. Ein Lotse
+ * zählt, wenn er bereits vor Ort ist oder seine ETA Stn früh genug liegt;
+ * jeder Lotse wird nur einmal vergeben. Bei Unterdeckung entsteht ein
+ * AG-Fahrt-Vorschlag mit konkreten Trägerjobs (Hamburg/NOK), ersatzweise
+ * eine Tender-AG (min. 3 Std. Vorlauf); ist auch das nicht mehr möglich,
+ * wird die Unterdeckung zum Alarm.
+ */
+function seestationsMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitSettings): Meldung[] {
+  const meldungen: Meldung[] = [];
+  const abgeteiltProSchiff = new Map<number, number>();
+  for (const sa of daten.seeAbteilungen)
+    abgeteiltProSchiff.set(sa.seeSchiffId, (abgeteiltProSchiff.get(sa.seeSchiffId) ?? 0) + 1);
+
+  const schiffe = [...daten.seeSchiffe]
+    .filter((s) => seeLotsenAnzahl(s) - (abgeteiltProSchiff.get(s.id) ?? 0) > 0)
+    .sort((a, b) => a.eta.getTime() - b.eta.getTime());
+  let pool: SeestationZeile[] = sortiereSeestation([
+    ...zeilenAusAbteilungen(daten.abteilungen),
+    ...zeilenAusSeestationLotsen(daten.seestationLotsen),
+  ]);
+
+  // AG-Trägerjobs: künftige Hamburg/NOK-Abfahrten, an die eine AG-Fahrt
+  // gehängt werden kann (aufsteigend nach Abteilzeit).
+  const traeger = sortiereEintraege(daten.jobs, settings).filter(
+    (p): p is { eintrag: JobEintrag; abteilzeit: Date } =>
+      (p.eintrag.liste === "hamburg" || p.eintrag.liste === "nok") &&
+      p.abteilzeit !== undefined &&
+      p.abteilzeit.getTime() >= jetzt.getTime(),
+  );
+
+  for (const schiff of schiffe) {
+    const ankunftsFrist = schiff.eta.getTime() - VORLAUF_AUF_STATION_MS;
+    const bereits = abgeteiltProSchiff.get(schiff.id) ?? 0;
+    const benoetigt = seeLotsenAnzahl(schiff) - bereits;
+    let fehlt = 0;
+    for (let platz = 0; platz < benoetigt; platz++) {
+      const istErster = bereits + platz === 0;
+      const index = pool.findIndex(
+        (k) =>
+          (k.aufStation || (k.etaStn !== undefined && k.etaStn.getTime() <= ankunftsFrist)) &&
+          eignungsWarnungSeestation(schiff, k, istErster) === undefined,
+      );
+      if (index === -1) {
+        fehlt += 1;
+        continue;
+      }
+      pool = [...pool.slice(0, index), ...pool.slice(index + 1)];
+    }
+    if (fehlt <= 0) continue;
+
+    // Handlungsoptionen: späteste AG-Abteilzeit = Ankunftsfrist − Anfahrt;
+    // Tender-AG muss bis Ankunftsfrist − 3 Std. eingeplant sein.
+    const abfahrtsFrist = ankunftsFrist - ANFAHRT_SEESTATION_MS;
+    const kandidaten = traeger.filter((p) => p.abteilzeit.getTime() <= abfahrtsFrist);
+    const tenderFrist = ankunftsFrist - TENDER_VORLAUF_MS;
+    const tenderMoeglich = jetzt.getTime() <= tenderFrist;
+
+    const fehltText = `um ${formatUhrzeit(schiff.eta)} fehl${fehlt === 1 ? "t" : "en"} ${fehlt} Lotse${fehlt === 1 ? "" : "n"} für ${schiff.schiffsname}`;
+
+    if (kandidaten.length === 0 && !tenderMoeglich) {
+      meldungen.push({
+        id: `seestation-defizit-${schiff.id}`,
+        stufe: "alarm",
+        zeit: schiff.eta,
+        text: `Seestation: ${fehltText} — kein Trägerjob und Tender-Vorlauf (3 Std.) überschritten`,
+      });
+      continue;
+    }
+
+    let empfehlung: string;
+    if (kandidaten.length > 0) {
+      const letzte = kandidaten.slice(-2).reverse();
+      empfehlung = `AG-Fahrt planen: ${letzte
+        .map((p) => `${p.eintrag.schiffsname ?? vonTypeLabel(p.eintrag)} (Abt. ${formatUhrzeit(p.abteilzeit)})`)
+        .join(" oder ")}`;
+    } else {
+      empfehlung = `kein Trägerjob passt — Tender-AG bis ${formatUhrzeit(new Date(tenderFrist))} einplanen`;
+    }
+
+    const traegerFrist = kandidaten.length > 0 ? kandidaten[kandidaten.length - 1].abteilzeit.getTime() : -Infinity;
+    const handlungsFrist = Math.max(traegerFrist, tenderMoeglich ? tenderFrist : -Infinity);
+    const stufe: MeldungsStufe = handlungsFrist - jetzt.getTime() <= AG_ESKALATION_MS ? "warnung" : "vorschlag";
+
+    meldungen.push({
+      id: `seestation-defizit-${schiff.id}`,
+      stufe,
+      zeit: schiff.eta,
+      text: `Seestation: ${fehltText} — ${empfehlung}`,
+    });
+  }
+  return meldungen;
+}
+
 export function berechneMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitSettings): Meldung[] {
-  return sortiereMeldungen([...abrufMeldungen(daten, jetzt, settings)]);
+  return sortiereMeldungen([...abrufMeldungen(daten, jetzt, settings), ...seestationsMeldungen(daten, jetzt, settings)]);
 }

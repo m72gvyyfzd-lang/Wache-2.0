@@ -1,10 +1,14 @@
 /** Berechnungen rund um die Seestation. */
 import type { Abteilung, SeestationLotse } from "../data/types";
 
-/** "Ankunft S-Stn"/"ETA Stn" eines Lotsen im Revier: Abteilzeit + 3,5 Std.
- *  (wird später verfeinert); ein manueller Wert sticht die Berechnung aus. */
+/** Anfahrtszeit von der Abteilung bis zur Seestation (wird später
+ *  verfeinert) — auch Grundlage der AG-Fahrt-Vorschläge im Dashboard. */
+export const ANFAHRT_SEESTATION_MS = 3.5 * 3_600_000;
+
+/** "Ankunft S-Stn"/"ETA Stn" eines Lotsen im Revier: Abteilzeit + Anfahrt;
+ *  ein manueller Wert sticht die Berechnung aus. */
 export function etaSeestation(abteilung: Abteilung): Date {
-  return abteilung.etaStnManuell ?? new Date(abteilung.abteilZeit.getTime() + 3.5 * 3_600_000);
+  return abteilung.etaStnManuell ?? new Date(abteilung.abteilZeit.getTime() + ANFAHRT_SEESTATION_MS);
 }
 
 /** Einheitliche Zeile der Liste "Auf Seestation": Lotsen aus der
