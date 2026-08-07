@@ -9,11 +9,12 @@ import { LotsenAnzahlModal } from "../components/LotsenAnzahlModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
-import type { JobEintrag, LotsenEintrag } from "../data/types";
+import type { JobEintrag } from "../data/types";
 import { benoetigteLotsenAnzahl, istOhneVNrJob, sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { sortiereUndNummeriere, type LotseMitOrdnung } from "../lib/lotsenOrdnung";
 import { abteilzeitProLotse, eignungsWarnung, geplanterAbruf, planeEinsatzstation } from "../lib/planungEinsatzstation";
+import { berechnePotentielleVNrn } from "../lib/vNrPlanung";
 import { useData } from "../state/DataContext";
 import "./Einsatzplanung.css";
 
@@ -62,35 +63,15 @@ export function Einsatzplanung() {
   const zuweisungen = planeEinsatzstation(jobs, lotsen, aktuelleFahrt, settings, abgeteiltProJob);
   const zugewieseneLotsen = new Set(Array.from(zuweisungen.values()).flat());
 
-  // V-Nr.: fortlaufend ab vNrStart, aber Lotsen mit einer Zuweisung aus
-  // OHNE_V_NR_TYPEN bekommen keine — der Zähler bleibt für sie stehen und
-  // geht an den nächsten Lotsen ohne diese Restriktion. Statt der V-Nr.
-  // zeigt die Spalte dann die Kurzform des Job-Typs. Beim Abteilen
-  // vergebene Nummern sind dauerhaft verbraucht (siehe verbrauchteVNrn) und
-  // werden übersprungen — auch wenn sich die vNr einer Abteilung später
-  // ändert (z.B. durch Verschieben auf der Seestation) oder rückgängig
-  // gemacht wird, wird die Nummer nicht wieder frei.
-  const ohneVNr = new Set<LotsenEintrag>();
-  const typProLotse = new Map<LotsenEintrag, string>();
-  for (const { eintrag: job } of jobsSortiert) {
-    if (istOhneVNrJob(job)) {
-      for (const l of zuweisungen.get(job.id) ?? []) {
-        ohneVNr.add(l);
-        typProLotse.set(l, vonTypeLabel(job));
-      }
-    }
-  }
-  const vergebeneVNrn = new Set(verbrauchteVNrn);
-  const vNrProLotse = new Map<LotsenEintrag, number>();
-  let naechsteVNr = vNrStart;
-  for (const { eintrag } of lotsenSortiert) {
-    if (ohneVNr.has(eintrag)) continue;
-    while (vergebeneVNrn.has(naechsteVNr)) naechsteVNr += 1;
-    vNrProLotse.set(eintrag, naechsteVNr);
-    naechsteVNr += 1;
-  }
-  while (vergebeneVNrn.has(naechsteVNr)) naechsteVNr += 1;
-  const naechsteFreieVNr = naechsteVNr;
+  // Potentielle V-Nrn — gemeinsame Logik mit der Seestation-Vorschau,
+  // siehe lib/vNrPlanung.ts.
+  const { vNrProLotse, typProLotse, naechsteFreieVNr } = berechnePotentielleVNrn(
+    jobsSortiert,
+    lotsenSortiert,
+    zuweisungen,
+    vNrStart,
+    verbrauchteVNrn,
+  );
 
   // "gepl. Abruf": Abt.Zeit des zugewiesenen Jobs minus die Abrufzeit des
   // Lotsen — wird bei jeder Änderung neu berechnet.

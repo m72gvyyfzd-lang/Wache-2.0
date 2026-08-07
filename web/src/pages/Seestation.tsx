@@ -93,6 +93,8 @@ export function Seestation() {
     jobs,
     lotsen,
     aktuelleFahrt,
+    vNrStart,
+    verbrauchteVNrn,
   } = useData();
 
   // Bereits abgeteilte Lotsen je See-Schiff: voll abgeteilte Schiffe
@@ -130,7 +132,7 @@ export function Seestation() {
   // wenn die Vorausberechnung sie zum Decken eines Defizits einplant.
   const [vorschau, setVorschau] = useState(false);
   const { verplante, freie } = vorschau
-    ? vorschauZeilen(jobs, lotsen, aktuelleFahrt, abteilungen, settings)
+    ? vorschauZeilen(jobs, lotsen, aktuelleFahrt, abteilungen, settings, vNrStart, verbrauchteVNrn)
     : { verplante: [], freie: [] };
   const vorschauProjektion = vorschau
     ? simuliereSeestation(seeSchiffe, [...lotsenZeilen, ...verplante, ...freie], abgeteiltProSchiff, VORLAUF_AUF_STATION_MS)
@@ -141,11 +143,10 @@ export function Seestation() {
       for (const z of projektion.zugewiesen) if (z.projiziert === "frei") benoetigteFreie.add(z.key);
     }
   }
-  // gemeinsam nach Ankunftszeit sortiert ans Listenende
-  const projizierte = [...verplante, ...freie.filter((k) => benoetigteFreie.has(k.key))].sort(
-    (a, b) => (a.etaStn?.getTime() ?? 0) - (b.etaStn?.getTime() ?? 0),
-  );
-  const anzeigeLotsen = [...lotsenZeilen, ...projizierte];
+  // Vorschau-Lotsen anhand ihrer potentiellen V-Nr. zwischen die echten
+  // Zeilen einsortieren — dort stünden sie später auch wirklich.
+  const projizierte = [...verplante, ...freie.filter((k) => benoetigteFreie.has(k.key))];
+  const anzeigeLotsen = sortiereSeestation([...lotsenZeilen, ...projizierte]);
   const zeilen = Math.max(schiffeSortiert.length, anzeigeLotsen.length);
 
   const [schiffAuswahl, setSchiffAuswahl] = useState<number | null>(null);
@@ -427,7 +428,7 @@ export function Seestation() {
                   {lotse ? (
                     <>
                       <td className={`${lotseKlasse} num zentriert`} onClick={lotseKlick} onDoubleClick={lotseDoppelklick}>
-                        {lotse.projiziert ? "–" : lotse.vNr}
+                        {Number.isFinite(lotse.vNr) ? lotse.vNr : "–"}
                         {lotse.zusatz && <span className="planung-hinweis"> ({lotse.zusatz})</span>}
                       </td>
                       <td className={`${lotseKlasse} cell-name`} onClick={lotseKlick} onDoubleClick={lotseDoppelklick}>

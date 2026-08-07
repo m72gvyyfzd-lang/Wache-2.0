@@ -12,6 +12,11 @@
  *   ein Kandidat wirklich gebraucht wird, entscheidet die Vorausberechnung
  *   (simuliereSeestation) — nur die dort tatsächlich eingeplanten
  *   Kandidaten werden angezeigt.
+ *
+ * Jede Zeile trägt ihre POTENTIELLE V-Nr. (dieselbe Berechnung wie die
+ * V-Nr.-Spalte der Einsatzplanung, siehe lib/vNrPlanung.ts) — damit
+ * sortieren sich die Vorschau-Lotsen in der "Auf Seestation"-Liste an die
+ * Stelle, an der sie später auch wirklich stehen würden.
  */
 import type { AbteilzeitSettings } from "@wache/core";
 import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
@@ -19,6 +24,7 @@ import { benoetigteLotsenAnzahl, istOhneVNrJob, sortiereEintraege } from "./core
 import { sortiereUndNummeriere } from "./lotsenOrdnung";
 import { planeEinsatzstation } from "./planungEinsatzstation";
 import { ANFAHRT_SEESTATION_MS, type SeestationZeile } from "./seestation";
+import { berechnePotentielleVNrn } from "./vNrPlanung";
 
 export interface VorschauZeilen {
   /** Lotsen mit Job: Ankunft = Abteilzeit + Anfahrt (orange, immer sichtbar) */
@@ -33,6 +39,8 @@ export function vorschauZeilen(
   aktuelleFahrt: AktuelleFahrt,
   abteilungen: Abteilung[],
   settings: AbteilzeitSettings,
+  vNrStart: number,
+  verbrauchteVNrn: number[],
 ): VorschauZeilen {
   const abgeteiltProJob = new Map<number, number>();
   for (const a of abteilungen) abgeteiltProJob.set(a.jobId, (abgeteiltProJob.get(a.jobId) ?? 0) + 1);
@@ -40,9 +48,15 @@ export function vorschauZeilen(
   const verplantSet = new Set<LotsenEintrag>();
   for (const liste of zuweisungen.values()) for (const lotse of liste) verplantSet.add(lotse);
 
+  const jobsSortiert = sortiereEintraege(jobs, settings).filter(
+    ({ eintrag }) => benoetigteLotsenAnzahl(eintrag) - (abgeteiltProJob.get(eintrag.id) ?? 0) > 0,
+  );
+  const lotsenSortiert = sortiereUndNummeriere(lotsen, aktuelleFahrt);
+  const { vNrProLotse } = berechnePotentielleVNrn(jobsSortiert, lotsenSortiert, zuweisungen, vNrStart, verbrauchteVNrn);
+
   // Gemeinsame Zeilen-Fabrik: negative Kunst-IDs kollidieren nie mit echten
-  // Datensätzen (die Zeilen sind ohnehin nicht anklickbar); ohne echte
-  // V-Nr. — Infinity sortiert die Projektion ans Listenende.
+  // Datensätzen (die Zeilen sind ohnehin nicht anklickbar); ohne potentielle
+  // V-Nr. sortiert Infinity ans Listenende.
   let laufNr = 0;
   function zeile(lotse: LotsenEintrag, etaStn: Date, art: "verplant" | "frei"): SeestationZeile {
     laufNr += 1;
@@ -50,7 +64,7 @@ export function vorschauZeilen(
       key: `vorschau-${laufNr}`,
       quelle: "abteilung",
       id: -laufNr,
-      vNr: Number.POSITIVE_INFINITY,
+      vNr: vNrProLotse.get(lotse) ?? Number.POSITIVE_INFINITY,
       name: lotse.name,
       kategorie: lotse.kategorie,
       elbehafen: lotse.elbehafen,
@@ -60,9 +74,6 @@ export function vorschauZeilen(
     };
   }
 
-  const jobsSortiert = sortiereEintraege(jobs, settings).filter(
-    ({ eintrag }) => benoetigteLotsenAnzahl(eintrag) - (abgeteiltProJob.get(eintrag.id) ?? 0) > 0,
-  );
   const verplante: SeestationZeile[] = [];
   for (const { eintrag: job, abteilzeit } of jobsSortiert) {
     if (!abteilzeit || istOhneVNrJob(job)) continue;
@@ -70,12 +81,11 @@ export function vorschauZeilen(
       verplante.push(zeile(lotse, new Date(abteilzeit.getTime() + ANFAHRT_SEESTATION_MS), "verplant"));
     }
   }
-  verplante.sort((a, b) => (a.etaStn?.getTime() ?? 0) - (b.etaStn?.getTime() ?? 0));
 
   // FIFO-Reihenfolge der Lotsenliste; bereits Abgeteilte sind dort schon
   // ausgeblendet, Verplante fallen hier raus.
   const fruehesteAnkunft = new Date(Date.now() + ANFAHRT_SEESTATION_MS);
-  const freie = sortiereUndNummeriere(lotsen, aktuelleFahrt)
+  const freie = lotsenSortiert
     .map(({ eintrag }) => eintrag)
     .filter((lotse) => !verplantSet.has(lotse))
     .map((lotse) => zeile(lotse, fruehesteAnkunft, "frei"));
