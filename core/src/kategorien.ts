@@ -93,20 +93,19 @@ export function darfFahren(schiffsKat: SchiffsKategorie | string, lotsenKat: Lot
 }
 
 /**
- * Darf der Lotse als ZWEITER Lotse auf das Schiff (einkommend)?
- * - AGF 3+: min. Kat. 6.
- * - andere AGF: min. Kat. 3+ (siehe hatDreiPlus).
- * - Kat.-4–7-Schiffe mit 2. Lotsen: auch der 2. Lotse muss die
- *   Schiffs-Kat. erfüllen (wie darfFahren).
- * - Kat. 1–3: keine eigene Zweitlotsen-Regel definiert, es gilt darfFahren.
+ * Darf der Lotse als ZWEITER Lotse auf das Schiff (einkommend)? Der erste
+ * Lotse muss stets die volle Schiffs-Kat. erfüllen (darfFahren); der zweite
+ * darf schon ab eigener Kat. 3+ mitfahren — unabhängig von der Schiffs-Kat.
+ * Ausnahme AGF 3+: der zweite Lotse muss min. Kat. 6 haben. Gilt nur für
+ * echte Zweitlotsen-Schiffe (z.B. Doppeldecker); bei AG-Jobs braucht jeder
+ * zusätzliche Lotse weiterhin die volle Kat. (siehe eignungsWarnung).
  */
 export function darfZweiterLotse(
   schiffsKat: SchiffsKategorie | string,
   lotsenKat: LotsenKategorie | string | undefined,
 ): boolean {
   if (schiffsKat === "AGF 3+") return lotsenRang(lotsenKat) >= 6;
-  if (istAgf(schiffsKat)) return hatDreiPlus(lotsenKat);
-  return darfFahren(schiffsKat, lotsenKat);
+  return hatDreiPlus(lotsenKat);
 }
 
 /**

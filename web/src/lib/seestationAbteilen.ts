@@ -8,20 +8,24 @@ import { darfFahren, darfZweiterLotse, schiffsRang } from "@wache/core";
 import type { SeeSchiff } from "../data/types";
 import type { SeestationZeile } from "./seestation";
 
-/** Anzahl benötigter Lotsen eines See-Schiffs: Standard 1, Doppeldecker 2. */
+/** Anzahl benötigter Lotsen eines See-Schiffs (Spalte "Lots."), Standard 1. */
 export function seeLotsenAnzahl(schiff: SeeSchiff): number {
-  return schiff.doppeldecker ? 2 : 1;
+  return schiff.lotsenAnzahl ?? 1;
 }
 
 /** Prüft dieselben Bedingungen wie die Zuweisung, liefert aber den Grund als
- *  Warnungstext (für das Abteilen-Fragefenster). undefined = alles passt. */
+ *  Warnungstext (für das Abteilen-Fragefenster). undefined = alles passt.
+ *  Der erste Lotse braucht immer die volle Schiffs-Kat.; der zweite darf
+ *  schon ab eigener Kat. 3+ mitfahren (siehe darfZweiterLotse) — außer bei
+ *  EHF-Schiffen: dort brauchen BEIDE Lotsen die volle Kat. und EH. */
 export function eignungsWarnungSeestation(
   schiff: SeeSchiff,
   lotse: Pick<SeestationZeile, "kategorie" | "elbehafen">,
   istErster: boolean,
 ): string | undefined {
   const schiffsKat = schiff.kategorie ?? "";
-  const passtKat = istErster ? darfFahren(schiffsKat, lotse.kategorie) : darfZweiterLotse(schiffsKat, lotse.kategorie);
+  const brauchtVolleKat = istErster || schiff.ehfLotseBenoetigt;
+  const passtKat = brauchtVolleKat ? darfFahren(schiffsKat, lotse.kategorie) : darfZweiterLotse(schiffsKat, lotse.kategorie);
   if (!passtKat) return "Kat. des Lotsen zu klein";
   if (schiff.ehfLotseBenoetigt && schiffsRang(schiffsKat) >= 4 && !lotse.elbehafen) return "Lotse nicht in EH-Liste";
   return undefined;

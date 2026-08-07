@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FrageModal } from "../components/FrageModal";
+import { LotsenAnzahlModal } from "../components/LotsenAnzahlModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
@@ -77,6 +78,16 @@ export function Seestation() {
   const [neuerLotseOffen, setNeuerLotseOffen] = useState(false);
   // "Abteilen": Rückfrage vor dem Verbinden von Schiff + Lotse
   const [abteilenFrage, setAbteilenFrage] = useState(false);
+  // Doppelklick auf "Lots." öffnet das Bearbeitungsfenster (analog AG-Job
+  // in der Einsatzplanung)
+  const [lotsenAnzahlSchiff, setLotsenAnzahlSchiff] = useState<SeeSchiff | null>(null);
+
+  function handleLotsenAnzahlUebernehmen(wert: number) {
+    if (!lotsenAnzahlSchiff) return;
+    updateSeeSchiff(lotsenAnzahlSchiff.id, { ...lotsenAnzahlSchiff, lotsenAnzahl: wert });
+    setSchiffAuswahl(null);
+    setLotsenAnzahlSchiff(null);
+  }
 
   // Vorbelegung fürs Hinzufügen: letzte (höchste) V-Nr. der Revier-Lotsen
   const vNrProfil = zeilenAusAbteilungen(abteilungen).reduce((max, z) => Math.max(max, z.vNr), 0);
@@ -290,8 +301,15 @@ export function Seestation() {
                         {schiff.kategorie ?? "·"}
                         {schiff.ehfLotseBenoetigt && <span className="planung-hinweis"> (EH)</span>}
                       </td>
-                      <td className={`${schiffKlasse} num zentriert`} onClick={schiffKlick} onDoubleClick={schiffDoppelklick}>
-                        {seeLotsenAnzahl(schiff) > 1 ? seeLotsenAnzahl(schiff) : ""}
+                      <td
+                        className={`${schiffKlasse} num zentriert`}
+                        onClick={schiffKlick}
+                        onDoubleClick={() => {
+                          setSchiffAuswahl(schiff.id);
+                          setLotsenAnzahlSchiff(schiff);
+                        }}
+                      >
+                        {seeLotsenAnzahl(schiff)}
                       </td>
                     </>
                   ) : (
@@ -369,7 +387,7 @@ export function Seestation() {
       )}
 
       {aktionLotse && (
-        <Modal title={aktionLotse.name} onClose={() => setAktionLotse(null)} maxWidth="360px">
+        <Modal title={aktionLotse.name} onClose={() => setAktionLotse(null)} maxWidth="440px">
           <SeestationLotseAktionModal
             initialEtaStn={aktionLotse.etaStn}
             aufStation={aktionLotse.aufStation}
@@ -419,6 +437,16 @@ export function Seestation() {
             zentriert
             onJa={handleAbteilenJa}
             onNein={() => setAbteilenFrage(false)}
+          />
+        </Modal>
+      )}
+
+      {lotsenAnzahlSchiff && (
+        <Modal title={lotsenAnzahlSchiff.schiffsname} onClose={() => setLotsenAnzahlSchiff(null)} maxWidth="300px">
+          <LotsenAnzahlModal
+            initial={seeLotsenAnzahl(lotsenAnzahlSchiff)}
+            onUebernehmen={handleLotsenAnzahlUebernehmen}
+            onAbbrechen={() => setLotsenAnzahlSchiff(null)}
           />
         </Modal>
       )}

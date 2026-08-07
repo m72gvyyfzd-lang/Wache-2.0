@@ -122,9 +122,7 @@ export function Einsatzplanung() {
   // Warnung, wenn der gewählte Lotse die Anforderungen des Jobs nicht
   // erfüllt (Kat., Job-Typ, EH) — abteilen bleibt trotzdem möglich.
   const abteilenWarnung =
-    abteilenJob && abteilenLotse
-      ? eignungsWarnung(abteilenJob, abteilenLotse.eintrag, (abgeteiltProJob.get(abteilenJob.id) ?? 0) === 0)
-      : undefined;
+    abteilenJob && abteilenLotse ? eignungsWarnung(abteilenJob, abteilenLotse.eintrag) : undefined;
 
   function handleAbteilenJa() {
     if (!abteilenJob || !abteilenLotse) return;

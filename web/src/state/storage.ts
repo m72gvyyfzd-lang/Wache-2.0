@@ -171,7 +171,14 @@ function ladeListeMitDatum<T>(key: string, datumsFeld: string, fallback: T[]): T
 }
 
 export function ladeSeeSchiffe(fallback: SeeSchiff[]): SeeSchiff[] {
-  return ladeListeMitDatum(SEE_SCHIFFE_KEY, "eta", fallback);
+  const schiffe = ladeListeMitDatum<SeeSchiff>(SEE_SCHIFFE_KEY, "eta", fallback);
+  // Migration: das frühere Doppeldecker-Feld (fest 2 Lotsen) wurde durch
+  // die frei editierbare lotsenAnzahl (Lots.-Quick-Edit) ersetzt.
+  return schiffe.map((schiff) => {
+    const alt = schiff as SeeSchiff & { doppeldecker?: boolean };
+    if (alt.lotsenAnzahl === undefined && alt.doppeldecker) return { ...schiff, lotsenAnzahl: 2 };
+    return schiff;
+  });
 }
 
 export function speichereSeeSchiffe(schiffe: SeeSchiff[]): void {

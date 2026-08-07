@@ -12,24 +12,26 @@
  * Muss bei jeder Änderung (Jobs, Lotsen, aktuelle Fahrt) neu berechnet
  * werden — daher rein funktional, kein eigener State.
  */
-import { darfFahren, darfJobTyp, darfZweiterLotse, schiffsRang, type AbteilzeitSettings } from "@wache/core";
+import { darfFahren, darfJobTyp, schiffsRang, type AbteilzeitSettings } from "@wache/core";
 import type { AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
 import { benoetigteLotsenAnzahl, sortiereEintraege, type EintragMitAbteilzeit } from "./coreJob";
 import { sortiereUndNummeriere } from "./lotsenOrdnung";
 
 /** Prüft dieselben Bedingungen wie die Planung, liefert aber den Grund als
- *  Warnungstext (für das Abteilen-Fragefenster). undefined = alles passt. */
-export function eignungsWarnung(job: JobEintrag, lotse: LotsenEintrag, istErster: boolean): string | undefined {
+ *  Warnungstext (für das Abteilen-Fragefenster). undefined = alles passt.
+ *  Jeder Lotse (auch weitere AG-Lotsen) braucht die volle Kat. — die
+ *  Zweitlotsen-Regel (ab Kat. 3+) gilt nur für echte Schiffe mit 2 Lotsen
+ *  (siehe lib/seestationAbteilen.ts), nicht für AG-Jobs. */
+export function eignungsWarnung(job: JobEintrag, lotse: LotsenEintrag): string | undefined {
   const schiffsKat = job.kategorie ?? "";
-  const passtKat = istErster ? darfFahren(schiffsKat, lotse.kategorie) : darfZweiterLotse(schiffsKat, lotse.kategorie);
-  if (!passtKat) return "Kat. des Lotsen zu klein";
+  if (!darfFahren(schiffsKat, lotse.kategorie)) return "Kat. des Lotsen zu klein";
   if (job.typ !== undefined && !darfJobTyp(job.typ, lotse.kategorie)) return `Kat. des Lotsen reicht nicht für ${job.typ}`;
   if (job.ehfLotseBenoetigt && schiffsRang(schiffsKat) >= 4 && !lotse.elbehafen) return "Lotse nicht in EH-Liste";
   return undefined;
 }
 
-function istGeeignet(job: JobEintrag, lotse: LotsenEintrag, istErster: boolean): boolean {
-  return eignungsWarnung(job, lotse, istErster) === undefined;
+function istGeeignet(job: JobEintrag, lotse: LotsenEintrag): boolean {
+  return eignungsWarnung(job, lotse) === undefined;
 }
 
 /** jobId -> zugewiesene Lotsen (in Zuweisungsreihenfolge).
@@ -51,7 +53,7 @@ export function planeEinsatzstation(
     const zugewiesen: LotsenEintrag[] = [];
     const uebrig: LotsenEintrag[] = [];
     for (const kandidat of kandidaten) {
-      if (zugewiesen.length < benoetigt && istGeeignet(job, kandidat, zugewiesen.length === 0)) {
+      if (zugewiesen.length < benoetigt && istGeeignet(job, kandidat)) {
         zugewiesen.push(kandidat);
       } else {
         uebrig.push(kandidat);

@@ -53,7 +53,7 @@ export const mockSeeSchiffe: SeeSchiff[] = [
     schiffsname: "MS GIGANTIA",
     eta: new Date("2026-08-02T11:00:00"),
     kategorie: "AGF 3/7",
-    doppeldecker: true,
+    lotsenAnzahl: 2,
     angemeldet: true,
   },
   { id: 4, schiffsname: "MS TANKSTERN", eta: new Date("2026-08-02T13:45:00"), kategorie: "4", ehfLotseBenoetigt: true },

@@ -84,10 +84,13 @@ describe("darfZweiterLotse", () => {
     expect(darfZweiterLotse("AGF 3+", "3+")).toBe(false);
   });
 
-  it("Kat.-4–7-Schiff: 2. Lotse muss ebenfalls die Schiffs-Kat. erfüllen", () => {
+  it("Kat.-1–7-Schiff: 2. Lotse braucht nur eigene Kat. 3+, unabhängig von der Schiffs-Kat.", () => {
     expect(darfZweiterLotse("5", "5")).toBe(true);
-    expect(darfZweiterLotse("5", "4")).toBe(false);
+    expect(darfZweiterLotse("5", "4")).toBe(true);
+    expect(darfZweiterLotse("5", "3+")).toBe(true);
+    expect(darfZweiterLotse("5", "3")).toBe(false);
     expect(darfZweiterLotse("7", "")).toBe(true);
+    expect(darfZweiterLotse("2", "1")).toBe(false);
   });
 });
 
