@@ -1,5 +1,14 @@
 .page-header {
   margin-bottom: 18px;
+  position: relative;
+}
+
+/* Action-Button rechtsbündig auf Höhe der (ggf. zentrierten) Überschrift */
+.page-header__action {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .page-header h1 {

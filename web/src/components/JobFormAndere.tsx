@@ -10,9 +10,10 @@ import "./JobForm.css";
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
 /** Typen ohne eigenen Schiffsnamen/Kategorie: AG leitet den Namen aus der
- *  Verknüpfung ab, Nebelradar braucht beides schlicht nicht. */
+ *  Verknüpfung ab, AG (Tender) heißt fest "Tender", Nebelradar braucht
+ *  beides schlicht nicht. */
 function ohneSchiffsfelder(typ: AnmeldungsTyp | ""): boolean {
-  return typ === "AG" || typ === "Nebelradar";
+  return typ === "AG" || typ === "AG (Tender)" || typ === "Nebelradar";
 }
 
 interface JobFormAndereProps {
@@ -44,6 +45,9 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
       setSchiffsname("");
       setKategorie("");
     }
+    // AG (Tender): keine Trägerjob-Bindung — eine evtl. vorher gewählte
+    // Verknüpfung fällt weg, die Abteilzeit wird direkt eingetragen.
+    if (wert === "AG (Tender)") setAgJobId("");
   }
 
   /** AG-Regel: Schiffsname wird aus der Verknüpfung abgeleitet — Name des
@@ -99,11 +103,12 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
       id: initial?.id ?? 0,
       liste: "andere",
       typ,
-      schiffsname: typ === "Nebelradar" ? undefined : schiffsname.trim() || undefined,
+      schiffsname:
+        typ === "AG (Tender)" ? "Tender" : typ === "Nebelradar" ? undefined : schiffsname.trim() || undefined,
       kategorie: ohneSchiffsfelder(typ) ? undefined : kategorie || undefined,
       bemerkung: bemerkung.trim() || undefined,
       agJobId: typ === "AG" && agJobId !== "" ? Number(agJobId) : undefined,
-      agLotsenAnzahl: typ === "AG" && agLotsen !== "" ? Number(agLotsen) : undefined,
+      agLotsenAnzahl: (typ === "AG" || typ === "AG (Tender)") && agLotsen !== "" ? Number(agLotsen) : undefined,
       ehfBestAbgang: typ === "EHF" ? fromLocalInput(ehfBestAbgang) : undefined,
       ehfLotseBenoetigt: typ === "EHF" ? ehfLotse : undefined,
       bhfBesetzZeit: typ === "BHF" ? fromLocalInput(bhfBesetzZeit) : undefined,
@@ -154,6 +159,15 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
             <label>
               Lotsen
               <input type="number" min={1} value={agLotsen} onChange={(e) => handleAgLotsen(e.target.value)} />
+            </label>
+          </>
+        )}
+        {typ === "AG (Tender)" && (
+          <>
+            <span className="job-form__grow2" aria-hidden="true" />
+            <label>
+              Lotsen
+              <input type="number" min={1} value={agLotsen} onChange={(e) => setAgLotsen(e.target.value)} />
             </label>
           </>
         )}

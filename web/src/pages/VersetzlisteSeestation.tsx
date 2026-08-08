@@ -112,11 +112,7 @@ export function VersetzlisteSeestation() {
         </button>
       </div>
 
-      <Panel
-        title="Versetz auf Seestation"
-        description="Per Seestation-Abteilen einem See-Schiff zugewiesene Lotsen"
-        count={`${versetzt.length} Einträge`}
-      >
+      <Panel title="Versetz auf Seestation">
         <table className="versetz-table">
           <thead>
             <tr>
@@ -156,11 +152,7 @@ export function VersetzlisteSeestation() {
         </table>
       </Panel>
 
-      <Panel
-        title="Abgeschöpfte Lotsen"
-        description="Auf der Seestation abgeschöpfte Lotsen"
-        count={`${abgeschoepft.length} Einträge`}
-      >
+      <Panel title="Abgeschöpfte Lotsen">
         <table className="versetz-table">
           <thead>
             <tr>

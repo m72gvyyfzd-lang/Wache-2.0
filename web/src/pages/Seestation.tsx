@@ -343,6 +343,7 @@ export function Seestation() {
           </>
         }
       >
+        <div className="tabelle-scroll">
         <table className="seestation-table">
           <thead>
             <tr className="seestation-table__gruppen">
@@ -472,6 +473,7 @@ export function Seestation() {
             })}
           </tbody>
         </table>
+        </div>
       </Panel>
 
       {neuesSchiffOffen && (

@@ -20,7 +20,6 @@ function formatCheckpoint(datum: Date | undefined): string {
 
 interface CheckpointListeProps {
   titel: string;
-  beschreibung: string;
   zeilen: EintragMitAbteilzeit[];
   abgeteiltProJob: Map<number, number>;
   checkpointLabels: [string, string, string];
@@ -31,12 +30,11 @@ interface CheckpointListeProps {
 
 /** Hamburg- und NOK-Liste haben identische Spalten, nur die drei
  *  Checkpoint-Bezeichnungen und -Felder unterscheiden sich. */
-function CheckpointListe({ titel, beschreibung, zeilen, abgeteiltProJob, checkpointLabels, checkpoints, onNeu, onZeile }: CheckpointListeProps) {
+function CheckpointListe({ titel, zeilen, abgeteiltProJob, checkpointLabels, checkpoints, onNeu, onZeile }: CheckpointListeProps) {
   const [label1, label2, label3] = checkpointLabels;
   return (
     <Panel
       title={titel}
-      description={beschreibung}
       count={`${zeilen.length} Einträge`}
       action={
         <button type="button" className="btn btn--small btn--accent" onClick={onNeu}>
@@ -104,7 +102,6 @@ function AndereListe({ zeilen, alleJobs, abgeteiltProJob, onNeu, onZeile, onWarn
   return (
     <Panel
       title="Andere Jobs"
-      description="Anmeldungen ohne Checkpoint-Berechnung"
       count={`${zeilen.length} Einträge`}
       action={
         <button type="button" className="btn btn--small btn--accent" onClick={onNeu}>
@@ -203,7 +200,6 @@ export function Jobs() {
       <PageHeader title="ausgehender Schiffsverkehr / Anmeldungen" centered />
       <CheckpointListe
         titel="Hamburg"
-        beschreibung="Elbe-Route: HH → FkW → Stade"
         zeilen={hamburg}
         abgeteiltProJob={abgeteiltProJob}
         checkpointLabels={["HH", "FkW", "Stade"]}
@@ -213,7 +209,6 @@ export function Jobs() {
       />
       <CheckpointListe
         titel="NOK"
-        beschreibung="Kanal-Route: Holt. → Ticker → Kuden"
         zeilen={nok}
         abgeteiltProJob={abgeteiltProJob}
         checkpointLabels={["Holt.", "Ticker", "Kuden"]}

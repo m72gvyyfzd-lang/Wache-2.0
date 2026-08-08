@@ -39,21 +39,30 @@ export function abteilzeitVon(eintrag: JobEintrag, settings: AbteilzeitSettings)
 }
 
 /** Anzeige für die Spalte "Von / Type": Herkunftsliste bzw. Anmeldungs-Typ.
- *  Sonderradar/Nebelradar werden abgekürzt, damit die Spalte schmal bleibt. */
+ *  Sonderradar/Nebelradar/AG (Tender) werden abgekürzt, damit die Spalte
+ *  schmal bleibt. */
 export function vonTypeLabel(eintrag: JobEintrag): string {
   if (eintrag.liste === "hamburg") return eintrag.buetzfleth ? "Bütz" : "HH";
   if (eintrag.liste === "nok") return "NOK";
   if (eintrag.typ === "Sonderradar") return "SoRa";
   if (eintrag.typ === "Nebelradar") return "NeRa";
+  if (eintrag.typ === "AG (Tender)") return "AG-T";
   return eintrag.typ ?? "?";
 }
 
+/** AG-Jobs im weiteren Sinn: klassische AG (an einen Trägerjob gehängt)
+ *  und AG (Tender) mit eigenem Tender — beide zählen agLotsenAnzahl und
+ *  erlauben den Lots.-Quick-Edit in der Einsatzplanung. */
+export function istAgJob(eintrag: JobEintrag): boolean {
+  return eintrag.liste === "andere" && (eintrag.typ === "AG" || eintrag.typ === "AG (Tender)");
+}
+
 /** Anzahl benötigter Lotsen (Einsatzplanung, Spalte "Lots."). Jeder Job
- *  braucht standardmäßig genau einen Lotsen — Ausnahme AG, dort zählt
- *  agLotsenAnzahl (einstellbar im Job-Formular oder per Quick-Edit in der
- *  Einsatzplanung — beide schreiben dasselbe Feld). */
+ *  braucht standardmäßig genau einen Lotsen — Ausnahme AG/AG (Tender),
+ *  dort zählt agLotsenAnzahl (einstellbar im Job-Formular oder per
+ *  Quick-Edit in der Einsatzplanung — beide schreiben dasselbe Feld). */
 export function benoetigteLotsenAnzahl(eintrag: JobEintrag): number {
-  if (eintrag.liste === "andere" && eintrag.typ === "AG") return eintrag.agLotsenAnzahl ?? 1;
+  if (istAgJob(eintrag)) return eintrag.agLotsenAnzahl ?? 1;
   return 1;
 }
 

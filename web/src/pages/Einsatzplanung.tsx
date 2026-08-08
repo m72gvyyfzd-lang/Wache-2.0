@@ -10,7 +10,7 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import type { JobEintrag } from "../data/types";
-import { benoetigteLotsenAnzahl, istOhneVNrJob, sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
+import { benoetigteLotsenAnzahl, istAgJob, istOhneVNrJob, sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { sortiereUndNummeriere, type LotseMitOrdnung } from "../lib/lotsenOrdnung";
 import { abteilzeitProLotse, eignungsWarnung, geplanterAbruf, planeEinsatzstation } from "../lib/planungEinsatzstation";
@@ -139,13 +139,18 @@ export function Einsatzplanung() {
   // Schiffsnamen eingebrannte "(X AG)"-Zusatz wird passend mit erneuert.
   function handleLotsenAnzahlUebernehmen(wert: number) {
     if (!lotsenAnzahlJob) return;
-    const verknuepft = jobs.find((j) => j.id === lotsenAnzahlJob.agJobId);
-    const basis = verknuepft?.schiffsname ?? "";
-    updateJob(lotsenAnzahlJob.id, {
-      ...lotsenAnzahlJob,
-      agLotsenAnzahl: wert,
-      schiffsname: basis ? `${basis} (${wert} AG)` : undefined,
-    });
+    if (lotsenAnzahlJob.typ === "AG (Tender)") {
+      // kein Trägerjob, der Name bleibt fest "Tender"
+      updateJob(lotsenAnzahlJob.id, { ...lotsenAnzahlJob, agLotsenAnzahl: wert });
+    } else {
+      const verknuepft = jobs.find((j) => j.id === lotsenAnzahlJob.agJobId);
+      const basis = verknuepft?.schiffsname ?? "";
+      updateJob(lotsenAnzahlJob.id, {
+        ...lotsenAnzahlJob,
+        agLotsenAnzahl: wert,
+        schiffsname: basis ? `${basis} (${wert} AG)` : undefined,
+      });
+    }
     setJobAuswahl(null);
     setLotsenAnzahlJob(null);
   }
@@ -188,21 +193,25 @@ export function Einsatzplanung() {
     <div>
       <PageHeader title="Einsatzplanung" />
       <Panel
-        title="Zuordnung"
-        count={`${zeilen} Zeilen`}
+        // leeres Fragment statt Titel/Counter: der Kopf bleibt als
+        // Platzhalter erhalten, damit der Abteilen-Button beim Erscheinen
+        // das Layout nicht verschiebt
         action={
-          abteilenJob && abteilenLotse ? (
-            <button
-              type="button"
-              className="btn btn--accent einsatz-abteilen"
-              disabled={!abteilenMoeglich}
-              onClick={() => setAbteilenFrage(true)}
-            >
-              Abteilen
-            </button>
-          ) : undefined
+          <>
+            {abteilenJob && abteilenLotse && (
+              <button
+                type="button"
+                className="btn btn--accent einsatz-abteilen"
+                disabled={!abteilenMoeglich}
+                onClick={() => setAbteilenFrage(true)}
+              >
+                Abteilen
+              </button>
+            )}
+          </>
         }
       >
+        <div className="tabelle-scroll">
         <table className="einsatz-table">
           <thead>
             <tr className="einsatz-table__gruppen">
@@ -272,7 +281,7 @@ export function Einsatzplanung() {
                         }
                         onClick={jobKlick}
                         onDoubleClick={
-                          paar.eintrag.liste === "andere" && paar.eintrag.typ === "AG"
+                          istAgJob(paar.eintrag)
                             ? () => {
                                 setJobAuswahl(paar.eintrag.id);
                                 setLotsenAnzahlJob(paar.eintrag);
@@ -347,6 +356,7 @@ export function Einsatzplanung() {
             })}
           </tbody>
         </table>
+        </div>
       </Panel>
 
       {lotsenAnzahlJob && (

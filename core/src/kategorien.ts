@@ -34,9 +34,12 @@ export const LOTSEN_KATEGORIEN = ["1", "2", "3", "3+", "4", "5", "6", "7", ""] a
 
 export type LotsenKategorie = (typeof LOTSEN_KATEGORIEN)[number];
 
-/** Anmeldungs-Typen der Liste "Andere Jobs". */
+/** Anmeldungs-Typen der Liste "Andere Jobs". "AG (Tender)" ist eine AG
+ *  ohne Trägerjob-Bindung: eigener Tender, Abteilzeit direkt eingetragen —
+ *  das planbare Gegenstück zum Tender-AG-Vorschlag des Dashboards. */
 export const ANMELDUNGS_TYPEN = [
   "AG",
+  "AG (Tender)",
   "Sonderradar",
   "Nebelradar",
   "1+1",

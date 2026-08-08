@@ -86,11 +86,7 @@ export function Versetzliste() {
         </button>
       </div>
 
-      <Panel
-        title="Lotsen im Revier"
-        description="Abgeteilte Jobs mit V-Nr. — unterwegs zur Seestation"
-        count={`${revier.length} Einträge`}
-      >
+      <Panel title="Lotsen im Revier">
         <table className="versetz-table">
           <thead>
             <tr>
@@ -134,11 +130,7 @@ export function Versetzliste() {
         </table>
       </Panel>
 
-      <Panel
-        title="Vergabe-Liste"
-        description="Abgeteilte Jobs ohne V-Nr. — ohne Ziel Seestation"
-        count={`${vergabe.length} Einträge`}
-      >
+      <Panel title="Vergabe-Liste">
         <table className="versetz-table">
           <thead>
             <tr>

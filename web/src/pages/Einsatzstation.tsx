@@ -71,17 +71,17 @@ export function Einsatzstation() {
 
   return (
     <div>
-      <PageHeader title="Einsatzstation Brunsbüttel" centered />
-
-      <Panel
-        title="Lotsenliste"
-        count={query ? `${rows.length} / ${geordnet.length}` : `${geordnet.length} Einträge`}
+      <PageHeader
+        title="Einsatzstation Brunsbüttel"
+        centered
         action={
           <button type="button" className="btn btn--small btn--accent" onClick={() => setDialog({})}>
             + Neuer Lotse
           </button>
         }
-      >
+      />
+
+      <Panel>
         <div className="lotsen-toolbar">
           <input
             type="search"
