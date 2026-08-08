@@ -220,6 +220,12 @@ export function ladeVNrStart(letzteVNr: number): number {
   return start;
 }
 
+/** Setzt die Start-V-Nr. neu — Teil des Resets (Settings): danach beginnt
+ *  die Zählung wieder bei "letzte V-Nr." + 1. */
+export function speichereVNrStart(wert: number): void {
+  localStorage.setItem(V_NR_START_KEY, String(wert));
+}
+
 export function ladeSeeAbteilungen(): SeeAbteilung[] {
   return ladeListeMitDatum(SEE_ABTEILUNGEN_KEY, "abteilZeit", []);
 }

@@ -36,6 +36,7 @@ import {
   speichereSeeSchiffe,
   speichereSeestationLotsen,
   speichereVerbrauchteVNrn,
+  speichereVNrStart,
 } from "./storage";
 
 interface DataContextValue {
@@ -97,6 +98,12 @@ interface DataContextValue {
   /** Macht eine SeeAbteilung rückgängig: entfernt den Datensatz und blendet
    *  den Quell-Lotsen wieder in "Auf Seestation" ein. */
   macheSeeAbteilungRueckgaengig: (id: number) => void;
+  /** Reset (Settings): leert ALLE Listen (Jobs, Lotsen, Abteilungen,
+   *  See-Schiffe, Seestation-Lotsen, SeeAbteilungen, verbrauchte V-Nrn)
+   *  und setzt die Zähler zurück — die V-Nr.-Zählung beginnt wieder bei
+   *  "letzte V-Nr." + 1. Die Einstellungen selbst (letzte V-Nr., aktuelle
+   *  Fahrt, Alarm-Ton) bleiben erhalten. */
+  resetAlles: () => void;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -107,7 +114,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [lotsen, setLotsen] = useState<LotsenEintrag[]>(() => ladeLotsen(mockLotsenliste));
   const [aktuelleFahrt, setAktuelleFahrtState] = useState<AktuelleFahrt>(() => ladeAktuelleFahrt("MoFa"));
   const [letzteVNr, setLetzteVNrState] = useState<number>(() => ladeLetzteVNr(0));
-  const [vNrStart] = useState<number>(() => ladeVNrStart(letzteVNr));
+  const [vNrStart, setVNrStartState] = useState<number>(() => ladeVNrStart(letzteVNr));
   const [abteilungen, setAbteilungen] = useState<Abteilung[]>(() => ladeAbteilungen());
   const [seeSchiffe, setSeeSchiffe] = useState<SeeSchiff[]>(() => ladeSeeSchiffe(mockSeeSchiffe));
   const [seestationLotsen, setSeestationLotsen] = useState<SeestationLotse[]>(() => ladeSeestationLotsen());
@@ -272,6 +279,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
     speichereLetzteVNr(wert);
   }, []);
 
+  // Reset: alle Listen leeren, Zähler zurücksetzen. Die ID-/A-Nr.-Zähler
+  // dürfen NUR deshalb neu starten, weil alle Listen, die auf sie
+  // verweisen (Jobs, Abteilungen, SeeAbteilungen), im selben Schritt
+  // geleert werden. Die Einstellungen (letzte V-Nr., aktuelle Fahrt,
+  // Alarm-Ton) bleiben unangetastet.
+  const resetAlles = useCallback(() => {
+    setJobs([]);
+    setLotsen([]);
+    setAbteilungen([]);
+    setSeeSchiffe([]);
+    setSeestationLotsen([]);
+    setSeeAbteilungen([]);
+    setVerbrauchteVNrn([]);
+    const neuerStart = letzteVNr + 1;
+    setVNrStartState(neuerStart);
+    speichereVNrStart(neuerStart);
+    naechsteJobId.current = 1;
+    speichereJobIdZaehler(1);
+    naechsteANr.current = 1000;
+    speichereANrZaehler(1000);
+  }, [letzteVNr]);
+
   return (
     <DataContext.Provider
       value={{
@@ -306,6 +335,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         seeAbteilungen,
         teileSeeAb,
         macheSeeAbteilungRueckgaengig,
+        resetAlles,
       }}
     >
       {children}
