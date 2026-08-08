@@ -27,9 +27,10 @@ export interface SeestationZeile {
   etaStn: Date | undefined;
   aufStation: boolean;
   /** gesetzt = reine Vorschau-Projektion (Lotse noch an der Einsatzstation)
-   *  — nicht anklickbar, ohne V-Nr. "verplant" = hat schon einen Job,
-   *  Ankunft aus geplanter Abteilzeit hochgerechnet (orange); "frei" = noch
-   *  ohne Job, per AG holbar, früheste Ankunft jetzt + Anfahrt (blau). */
+   *  — nicht anklickbar, mit potentieller V-Nr. "verplant" = hat schon
+   *  einen Job, Ankunft aus geplanter Abteilzeit hochgerechnet (orange);
+   *  "frei" = noch ohne Job, per AG holbar (orange/blaue Details siehe
+   *  lib/vorschau.ts). */
   projiziert?: "verplant" | "frei";
 }
 

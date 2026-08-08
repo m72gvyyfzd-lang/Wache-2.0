@@ -8,8 +8,11 @@
  *   Vergabe-Typen (SoRa/NeRa/2+2/1+1/WB/WR) führen nicht zur Seestation
  *   und bleiben außen vor.
  * - FREIE Lotsen (blau): noch keinem Job zugewiesen — Kandidaten, die per
- *   AG-Fahrt geholt werden könnten; früheste Ankunft jetzt + Anfahrt. Ob
- *   ein Kandidat wirklich gebraucht wird, entscheidet die Vorausberechnung
+ *   AG-Fahrt geholt werden könnten. Früheste Ankunft ist das Minimum aus
+ *   dem frühesten künftigen Trägerjob (Abteilzeit + Anfahrt) und einer
+ *   Tender-AG (jetzt + 3 Std. Vorlauf + Anfahrt) — dieselbe Rechnung wie
+ *   die AG-Vorschläge des Dashboards (lib/meldungen.ts). Ob ein Kandidat
+ *   wirklich gebraucht wird, entscheidet die Vorausberechnung
  *   (simuliereSeestation) — nur die dort tatsächlich eingeplanten
  *   Kandidaten werden angezeigt.
  *
@@ -22,6 +25,7 @@ import type { AbteilzeitSettings } from "@wache/core";
 import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
 import { benoetigteLotsenAnzahl, istOhneVNrJob, sortiereEintraege } from "./coreJob";
 import { sortiereUndNummeriere } from "./lotsenOrdnung";
+import { TENDER_VORLAUF_MS } from "./meldungen";
 import { planeEinsatzstation } from "./planungEinsatzstation";
 import { ANFAHRT_SEESTATION_MS, type SeestationZeile } from "./seestation";
 import { berechnePotentielleVNrn } from "./vNrPlanung";
@@ -41,6 +45,7 @@ export function vorschauZeilen(
   settings: AbteilzeitSettings,
   vNrStart: number,
   verbrauchteVNrn: number[],
+  jetzt: Date,
 ): VorschauZeilen {
   const abgeteiltProJob = new Map<number, number>();
   for (const a of abteilungen) abgeteiltProJob.set(a.jobId, (abgeteiltProJob.get(a.jobId) ?? 0) + 1);
@@ -77,14 +82,29 @@ export function vorschauZeilen(
   const verplante: SeestationZeile[] = [];
   for (const { eintrag: job, abteilzeit } of jobsSortiert) {
     if (!abteilzeit || istOhneVNrJob(job)) continue;
+    // Überfällige Jobs (Abteilzeit schon vorbei) fahren frühestens jetzt ab
+    // — sonst gälte der Lotse fälschlich als längst angekommen.
+    const abfahrt = Math.max(abteilzeit.getTime(), jetzt.getTime());
     for (const lotse of zuweisungen.get(job.id) ?? []) {
-      verplante.push(zeile(lotse, new Date(abteilzeit.getTime() + ANFAHRT_SEESTATION_MS), "verplant"));
+      verplante.push(zeile(lotse, new Date(abfahrt + ANFAHRT_SEESTATION_MS), "verplant"));
     }
   }
 
+  // Früheste AG-Ankunft eines freien Lotsen: nächster künftiger Trägerjob
+  // (Hamburg/NOK, wie die Dashboard-Vorschläge) oder ersatzweise Tender-AG.
+  const naechsterTraeger = sortiereEintraege(jobs, settings).find(
+    (p) =>
+      (p.eintrag.liste === "hamburg" || p.eintrag.liste === "nok") &&
+      p.abteilzeit !== undefined &&
+      p.abteilzeit.getTime() >= jetzt.getTime(),
+  )?.abteilzeit;
+  const tenderAnkunft = jetzt.getTime() + TENDER_VORLAUF_MS + ANFAHRT_SEESTATION_MS;
+  const fruehesteAnkunft = new Date(
+    naechsterTraeger ? Math.min(naechsterTraeger.getTime() + ANFAHRT_SEESTATION_MS, tenderAnkunft) : tenderAnkunft,
+  );
+
   // FIFO-Reihenfolge der Lotsenliste; bereits Abgeteilte sind dort schon
   // ausgeblendet, Verplante fallen hier raus.
-  const fruehesteAnkunft = new Date(Date.now() + ANFAHRT_SEESTATION_MS);
   const freie = lotsenSortiert
     .map(({ eintrag }) => eintrag)
     .filter((lotse) => !verplantSet.has(lotse))

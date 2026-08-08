@@ -42,7 +42,9 @@ export const ABRUF_VORWARNUNG_MS = 15 * 60_000;
 /** Ein Lotse muss min. 1 Std. vor dem Schiffs-ETA auf der Seestation sein. */
 export const VORLAUF_AUF_STATION_MS = 3_600_000;
 
-/** Tender-AG: braucht min. 3 Std. Vorlauf bis zur Ankunft auf Station. */
+/** Tender-AG: braucht min. 3 Std. Vorlauf, bis der Tender an der
+ *  Einsatzstation abfahren kann — die Anfahrt zur Seestation (3,5 Std.)
+ *  kommt danach noch obendrauf. */
 export const TENDER_VORLAUF_MS = 3 * 3_600_000;
 
 /** Wird die letzte Handlungsmöglichkeit knapper als das, eskaliert ein
@@ -152,10 +154,12 @@ function seestationsMeldungen(daten: MeldungsDaten, jetzt: Date, settings: Abtei
     const ankunftsFrist = schiff.eta.getTime() - VORLAUF_AUF_STATION_MS;
 
     // Handlungsoptionen: späteste AG-Abteilzeit = Ankunftsfrist − Anfahrt;
-    // Tender-AG muss bis Ankunftsfrist − 3 Std. eingeplant sein.
+    // Tender-AG muss bis Ankunftsfrist − (Vorlauf + Anfahrt) eingeplant
+    // sein — der Tender fährt frühestens 3 Std. nach Planung ab und braucht
+    // dann selbst noch die Anfahrt.
     const abfahrtsFrist = ankunftsFrist - ANFAHRT_SEESTATION_MS;
     const kandidaten = traeger.filter((p) => p.abteilzeit.getTime() <= abfahrtsFrist);
-    const tenderFrist = ankunftsFrist - TENDER_VORLAUF_MS;
+    const tenderFrist = ankunftsFrist - TENDER_VORLAUF_MS - ANFAHRT_SEESTATION_MS;
     const tenderMoeglich = jetzt.getTime() <= tenderFrist;
 
     const fehltText = `um ${formatUhrzeit(schiff.eta)} fehl${fehlt === 1 ? "t" : "en"} ${fehlt} Lotse${fehlt === 1 ? "" : "n"} für ${schiff.schiffsname}`;
@@ -165,7 +169,7 @@ function seestationsMeldungen(daten: MeldungsDaten, jetzt: Date, settings: Abtei
         id: `seestation-defizit-${schiff.id}`,
         stufe: "alarm",
         zeit: schiff.eta,
-        text: `Seestation: ${fehltText} — kein Trägerjob und Tender-Vorlauf (3 Std.) überschritten`,
+        text: `Seestation: ${fehltText} — kein Trägerjob und Tender-AG nicht mehr rechtzeitig (3 Std. Vorlauf + 3,5 Std. Anfahrt)`,
       });
       continue;
     }
@@ -194,6 +198,31 @@ function seestationsMeldungen(daten: MeldungsDaten, jetzt: Date, settings: Abtei
   return meldungen;
 }
 
+/**
+ * Datenqualität: doppelte Lotsennamen in der Einsatzstations-Liste. Der
+ * Name ist an einigen Stellen der Schlüssel (Abruf-Meldungen, Abteilung-
+ * Rückgängig) — bei Dubletten könnte der falsche Lotse getroffen werden,
+ * daher eine Warnung, damit der User einen der Namen abändern kann.
+ */
+function namensMeldungen(daten: MeldungsDaten): Meldung[] {
+  const anzahlProName = new Map<string, number>();
+  for (const lotse of daten.lotsen) anzahlProName.set(lotse.name, (anzahlProName.get(lotse.name) ?? 0) + 1);
+  const meldungen: Meldung[] = [];
+  for (const [name, anzahl] of anzahlProName) {
+    if (anzahl < 2) continue;
+    meldungen.push({
+      id: `doppelname-${name}`,
+      stufe: "warnung",
+      text: `Doppelter Lotsenname: "${name}" ist ${anzahl}× in der Lotsenliste — bitte eindeutig machen (Verwechslungsgefahr)`,
+    });
+  }
+  return meldungen;
+}
+
 export function berechneMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitSettings): Meldung[] {
-  return sortiereMeldungen([...abrufMeldungen(daten, jetzt, settings), ...seestationsMeldungen(daten, jetzt, settings)]);
+  return sortiereMeldungen([
+    ...abrufMeldungen(daten, jetzt, settings),
+    ...seestationsMeldungen(daten, jetzt, settings),
+    ...namensMeldungen(daten),
+  ]);
 }

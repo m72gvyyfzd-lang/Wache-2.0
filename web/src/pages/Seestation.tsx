@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
 import { FrageModal } from "../components/FrageModal";
 import { Modal } from "../components/Modal";
@@ -131,8 +131,16 @@ export function Seestation() {
   // orange) erscheinen immer; FREIE (ohne Job, per AG holbar, blau) nur,
   // wenn die Vorausberechnung sie zum Decken eines Defizits einplant.
   const [vorschau, setVorschau] = useState(false);
+  // Zeit-Tick wie im Dashboard: die Vorschau hängt an der Uhrzeit (früheste
+  // AG-Ankunft, überfällige Abteilzeiten) und läuft so auch ohne
+  // Datenänderung mit.
+  const [jetzt, setJetzt] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setJetzt(new Date()), 15_000);
+    return () => clearInterval(id);
+  }, []);
   const { verplante, freie } = vorschau
-    ? vorschauZeilen(jobs, lotsen, aktuelleFahrt, abteilungen, settings, vNrStart, verbrauchteVNrn)
+    ? vorschauZeilen(jobs, lotsen, aktuelleFahrt, abteilungen, settings, vNrStart, verbrauchteVNrn, jetzt)
     : { verplante: [], freie: [] };
   const vorschauProjektion = vorschau
     ? simuliereSeestation(seeSchiffe, [...lotsenZeilen, ...verplante, ...freie], abgeteiltProSchiff, VORLAUF_AUF_STATION_MS)
@@ -256,11 +264,22 @@ export function Seestation() {
   // Verschieben (nur Versetzliste-Lotsen, quelle "abteilung"): der Lotse
   // verliert seine V-Nr. und bekommt die des Ziels mit Dezimal-Zusatz
   // (.1, .2, …) — mehrere Verschiebungen hinter dieselbe Basis-Nr. zählen
-  // fortlaufend hoch (105 → 105.1 → 105.2 …).
+  // fortlaufend hoch (105 → 105.1 → 105.2 …). Maximal 9 Verschiebungen je
+  // Basis: ein zehntes Kind ergäbe "105.10", was numerisch mit 105.1
+  // kollidiert — volle Basen tauchen daher nicht mehr als Ziel auf.
+  function anzahlKinder(basis: number): number {
+    return abteilungen.filter((a) => a.vNr !== undefined && Math.floor(a.vNr) === basis && a.vNr !== basis).length;
+  }
   const verschiebenZiele =
     aktionLotse && aktionLotse.quelle === "abteilung"
       ? lotsenZeilen
-          .filter((z) => z.quelle === "abteilung" && z.aufStation && z.id !== aktionLotse.id)
+          .filter(
+            (z) =>
+              z.quelle === "abteilung" &&
+              z.aufStation &&
+              z.id !== aktionLotse.id &&
+              anzahlKinder(Math.floor(z.vNr)) < 9,
+          )
           .map((z) => ({ id: z.id, label: `${z.name} (${z.vNr})` }))
       : [];
 
@@ -269,9 +288,8 @@ export function Seestation() {
     const ziel = abteilungen.find((a) => a.id === zielAbteilungId);
     if (!ziel || ziel.vNr === undefined) return;
     const basis = Math.floor(ziel.vNr);
-    const vorhandeneKinder = abteilungen.filter(
-      (a) => a.vNr !== undefined && Math.floor(a.vNr) === basis && a.vNr !== basis,
-    ).length;
+    const vorhandeneKinder = anzahlKinder(basis);
+    if (vorhandeneKinder >= 9) return;
     const neueVNr = Number(`${basis}.${vorhandeneKinder + 1}`);
     updateAbteilung(aktionLotse.id, { vNr: neueVNr });
     setLotseAuswahl([]);
@@ -527,6 +545,9 @@ export function Seestation() {
         <Modal title="Lotse hinzufügen" onClose={() => setNeuerLotseOffen(false)} maxWidth="440px">
           <SeestationLotseNeuModal
             vNrProfil={vNrProfil}
+            // Prüfung über ALLE manuellen Datensätze (auch abgeschöpfte/
+            // see-abgeteilte) — die können per Rückgängig zurückkehren.
+            istVergeben={(vNr, zusatz) => seestationLotsen.some((l) => l.vNr === vNr && l.zusatz === zusatz)}
             onEinfuegen={(lotse) => {
               addSeestationLotse(lotse);
               setNeuerLotseOffen(false);

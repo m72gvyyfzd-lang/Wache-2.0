@@ -52,11 +52,12 @@ export interface JobEintrag {
 }
 
 /**
- * Fahrt-Zuweisung: 3x täglich wird aus den Lotsen mit Zuweisung "" (leer)
- * eine Bereitschafts-Gruppe für die Einsatzstation gebildet. Wer stattdessen
- * MoFa (06–12 Uhr), MiFa (12–18 Uhr) oder AFA (18–06 Uhr) zugewiesen ist,
- * fährt in dieser Fahrt und steht nicht für die Einsatzplanung zur
- * Verfügung. Die Zuteilung erfolgt vorerst manuell.
+ * Fahrt-Zuweisung: MoFa (06–12 Uhr), MiFa (12–18 Uhr), AFA (18–06 Uhr)
+ * oder "" (leer) = Bereitschaft an der Einsatzstation. Die Zuweisung
+ * steuert die Reihenfolge der Lotsenliste (aktuelle Fahrt zuerst, dann der
+ * Zyklus, Bereitschaft ganz hinten — siehe lib/lotsenOrdnung.ts); die
+ * Planung Einsatzstation vergibt Jobs FIFO über die GESAMTE Liste in genau
+ * dieser Reihenfolge. Die Zuteilung erfolgt vorerst manuell.
  */
 export type Fahrt = "" | "MoFa" | "MiFa" | "AFA";
 

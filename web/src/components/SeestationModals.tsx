@@ -292,27 +292,42 @@ const ZUSAETZE = ["A", "B", "C", "D"] as const;
 interface SeestationLotseNeuModalProps {
   /** Vorbelegung: letzte (höchste) V-Nr. der Liste */
   vNrProfil: number;
+  /** true, wenn die Kombination V-Nr. + Zusatz schon existiert (auch bei
+   *  ausgeblendeten Datensätzen — die können per Rückgängig zurückkommen).
+   *  Einfügen wird dann mit Hinweis verhindert. */
+  istVergeben: (vNr: number, zusatz: string) => boolean;
   onEinfuegen: (lotse: Omit<SeestationLotse, "id">) => void;
   onAbbrechen: () => void;
 }
 
 /** "+ Lotse hinzufügen": manueller Lotse nur für die Seestation-Liste. */
-export function SeestationLotseNeuModal({ vNrProfil, onEinfuegen, onAbbrechen }: SeestationLotseNeuModalProps) {
+export function SeestationLotseNeuModal({
+  vNrProfil,
+  istVergeben,
+  onEinfuegen,
+  onAbbrechen,
+}: SeestationLotseNeuModalProps) {
   const [vNr, setVNr] = useState(String(vNrProfil).padStart(3, "0"));
   const [zusatz, setZusatz] = useState("");
   const [name, setName] = useState("");
   const [kategorie, setKategorie] = useState("");
   const [elbehafen, setElbehafen] = useState(false);
   const [etaStn, setEtaStn] = useState("");
+  const [warnung, setWarnung] = useState<string | null>(null);
 
   function handleVNr(wert: string) {
     setVNr(wert.replace(/\D/g, "").slice(0, 3));
+    setWarnung(null);
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const etaDatum = fromLocalInput(etaStn);
     if (vNr === "" || zusatz === "" || name.trim() === "" || kategorie === "" || !etaDatum) return;
+    if (istVergeben(Number(vNr), zusatz)) {
+      setWarnung(`V-Nr. ${Number(vNr)} (${zusatz}) ist bereits vergeben — bitte andere Nummer oder anderen Zusatz wählen`);
+      return;
+    }
     onEinfuegen({
       vNr: Number(vNr),
       zusatz: zusatz as SeestationLotse["zusatz"],
@@ -341,7 +356,14 @@ export function SeestationLotseNeuModal({ vNrProfil, onEinfuegen, onAbbrechen }:
         </label>
         <label>
           Zusatz
-          <select value={zusatz} onChange={(e) => setZusatz(e.target.value)} required>
+          <select
+            value={zusatz}
+            onChange={(e) => {
+              setZusatz(e.target.value);
+              setWarnung(null);
+            }}
+            required
+          >
             <option value="">–</option>
             {ZUSAETZE.map((z) => (
               <option key={z} value={z}>
@@ -380,6 +402,7 @@ export function SeestationLotseNeuModal({ vNrProfil, onEinfuegen, onAbbrechen }:
           </span>
         </label>
       </div>
+      {warnung && <p className="frage-modal__warnung">⚠️ {warnung} ⚠️</p>}
       <div className="job-form__actions">
         <button type="button" className="btn btn--ghost" onClick={onAbbrechen}>
           Abbrechen
