@@ -12,9 +12,9 @@
  *   dem frühesten künftigen Trägerjob (Abteilzeit + Anfahrt) und einer
  *   Tender-AG (jetzt + 3 Std. Vorlauf + Anfahrt) — dieselbe Rechnung wie
  *   die AG-Vorschläge des Dashboards (lib/meldungen.ts). Ob ein Kandidat
- *   wirklich gebraucht wird, entscheidet die Vorausberechnung
- *   (simuliereSeestation) — nur die dort tatsächlich eingeplanten
- *   Kandidaten werden angezeigt.
+ *   wirklich gebraucht wird, entscheidet die Zuteilung
+ *   (lib/seestationAbteilen.ts::planeSeestation) — nur die dort tatsächlich
+ *   eingeplanten Kandidaten werden angezeigt.
  *
  * Jede Zeile trägt ihre POTENTIELLE V-Nr. (dieselbe Berechnung wie die
  * V-Nr.-Spalte der Einsatzplanung, siehe lib/vNrPlanung.ts) — damit

@@ -104,22 +104,56 @@
   gap: 8px;
 }
 
-/* Vorschau: unbesetzbare Plätze eines Schiffs */
-.vorschau-defizit {
+/* Zuteilungs-Hinweis hinter dem Schiffsnamen (siehe ZuteilungsHinweis in
+   Seestation.tsx): "X Lotse(n) benötigt", wenn Plätze unbesetzbar bleiben. */
+.zuteilung-benoetigt {
+  color: #b5432f;
+  font-weight: 700;
+}
+
+/* Schiffsname selbst rot, wenn (auch mit Vorschau) nicht genug Lotsen
+   rechtzeitig verfügbar sind. */
+.seestation-table td.zuteilung-defizit {
+  color: #b5432f;
+}
+
+/* Namen einzeln eingefärbt je nach Herkunft/Status — echter Lotse,
+   pünktlich: schwarz+fett bei angemeldetem Schiff, sonst dezent grau. */
+.zuteilung-name--fett {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.zuteilung-name--grau {
+  color: var(--ink-faint);
+}
+
+/* echter Lotse, verspätet */
+.zuteilung-name--rot {
   color: #b5432f;
   font-weight: 700;
 }
 
 /* Vorschau: projizierte Lotsen der Einsatzstation, sowohl als Listenzeile
    als auch als Name im Schiffshinweis — FREIE (ohne Job, per AG holbar)
-   dezent blau, VERPLANTE (mit Job, kommen mit ihrem Schiff raus) orange */
+   dezent blau, VERPLANTE (mit Job, kommen mit ihrem Schiff raus) orange;
+   bei Verspätung jeweils zusätzlich fett (siehe "-warn"-Varianten). */
 .seestation-table td.vorschau-blau {
   color: #3b6ea5;
   cursor: default;
 }
 
-.vorschau-lotse {
+.seestation-table td.vorschau-verspaetet {
+  font-weight: 700;
+}
+
+.zuteilung-name--frei {
   color: #3b6ea5;
+}
+
+.zuteilung-name--frei-warn {
+  color: #3b6ea5;
+  font-weight: 700;
 }
 
 .seestation-table td.vorschau-orange {
@@ -127,6 +161,11 @@
   cursor: default;
 }
 
-.vorschau-lotse-orange {
+.zuteilung-name--verplant {
   color: #c77d1e;
+}
+
+.zuteilung-name--verplant-warn {
+  color: #c77d1e;
+  font-weight: 700;
 }

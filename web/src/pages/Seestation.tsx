@@ -23,9 +23,10 @@ import { VORLAUF_AUF_STATION_MS } from "../lib/meldungen";
 import {
   eignungsWarnungSeestation,
   planeSeestation,
+  schiffePriorisiert,
   seeLotsenAnzahl,
-  simuliereSeestation,
-  type SeestationProjektion,
+  type SeestationSlot,
+  type SeestationZuteilung,
 } from "../lib/seestationAbteilen";
 import { vorschauZeilen } from "../lib/vorschau";
 import { useData } from "../state/DataContext";
@@ -33,35 +34,47 @@ import "./Seestation.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
-/** "Vorausberechnung": voraussichtlich zugewiesene Lotsen dezent hinter dem
- *  Schiffsnamen — analog zu PlanungHinweis in der Einsatzplanung. */
-function SeestationHinweis({ namen }: { namen: string[] }) {
-  if (namen.length === 0) return null;
-  return <span className="planung-hinweis"> ({namen.join(", ")})</span>;
+/** Farb-/Stil-Klasse eines einzelnen Namens im Zuteilungs-Hinweis:
+ *  - verplanter Lotse (Vorschau, kommt mit seinem Job-Schiff raus): orange,
+ *    bei Verspätung orange+fett
+ *  - freier Lotse (Vorschau, noch ohne Job, per AG holbar): blau, bei
+ *    Verspätung blau+fett
+ *  - echter Lotse (auf Station oder unterwegs), verspätet: rot
+ *  - echter Lotse, pünktlich: schwarz+fett wenn das Schiff angemeldet ist
+ *    (verlässliche Aussage), sonst dezent grau */
+function zuteilungNameKlasse(slot: SeestationSlot, angemeldet: boolean): string {
+  if (slot.zeile.projiziert === "verplant") return slot.verspaetet ? "zuteilung-name--verplant-warn" : "zuteilung-name--verplant";
+  if (slot.zeile.projiziert === "frei") return slot.verspaetet ? "zuteilung-name--frei-warn" : "zuteilung-name--frei";
+  if (slot.verspaetet) return "zuteilung-name--rot";
+  return angemeldet ? "zuteilung-name--fett" : "zuteilung-name--grau";
 }
 
-/** Vorschau-Modus: projizierte Versorgungslage zum Ankunftszeitpunkt des
- *  Schiffs — Lotsen, die noch unterwegs sind, mit ihrer Ankunftszeit;
- *  verplante Lotsen der Einsatzstation (kommen mit ihrem Job-Schiff raus)
- *  orange, freie (noch ohne Job, per AG holbar) dezent blau; danach noch
- *  unbesetzbare Plätze rot markiert. */
-function VorschauHinweis({ projektion }: { projektion: SeestationProjektion | undefined }) {
-  if (!projektion) return null;
-  const { zugewiesen, fehlt } = projektion;
+/** Hinweis hinter dem Schiffsnamen: die (voraussichtlich) zugeteilten
+ *  Lotsen in Klammern, farblich nach Herkunft/Status (siehe
+ *  zuteilungNameKlasse) — bei Vorschau-Kandidaten mit "⚠️" markiert, wenn
+ *  sie voraussichtlich zu spät ankommen. Bleiben Plätze unbesetzbar, wird
+ *  zusätzlich "X Lotse(n) benötigt" angehängt; der Schiffsname selbst wird
+ *  in diesem Fall separat (siehe schiffKlasse in der Tabelle) rot. */
+function ZuteilungsHinweis({
+  zuteilung,
+  angemeldet,
+}: {
+  zuteilung: SeestationZuteilung | undefined;
+  angemeldet: boolean;
+}) {
+  if (!zuteilung) return null;
+  const { zugewiesen, fehlt } = zuteilung;
   return (
     <span className="planung-hinweis">
       {zugewiesen.length > 0 && (
         <>
           {" ("}
-          {zugewiesen.map((z, i) => (
-            <Fragment key={z.key}>
+          {zugewiesen.map((slot, i) => (
+            <Fragment key={slot.zeile.key}>
               {i > 0 && ", "}
-              <span
-                className={
-                  z.projiziert === "verplant" ? "vorschau-lotse-orange" : z.projiziert ? "vorschau-lotse" : undefined
-                }
-              >
-                {z.aufStation ? z.name : `${z.name} ab ${formatUhrzeit(z.etaStn)}`}
+              <span className={zuteilungNameKlasse(slot, angemeldet)}>
+                {slot.zeile.aufStation ? slot.zeile.name : `${slot.zeile.name} ab ${formatUhrzeit(slot.zeile.etaStn)}`}
+                {slot.verspaetet && slot.zeile.projiziert ? " ⚠️" : ""}
               </span>
             </Fragment>
           ))}
@@ -69,9 +82,9 @@ function VorschauHinweis({ projektion }: { projektion: SeestationProjektion | un
         </>
       )}
       {fehlt > 0 && (
-        <span className="vorschau-defizit">
+        <span className="zuteilung-benoetigt">
           {" "}
-          −{fehlt} Lotse{fehlt === 1 ? "" : "n"}
+          — {fehlt} Lotse{fehlt === 1 ? "" : "n"} benötigt
         </span>
       )}
     </span>
@@ -109,28 +122,24 @@ export function Seestation() {
     return seeLotsenAnzahl(schiff) - (abgeteiltProSchiff.get(schiff.id) ?? 0);
   }
 
-  // Schiffe: angemeldete zuerst, danach nach ETA (früheste oben)
-  const schiffeSortiert = [...seeSchiffe]
-    .filter((s) => seeLotsenAnzahl(s) - (abgeteiltProSchiff.get(s.id) ?? 0) > 0)
-    .sort((a, b) => {
-      const angemeldetA = a.angemeldet ? 0 : 1;
-      const angemeldetB = b.angemeldet ? 0 : 1;
-      if (angemeldetA !== angemeldetB) return angemeldetA - angemeldetB;
-      return (a.eta?.getTime() ?? 0) - (b.eta?.getTime() ?? 0);
-    });
+  // Schiffe: angemeldete zuerst, danach nach ETA (früheste oben) — dieselbe
+  // Priorität gilt für die Lotsen-Zuteilung (siehe schiffePriorisiert).
+  const schiffeSortiert = schiffePriorisiert(seeSchiffe, abgeteiltProSchiff);
   // Lotsen: Versetzliste ("Lotsen im Revier") + manuell hinzugefügte,
   // einsortiert nach V-Nr. mit Zusatz-Reihenfolge (101 → 101 (A) → 102)
   const lotsenZeilen = sortiereSeestation([
     ...zeilenAusAbteilungen(abteilungen),
     ...zeilenAusSeestationLotsen(seestationLotsen),
   ]);
-  // "Vorausberechnung" — wird bei jeder Änderung neu berechnet
-  const zuweisungenSee = planeSeestation(schiffeSortiert, lotsenZeilen, abgeteiltProSchiff);
-  // Vorschau: zuschaltbare Projektion, die auch noch anreisende Lotsen
-  // einrechnet (Ankunft min. 1 Std. vor Schiffs-ETA) sowie die Lotsen der
-  // Einsatzstation: VERPLANTE (mit Job, Ankunft = Abteilzeit + Anfahrt,
-  // orange) erscheinen immer; FREIE (ohne Job, per AG holbar, blau) nur,
-  // wenn die Vorausberechnung sie zum Decken eines Defizits einplant.
+  // Basis-Zuteilung: echte Lotsen (auf Station oder unterwegs) — immer
+  // sichtbar, unabhängig von der Vorschau. Zweistufig (siehe planeSeestation):
+  // pünktliche Kandidaten zuerst, dann Rest mit Verspätungs-Kennzeichnung.
+  const basisZuteilung = planeSeestation(schiffeSortiert, lotsenZeilen, abgeteiltProSchiff, VORLAUF_AUF_STATION_MS);
+
+  // Vorschau: zuschaltbare Projektion, die zusätzlich die Lotsen der
+  // Einsatzstation einrechnet — VERPLANTE (mit Job, kommen mit ihrem
+  // Job-Schiff raus) und FREIE (noch ohne Job, per AG holbar) — mit
+  // derselben zweistufigen Zuteilung wie die Basis.
   const [vorschau, setVorschau] = useState(false);
   // Zeit-Tick wie im Dashboard: die Vorschau hängt an der Uhrzeit (früheste
   // AG-Ankunft, überfällige Abteilzeiten) und läuft so auch ohne
@@ -143,18 +152,30 @@ export function Seestation() {
   const { verplante, freie } = vorschau
     ? vorschauZeilen(jobs, lotsen, aktuelleFahrt, abteilungen, settings, vNrStart, verbrauchteVNrn, jetzt)
     : { verplante: [], freie: [] };
-  const vorschauProjektion = vorschau
-    ? simuliereSeestation(seeSchiffe, [...lotsenZeilen, ...verplante, ...freie], abgeteiltProSchiff, VORLAUF_AUF_STATION_MS)
-    : null;
-  const benoetigteFreie = new Set<string>();
-  if (vorschauProjektion) {
-    for (const projektion of vorschauProjektion.values()) {
-      for (const z of projektion.zugewiesen) if (z.projiziert === "frei") benoetigteFreie.add(z.key);
+  const vorschauZuteilung = vorschau
+    ? planeSeestation(
+        schiffeSortiert,
+        sortiereSeestation([...lotsenZeilen, ...verplante, ...freie]),
+        abgeteiltProSchiff,
+        VORLAUF_AUF_STATION_MS,
+      )
+    : undefined;
+  const aktiveZuteilung = vorschauZuteilung ?? basisZuteilung;
+
+  // Nur die verplanten/freien Kandidaten anzeigen, die die Vorschau-Zuteilung
+  // tatsächlich irgendeinem Schiff zuweist (egal ob pünktlich oder
+  // verspätet) — der Rest bleibt als ungenutzter Pool unsichtbar. Die
+  // Verspätung wird für die "Auf Seestation"-Zeile selbst mitgeführt.
+  const verspaetetProKey = new Map<string, boolean>();
+  if (vorschauZuteilung) {
+    for (const zuteilung of vorschauZuteilung.values()) {
+      for (const slot of zuteilung.zugewiesen)
+        if (slot.zeile.projiziert) verspaetetProKey.set(slot.zeile.key, slot.verspaetet);
     }
   }
   // Vorschau-Lotsen anhand ihrer potentiellen V-Nr. zwischen die echten
   // Zeilen einsortieren — dort stünden sie später auch wirklich.
-  const projizierte = [...verplante, ...freie.filter((k) => benoetigteFreie.has(k.key))];
+  const projizierte = [...verplante, ...freie].filter((z) => verspaetetProKey.has(z.key));
   const anzeigeLotsen = sortiereSeestation([...lotsenZeilen, ...projizierte]);
   const zeilen = Math.max(schiffeSortiert.length, anzeigeLotsen.length);
 
@@ -381,15 +402,26 @@ export function Seestation() {
             {Array.from({ length: zeilen }).map((_, i) => {
               const schiff = schiffeSortiert[i];
               const lotse = anzeigeLotsen[i];
+              const schiffZuteilung = schiff ? aktiveZuteilung.get(schiff.id) : undefined;
+              const schiffDefizit = (schiffZuteilung?.fehlt ?? 0) > 0;
               const schiffKlasse =
                 "seestation-table__seite" +
                 (schiff && schiffAuswahl === schiff.id ? " ist-ausgewaehlt" : "") +
                 (schiff?.angemeldet ? " fett" : "");
+              const lotseVerspaetet = lotse?.projiziert ? (verspaetetProKey.get(lotse.key) ?? false) : false;
               const lotseKlasse =
                 "seestation-table__seite" +
                 (lotse && lotseAuswahl.includes(lotse.key) ? " ist-ausgewaehlt" : "") +
                 (lotse?.aufStation ? " fett" : " gedimmt") +
-                (lotse?.projiziert === "verplant" ? " vorschau-orange" : lotse?.projiziert ? " vorschau-blau" : "");
+                (lotse?.projiziert === "verplant"
+                  ? lotseVerspaetet
+                    ? " vorschau-orange vorschau-verspaetet"
+                    : " vorschau-orange"
+                  : lotse?.projiziert
+                    ? lotseVerspaetet
+                      ? " vorschau-blau vorschau-verspaetet"
+                      : " vorschau-blau"
+                    : "");
               const schiffKlick = schiff
                 ? () => setSchiffAuswahl((aktiv) => (aktiv === schiff.id ? null : schiff.id))
                 : undefined;
@@ -434,13 +466,13 @@ export function Seestation() {
                       >
                         {formatUhrzeit(schiff.eta)}
                       </td>
-                      <td className={`${schiffKlasse} cell-name`} onClick={schiffKlick} onDoubleClick={schiffDoppelklick}>
+                      <td
+                        className={`${schiffKlasse} cell-name` + (schiffDefizit ? " zuteilung-defizit" : "")}
+                        onClick={schiffKlick}
+                        onDoubleClick={schiffDoppelklick}
+                      >
                         {schiff.schiffsname}
-                        {vorschauProjektion ? (
-                          <VorschauHinweis projektion={vorschauProjektion.get(schiff.id)} />
-                        ) : (
-                          <SeestationHinweis namen={(zuweisungenSee.get(schiff.id) ?? []).map((z) => z.name)} />
-                        )}
+                        <ZuteilungsHinweis zuteilung={schiffZuteilung} angemeldet={schiff.angemeldet ?? false} />
                       </td>
                       <td className={`${schiffKlasse} num zentriert`} onClick={schiffKlick} onDoubleClick={schiffDoppelklick}>
                         {schiff.kategorie ?? "·"}
@@ -464,6 +496,7 @@ export function Seestation() {
                       </td>
                       <td className={`${lotseKlasse} cell-name`} onClick={lotseKlick} onDoubleClick={lotseDoppelklick}>
                         {lotse.name}
+                        {lotseVerspaetet ? " ⚠️" : ""}
                       </td>
                       <td className={`${lotseKlasse} num zentriert`} onClick={lotseKlick} onDoubleClick={lotseDoppelklick}>
                         {lotse.kategorie}

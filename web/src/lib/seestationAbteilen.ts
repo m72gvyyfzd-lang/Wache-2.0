@@ -1,6 +1,6 @@
 /**
- * "Seestation-Abteilen": weist Lotsen der Seestation den angemeldeten
- * See-Schiffen zu — das Gegenstück zu lib/planungEinsatzstation.ts, nur für
+ * "Seestation-Abteilen": weist Lotsen der Seestation den See-Schiffen der
+ * ETA-Liste zu — das Gegenstück zu lib/planungEinsatzstation.ts, nur für
  * die Seestation. Gleiche Regeln wie dort (Kat. Schiff↔Lotse inkl. EH), aber
  * ohne Job-Typ-Prüfung (See-Schiffe haben keinen AnmeldungsTyp).
  */
@@ -31,98 +31,118 @@ export function eignungsWarnungSeestation(
   return undefined;
 }
 
-/** schiffId -> voraussichtlich zugewiesene Lotsen (FIFO nach Seestation-
- *  Reihenfolge), nur für angemeldete Schiffe — Basis für die
- *  Vorausberechnung (Hinweis hinter dem Schiffsnamen). Bereits per
- *  Seestation-Abteilen verbundene Lotsen sind aus lotsenZeilen schon
- *  ausgeblendet (seeAbgeteilt), tauchen also nicht doppelt auf.
- *  abgeteiltProSchiff: bereits abgeteilte Lotsen je Schiff — die
- *  Vorausberechnung besetzt nur noch den Rest (wie planeEinsatzstation),
- *  sonst würde bei einem Doppeldecker mit bereits einem Lotsen an Bord
- *  fälschlich noch einmal für 2 statt für 1 verbleibenden Platz geplant.
+/** Priorisierte Schiffsreihenfolge für die Lotsen-Zuteilung: angemeldete
+ *  Schiffe zuerst — eine Anmeldung "reserviert" faktisch den nächsten
+ *  freien Lotsen, auch wenn ein noch nicht angemeldetes Schiff früher ETA
+ *  hat (bewusste Praxis-Entscheidung: Anmeldungen sind manchmal ungenau,
+ *  aber eine Anmeldung ist die verlässlichere Aussage). Danach nach ETA —
+ *  dieselbe Reihenfolge, in der auch die ETA-Liste angezeigt wird. Schiffe
+ *  ohne offenen Bedarf (schon voll abgeteilt) fallen raus.
  *
- *  Pro benötigtem Platz eines Schiffs wird die verbleibende Kandidatenliste
- *  frisch von vorn durchsucht (statt in einem einzigen Durchlauf). Sonst
- *  könnte z.B. der einzige für den ERSTEN (strengen) Platz geeignete Lotse
- *  weit hinten in der Liste stehen: alle davor stehenden Lotsen würden dann
- *  fälschlich unter der strengen Regel geprüft und verworfen, obwohl sie
- *  für einen ZWEITEN (gelockerten) Platz gereicht hätten — der aber, weil
- *  bereits verworfen, nie erneut geprüft würde. */
-export function planeSeestation(
-  schiffeSortiert: SeeSchiff[],
-  lotsenZeilen: SeestationZeile[],
-  abgeteiltProSchiff?: Map<number, number>,
-): Map<number, SeestationZeile[]> {
-  const angemeldet = schiffeSortiert.filter((s) => s.angemeldet);
-  let kandidaten = lotsenZeilen.filter((z) => z.aufStation);
-  const zuweisungen = new Map<number, SeestationZeile[]>();
-
-  for (const schiff of angemeldet) {
-    const bereits = abgeteiltProSchiff?.get(schiff.id) ?? 0;
-    const benoetigt = seeLotsenAnzahl(schiff) - bereits;
-    const zugewiesen: SeestationZeile[] = [];
-    for (let platz = 0; platz < benoetigt; platz++) {
-      const istErster = bereits + platz === 0;
-      const index = kandidaten.findIndex((k) => eignungsWarnungSeestation(schiff, k, istErster) === undefined);
-      if (index === -1) break;
-      zugewiesen.push(kandidaten[index]);
-      kandidaten = [...kandidaten.slice(0, index), ...kandidaten.slice(index + 1)];
-    }
-    zuweisungen.set(schiff.id, zugewiesen);
-  }
-
-  return zuweisungen;
+ *  Geteilt zwischen der Seestation-Seite und der Dashboard-Bilanz
+ *  (lib/meldungen.ts), damit beide bei knappen Lotsen exakt dieselbe
+ *  Zuteilung errechnen. */
+export function schiffePriorisiert(seeSchiffe: SeeSchiff[], abgeteiltProSchiff: Map<number, number>): SeeSchiff[] {
+  return [...seeSchiffe]
+    .filter((s) => seeLotsenAnzahl(s) - (abgeteiltProSchiff.get(s.id) ?? 0) > 0)
+    .sort((a, b) => {
+      const angemeldetA = a.angemeldet ? 0 : 1;
+      const angemeldetB = b.angemeldet ? 0 : 1;
+      if (angemeldetA !== angemeldetB) return angemeldetA - angemeldetB;
+      return (a.eta?.getTime() ?? 0) - (b.eta?.getTime() ?? 0);
+    });
 }
 
-export interface SeestationProjektion {
-  /** projizierte Lotsen (auf Station oder rechtzeitig ankommend) */
-  zugewiesen: SeestationZeile[];
-  /** unbesetzbare Plätze zum Ankunftszeitpunkt */
+/** Ein zugeteilter Platz: der Lotse plus ob er die Ankunftsfrist des
+ *  Schiffs (ETA − vorlaufMs) einhält. */
+export interface SeestationSlot {
+  zeile: SeestationZeile;
+  /** true = zugeteilt, aber voraussichtlich zu spät auf Station */
+  verspaetet: boolean;
+}
+
+export interface SeestationZuteilung {
+  zugewiesen: SeestationSlot[];
+  /** Plätze, für die im gesamten Pool niemand mehr übrig war — selbst mit
+   *  Verspätung nicht. */
   fehlt: number;
 }
 
 /**
- * Zukunfts-Simulation der Seestation (Grundlage der Dashboard-Bilanz und
- * der Vorschau): ALLE Schiffe der ETA-Liste, nach ETA sortiert. Ein Lotse
- * zählt für ein Schiff, wenn er auf Station ist oder seine ETA Stn
- * spätestens vorlaufMs vor dem Schiffs-ETA liegt; jeder Lotse wird nur
- * einmal vergeben. Anders als planeSeestation wird ein unbesetzbarer Platz
- * übersprungen statt abgebrochen — so zählt z.B. bei fehlendem 1. Lotsen
- * ein noch möglicher 2. Lotse trotzdem, und fehlt bleibt exakt.
+ * Lotsen-Zuteilung für die ETA-Liste (Basis-Hinweis, Vorschau und
+ * Dashboard-Bilanz teilen sich diese eine Funktion — nur der übergebene
+ * Lotsen-Pool unterscheidet sich).
+ *
+ * Zweistufig, damit ein für ein frühes Schiff hoffnungslos verspäteter
+ * Lotse nicht vorschnell "verbraucht" wird und einem späteren Schiff, für
+ * das er noch rechtzeitig wäre, fehlt:
+ *
+ * 1. Durchgang: nur pünktliche Kandidaten (auf Station oder ETA Stn
+ *    spätestens vorlaufMs vor dem Schiffs-ETA) — ein offener Platz ohne
+ *    pünktlichen Kandidaten bleibt offen, es wird NICHTS aus dem Pool
+ *    entfernt.
+ * 2. Durchgang: die noch offenen Plätze werden — jetzt ohne Zeitprüfung —
+ *    aus dem verbliebenen Pool aufgefüllt (verspaetet: true). Was danach
+ *    immer noch offen ist, zählt zu `fehlt`.
+ *
+ * `schiffe` muss bereits priorisiert sein (siehe schiffePriorisiert) — das
+ * bestimmt, wer bei knappen Lotsen zuerst bedient wird. Jeder Lotse wird
+ * nur einmal vergeben.
  */
-export function simuliereSeestation(
-  seeSchiffe: SeeSchiff[],
+export function planeSeestation(
+  schiffe: SeeSchiff[],
   lotsenZeilen: SeestationZeile[],
   abgeteiltProSchiff: Map<number, number>,
   vorlaufMs: number,
-): Map<number, SeestationProjektion> {
-  const schiffe = [...seeSchiffe]
-    .filter((s) => seeLotsenAnzahl(s) - (abgeteiltProSchiff.get(s.id) ?? 0) > 0)
-    .sort((a, b) => a.eta.getTime() - b.eta.getTime());
-  let pool = lotsenZeilen;
-  const ergebnis = new Map<number, SeestationProjektion>();
-
+): Map<number, SeestationZuteilung> {
+  interface OffenerPlatz {
+    istErster: boolean;
+  }
+  const offeneProSchiff = new Map<number, OffenerPlatz[]>();
+  const ergebnis = new Map<number, SeestationZuteilung>();
   for (const schiff of schiffe) {
-    const ankunftsFrist = schiff.eta.getTime() - vorlaufMs;
     const bereits = abgeteiltProSchiff.get(schiff.id) ?? 0;
     const benoetigt = seeLotsenAnzahl(schiff) - bereits;
-    const zugewiesen: SeestationZeile[] = [];
-    let fehlt = 0;
-    for (let platz = 0; platz < benoetigt; platz++) {
-      const istErster = bereits + platz === 0;
+    const plaetze: OffenerPlatz[] = [];
+    for (let platz = 0; platz < benoetigt; platz++) plaetze.push({ istErster: bereits + platz === 0 });
+    offeneProSchiff.set(schiff.id, plaetze);
+    ergebnis.set(schiff.id, { zugewiesen: [], fehlt: 0 });
+  }
+
+  let pool = lotsenZeilen;
+
+  // 1. Durchgang: nur pünktliche Kandidaten, unpassende bleiben im Pool.
+  for (const schiff of schiffe) {
+    const ankunftsFrist = schiff.eta.getTime() - vorlaufMs;
+    const nochOffen: OffenerPlatz[] = [];
+    for (const platz of offeneProSchiff.get(schiff.id)!) {
       const index = pool.findIndex(
         (k) =>
           (k.aufStation || (k.etaStn !== undefined && k.etaStn.getTime() <= ankunftsFrist)) &&
-          eignungsWarnungSeestation(schiff, k, istErster) === undefined,
+          eignungsWarnungSeestation(schiff, k, platz.istErster) === undefined,
       );
       if (index === -1) {
-        fehlt += 1;
+        nochOffen.push(platz);
         continue;
       }
-      zugewiesen.push(pool[index]);
+      ergebnis.get(schiff.id)!.zugewiesen.push({ zeile: pool[index], verspaetet: false });
       pool = [...pool.slice(0, index), ...pool.slice(index + 1)];
     }
-    ergebnis.set(schiff.id, { zugewiesen, fehlt });
+    offeneProSchiff.set(schiff.id, nochOffen);
+  }
+
+  // 2. Durchgang: Rest-Pool ohne Zeitprüfung auffüllen — wer hier landet,
+  // ist zwangsläufig zu spät.
+  for (const schiff of schiffe) {
+    for (const platz of offeneProSchiff.get(schiff.id)!) {
+      const index = pool.findIndex((k) => eignungsWarnungSeestation(schiff, k, platz.istErster) === undefined);
+      if (index === -1) {
+        ergebnis.get(schiff.id)!.fehlt += 1;
+        continue;
+      }
+      ergebnis.get(schiff.id)!.zugewiesen.push({ zeile: pool[index], verspaetet: true });
+      pool = [...pool.slice(0, index), ...pool.slice(index + 1)];
+    }
   }
 
   return ergebnis;

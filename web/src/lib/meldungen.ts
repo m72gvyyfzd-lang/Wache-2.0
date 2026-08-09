@@ -23,7 +23,7 @@ import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "./coreJ
 import { formatUhrzeit } from "./format";
 import { geplanterAbruf, planeEinsatzstation } from "./planungEinsatzstation";
 import { ANFAHRT_SEESTATION_MS, sortiereSeestation, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "./seestation";
-import { simuliereSeestation } from "./seestationAbteilen";
+import { planeSeestation, schiffePriorisiert } from "./seestationAbteilen";
 
 export type MeldungsStufe = "alarm" | "warnung" | "vorschlag" | "info";
 
@@ -118,14 +118,16 @@ function abrufMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitS
 }
 
 /**
- * Seestations-Bilanz: simuliert Schiff für Schiff (alle Schiffe der
- * ETA-Liste, nach ETA sortiert), ob genügend geeignete Lotsen rechtzeitig —
- * d.h. min. 1 Std. vor dem Schiffs-ETA — auf der Station sind. Ein Lotse
- * zählt, wenn er bereits vor Ort ist oder seine ETA Stn früh genug liegt;
- * jeder Lotse wird nur einmal vergeben. Bei Unterdeckung entsteht ein
- * AG-Fahrt-Vorschlag mit konkreten Trägerjobs (Hamburg/NOK), ersatzweise
- * eine Tender-AG (min. 3 Std. Vorlauf); ist auch das nicht mehr möglich,
- * wird die Unterdeckung zum Alarm.
+ * Seestations-Bilanz: teilt sich die Zuteilung mit der Seestation-Seite
+ * (lib/seestationAbteilen.ts::planeSeestation — pünktliche Kandidaten
+ * zuerst, dann Rest mit Verspätungs-Kennzeichnung, dann echtes Defizit).
+ * Ein verspätet zugeteilter Lotse zählt hier weiterhin als Bedarf: er löst
+ * zwar auf der Seestation-Seite keine "X Lotse(n) benötigt"-Meldung mehr
+ * aus, aber operativ steht das Schiff trotzdem ohne pünktlichen Lotsen da
+ * — der AG-Fahrt-Vorschlag bzw. Alarm bleibt also aktiv. Bei Unterdeckung
+ * entsteht ein AG-Fahrt-Vorschlag mit konkreten Trägerjobs (Hamburg/NOK),
+ * ersatzweise eine Tender-AG (min. 3 Std. Vorlauf); ist auch das nicht
+ * mehr möglich, wird die Unterdeckung zum Alarm.
  */
 function seestationsMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitSettings): Meldung[] {
   const meldungen: Meldung[] = [];
@@ -137,7 +139,8 @@ function seestationsMeldungen(daten: MeldungsDaten, jetzt: Date, settings: Abtei
     ...zeilenAusAbteilungen(daten.abteilungen),
     ...zeilenAusSeestationLotsen(daten.seestationLotsen),
   ]);
-  const projektion = simuliereSeestation(daten.seeSchiffe, pool, abgeteiltProSchiff, VORLAUF_AUF_STATION_MS);
+  const schiffe = schiffePriorisiert(daten.seeSchiffe, abgeteiltProSchiff);
+  const projektion = planeSeestation(schiffe, pool, abgeteiltProSchiff, VORLAUF_AUF_STATION_MS);
 
   // AG-Trägerjobs: künftige Hamburg/NOK-Abfahrten, an die eine AG-Fahrt
   // gehängt werden kann (aufsteigend nach Abteilzeit).
@@ -149,7 +152,8 @@ function seestationsMeldungen(daten: MeldungsDaten, jetzt: Date, settings: Abtei
   );
 
   for (const schiff of daten.seeSchiffe) {
-    const fehlt = projektion.get(schiff.id)?.fehlt ?? 0;
+    const zuteilung = projektion.get(schiff.id);
+    const fehlt = (zuteilung?.fehlt ?? 0) + (zuteilung?.zugewiesen.filter((s) => s.verspaetet).length ?? 0);
     if (fehlt <= 0) continue;
     const ankunftsFrist = schiff.eta.getTime() - VORLAUF_AUF_STATION_MS;
 
