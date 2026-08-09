@@ -12,7 +12,7 @@ import { Panel } from "../components/Panel";
 import type { JobEintrag } from "../data/types";
 import { benoetigteLotsenAnzahl, istAgJob, istOhneVNrJob, sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
-import { FAHRT_ZEILE_KLASSE, sortiereUndNummeriere, type LotseMitOrdnung } from "../lib/lotsenOrdnung";
+import { FAHRT_ZEILE_KLASSE, formatAbrufzeit, sortiereUndNummeriere, type LotseMitOrdnung } from "../lib/lotsenOrdnung";
 import { abteilzeitProLotse, eignungsWarnung, geplanterAbruf, planeEinsatzstation } from "../lib/planungEinsatzstation";
 import { berechnePotentielleVNrn } from "../lib/vNrPlanung";
 import { useData } from "../state/DataContext";
@@ -28,11 +28,19 @@ function PlanungHinweis({ namen }: { namen: string[] }) {
 }
 
 /** Kat. und EH dezent hinter dem Lotsennamen, im selben Stil wie
- *  PlanungHinweis. Volllotsen (kategorie === "") ohne EH zeigen nichts. */
-function LotseHinweis({ kategorie, eh }: { kategorie: string; eh: boolean }) {
+ *  PlanungHinweis. Volllotsen (kategorie === "") ohne EH zeigen nichts.
+ *  Weicht die Abrufzeit von der Standardstunde ab, folgt sie noch kleiner
+ *  hinter der Klammer (bzw. direkt hinter dem Namen, falls keine Klammer
+ *  da ist) — jeweils mit ", " abgetrennt. */
+function LotseHinweis({ kategorie, eh, abrufStunden }: { kategorie: string; eh: boolean; abrufStunden: number | undefined }) {
   const teile = [kategorie, eh ? "EH" : ""].filter((t) => t !== "");
-  if (teile.length === 0) return null;
-  return <span className="planung-hinweis"> ({teile.join(", ")})</span>;
+  const abrufText = formatAbrufzeit(abrufStunden);
+  return (
+    <>
+      {teile.length > 0 && <span className="planung-hinweis"> ({teile.join(", ")})</span>}
+      {abrufText !== "" && <span className="planung-hinweis abruf-hinweis">, {abrufText} Std</span>}
+    </>
+  );
 }
 
 
@@ -362,7 +370,11 @@ export function Einsatzplanung() {
                         }}
                       >
                         {lotse.eintrag.name}
-                        <LotseHinweis kategorie={lotse.eintrag.kategorie} eh={lotse.eintrag.elbehafen} />
+                        <LotseHinweis
+                          kategorie={lotse.eintrag.kategorie}
+                          eh={lotse.eintrag.elbehafen}
+                          abrufStunden={lotse.eintrag.abrufStunden}
+                        />
                       </td>
                       {(() => {
                         const abruf = lotse.eintrag.abgerufen

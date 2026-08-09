@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
 import { spieleAlarmTon, tonEntsperren } from "../lib/alarmTon";
+import { berechneAgPlanung } from "../lib/agPlanung";
 import { berechneMeldungen } from "../lib/meldungen";
 import { ladeAlarmTonAktiv, speichereAlarmTonAktiv } from "../state/storage";
 import { useData } from "../state/DataContext";
+import { AgPlanungListe, AgPlanungTile } from "./AgPlanung";
 import { MeldungsListe, MeldungsTile } from "./Meldungen";
 import { StatTile } from "./StatTile";
 import "./DashboardCard.css";
@@ -30,7 +32,18 @@ export function DashboardCard() {
       ),
     [jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, jetzt],
   );
-  const [listeOffen, setListeOffen] = useState(false);
+  const agGruppen = useMemo(
+    () =>
+      berechneAgPlanung(
+        { jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen },
+        jetzt,
+        settings,
+      ),
+    [jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, jetzt],
+  );
+  // Nur eine Liste gleichzeitig aufgeklappt (beide sind absolut über die
+  // volle Kartenbreite positioniert und würden sich sonst überlagern).
+  const [offenesPanel, setOffenesPanel] = useState<"meldungen" | "ag-planung" | null>(null);
 
   // Alarm-Ton: einmaliger Ton pro NEUEM Alarm (stabile Meldungs-IDs).
   // Browser erlauben Ton erst nach einer Nutzer-Interaktion — das
@@ -76,7 +89,16 @@ export function DashboardCard() {
     <div className="dashboard-card">
       <div className="dashboard-card__scroll">
         <div className="dashboard-card__stats">
-          <MeldungsTile meldungen={meldungen} offen={listeOffen} onToggle={() => setListeOffen((o) => !o)} />
+          <MeldungsTile
+            meldungen={meldungen}
+            offen={offenesPanel === "meldungen"}
+            onToggle={() => setOffenesPanel((p) => (p === "meldungen" ? null : "meldungen"))}
+          />
+          <AgPlanungTile
+            gruppen={agGruppen}
+            offen={offenesPanel === "ag-planung"}
+            onToggle={() => setOffenesPanel((p) => (p === "ag-planung" ? null : "ag-planung"))}
+          />
           <button
             type="button"
             className={"ton-tile" + (tonAn ? " ton-tile--an" : "")}
@@ -89,7 +111,8 @@ export function DashboardCard() {
           <StatTile label="HH / NOK / Anmeldungen" value={`${anzahlHH} / ${anzahlNOK} / ${anzahlAnmeldungen}`} />
         </div>
       </div>
-      {listeOffen && <MeldungsListe meldungen={meldungen} />}
+      {offenesPanel === "meldungen" && <MeldungsListe meldungen={meldungen} />}
+      {offenesPanel === "ag-planung" && <AgPlanungListe gruppen={agGruppen} />}
     </div>
   );
 }

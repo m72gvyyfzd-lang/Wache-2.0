@@ -22,16 +22,7 @@ import type {
 import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "./coreJob";
 import { formatUhrzeit } from "./format";
 import { geplanterAbruf, planeEinsatzstation } from "./planungEinsatzstation";
-import {
-  ANFAHRT_SEESTATION_MS,
-  TENDER_VORLAUF_MS,
-  VORLAUF_AUF_STATION_MS,
-  sortiereSeestation,
-  zeilenAusAbteilungen,
-  zeilenAusSeestationLotsen,
-} from "./seestation";
-import { planeSeestation, schiffePriorisiert } from "./seestationAbteilen";
-import { vorschauZeilen } from "./vorschau";
+import { berechneSeestationsDefizite } from "./seestationBedarf";
 
 export type MeldungsStufe = "alarm" | "warnung" | "vorschlag" | "info";
 
@@ -46,10 +37,6 @@ export interface Meldung {
 
 /** Vorwarnzeit vor dem geplanten Abruf (Warnung orange). */
 export const ABRUF_VORWARNUNG_MS = 15 * 60_000;
-
-/** Wird die letzte Handlungsmöglichkeit knapper als das, eskaliert ein
- *  AG-Vorschlag zur Warnung. */
-const AG_ESKALATION_MS = 30 * 60_000;
 
 export interface MeldungsDaten {
   jobs: JobEintrag[];
@@ -118,106 +105,48 @@ function abrufMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitS
 }
 
 /**
- * Seestations-Bilanz: teilt sich die Zuteilung mit der Seestation-Seite
- * (lib/seestationAbteilen.ts::planeSeestation — pünktliche Kandidaten
- * zuerst, dann Rest mit Verspätungs-Kennzeichnung, dann echtes Defizit).
- *
- * Der Lotsen-Pool enthält zusätzlich zu den echten (auf Station/unterwegs)
- * auch die VERPLANTEN Lotsen der Einsatzplanung (lib/vorschau.ts) — sobald
- * ein AG-Job angelegt ist und die Planung Einsatzstation ihm rechtzeitig
- * einen Lotsen zuweisen würde, gilt der Bedarf als gedeckt und die Meldung
- * verschwindet, ohne dass der Lotse schon abgerufen/abgeteilt sein muss.
- * FREIE Lotsen (noch ohne Job) zählen bewusst NICHT mit — die sollen ja
- * erst durch einen neuen AG-Job gebunden werden, nicht schon vorher als
- * Lösung gelten (sonst gäbe es nie einen Vorschlag). Ein verspätet
- * zugeteilter Lotse zählt weiterhin als Bedarf: er löst auf der
- * Seestation-Seite keine "X Lotse(n) benötigt"-Meldung mehr aus, aber
- * operativ steht das Schiff trotzdem ohne pünktlichen Lotsen da — der
- * AG-Fahrt-Vorschlag bzw. Alarm bleibt also aktiv. Bei Unterdeckung
- * entsteht ein AG-Fahrt-Vorschlag mit konkreten Trägerjobs (Hamburg/NOK,
- * ohne bereits per AG genutzte), ersatzweise eine Tender-AG (min. 3 Std.
- * Vorlauf); ist auch das nicht mehr möglich, wird die Unterdeckung zum
- * Alarm.
+ * Seestations-Bilanz: nutzt die geteilte Defizit-Berechnung (siehe
+ * lib/seestationBedarf.ts, dort auch die ausführliche Erläuterung zu
+ * VERPLANTEN/FREIEN Lotsen und dem "verspätet zählt weiterhin als Bedarf"-
+ * Prinzip). Echte Alarme (kein Trägerjob und Tender-AG nicht mehr
+ * rechtzeitig möglich) bleiben je Schiff eine eigene, dringende Meldung.
+ * Vorschlag/Warnung-Fälle (noch eine AG-Fahrt planbar) werden dagegen zu
+ * EINER Sammelmeldung "AG-Planung nötig" zusammengefasst — die Detailliste
+ * mit den nach Träger gruppierten Empfehlungen zeigt die eigene "AG-
+ * Planung"-Karte im Dashboard (siehe lib/agPlanung.ts), damit nicht für
+ * jedes betroffene Schiff derselbe Trägervorschlag als eigene Zeile
+ * erscheint.
  */
 function seestationsMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitSettings): Meldung[] {
   const meldungen: Meldung[] = [];
-  const abgeteiltProSchiff = new Map<number, number>();
-  for (const sa of daten.seeAbteilungen)
-    abgeteiltProSchiff.set(sa.seeSchiffId, (abgeteiltProSchiff.get(sa.seeSchiffId) ?? 0) + 1);
+  const defizite = berechneSeestationsDefizite(daten, jetzt, settings);
 
-  // vNrStart/verbrauchteVNrn sind hier irrelevant (nur für die V-Nr.-
-  // Anzeige gebraucht, die diese Bilanz nicht darstellt).
-  const { verplante } = vorschauZeilen(daten.jobs, daten.lotsen, daten.aktuelleFahrt, daten.abteilungen, settings, 0, [], jetzt);
-  const pool = sortiereSeestation([
-    ...zeilenAusAbteilungen(daten.abteilungen),
-    ...zeilenAusSeestationLotsen(daten.seestationLotsen),
-    ...verplante,
-  ]);
-  const schiffe = schiffePriorisiert(daten.seeSchiffe, abgeteiltProSchiff);
-  const projektion = planeSeestation(schiffe, pool, abgeteiltProSchiff, VORLAUF_AUF_STATION_MS);
+  let planungAnzahl = 0;
+  let planungStufe: MeldungsStufe = "vorschlag";
+  let planungFrueheste: Date | undefined;
 
-  // AG-Trägerjobs: künftige Hamburg/NOK-Abfahrten, an die eine AG-Fahrt
-  // gehängt werden kann (aufsteigend nach Abteilzeit) — bereits per AG
-  // genutzte Träger werden nicht nochmal vorgeschlagen.
-  const traegerGenutzt = new Set(
-    daten.jobs
-      .filter((j) => j.liste === "andere" && j.typ === "AG" && j.agJobId !== undefined)
-      .map((j) => j.agJobId),
-  );
-  const traeger = sortiereEintraege(daten.jobs, settings).filter(
-    (p): p is { eintrag: JobEintrag; abteilzeit: Date } =>
-      (p.eintrag.liste === "hamburg" || p.eintrag.liste === "nok") &&
-      p.abteilzeit !== undefined &&
-      p.abteilzeit.getTime() >= jetzt.getTime() &&
-      !traegerGenutzt.has(p.eintrag.id),
-  );
-
-  for (const schiff of daten.seeSchiffe) {
-    const zuteilung = projektion.get(schiff.id);
-    const fehlt = (zuteilung?.fehlt ?? 0) + (zuteilung?.zugewiesen.filter((s) => s.verspaetet).length ?? 0);
-    if (fehlt <= 0) continue;
-    const ankunftsFrist = schiff.eta.getTime() - VORLAUF_AUF_STATION_MS;
-
-    // Handlungsoptionen: späteste AG-Abteilzeit = Ankunftsfrist − Anfahrt;
-    // Tender-AG muss bis Ankunftsfrist − (Vorlauf + Anfahrt) eingeplant
-    // sein — der Tender fährt frühestens 3 Std. nach Planung ab und braucht
-    // dann selbst noch die Anfahrt.
-    const abfahrtsFrist = ankunftsFrist - ANFAHRT_SEESTATION_MS;
-    const kandidaten = traeger.filter((p) => p.abteilzeit.getTime() <= abfahrtsFrist);
-    const tenderFrist = ankunftsFrist - TENDER_VORLAUF_MS - ANFAHRT_SEESTATION_MS;
-    const tenderMoeglich = jetzt.getTime() <= tenderFrist;
-
-    const fehltText = `um ${formatUhrzeit(schiff.eta)} fehl${fehlt === 1 ? "t" : "en"} ${fehlt} Lotse${fehlt === 1 ? "" : "n"} für ${schiff.schiffsname}`;
-
-    if (kandidaten.length === 0 && !tenderMoeglich) {
+  for (const d of defizite) {
+    const fehltText = `um ${formatUhrzeit(d.schiff.eta)} fehl${d.fehlt === 1 ? "t" : "en"} ${d.fehlt} Lotse${d.fehlt === 1 ? "" : "n"} für ${d.schiff.schiffsname}`;
+    if (d.stufe === "alarm") {
       meldungen.push({
-        id: `seestation-defizit-${schiff.id}`,
+        id: `seestation-defizit-${d.schiff.id}`,
         stufe: "alarm",
-        zeit: schiff.eta,
+        zeit: d.schiff.eta,
         text: `Seestation: ${fehltText} — kein Trägerjob und Tender-AG nicht mehr rechtzeitig (3 Std. Vorlauf + 3,5 Std. Anfahrt)`,
       });
       continue;
     }
+    planungAnzahl += 1;
+    if (d.stufe === "warnung") planungStufe = "warnung";
+    if (!planungFrueheste || d.schiff.eta.getTime() < planungFrueheste.getTime()) planungFrueheste = d.schiff.eta;
+  }
 
-    let empfehlung: string;
-    if (kandidaten.length > 0) {
-      const letzte = kandidaten.slice(-2).reverse();
-      empfehlung = `AG-Fahrt planen: ${letzte
-        .map((p) => `${p.eintrag.schiffsname ?? vonTypeLabel(p.eintrag)} (Abt. ${formatUhrzeit(p.abteilzeit)})`)
-        .join(" oder ")}`;
-    } else {
-      empfehlung = `kein Trägerjob passt — Tender-AG bis ${formatUhrzeit(new Date(tenderFrist))} einplanen`;
-    }
-
-    const traegerFrist = kandidaten.length > 0 ? kandidaten[kandidaten.length - 1].abteilzeit.getTime() : -Infinity;
-    const handlungsFrist = Math.max(traegerFrist, tenderMoeglich ? tenderFrist : -Infinity);
-    const stufe: MeldungsStufe = handlungsFrist - jetzt.getTime() <= AG_ESKALATION_MS ? "warnung" : "vorschlag";
-
+  if (planungAnzahl > 0) {
     meldungen.push({
-      id: `seestation-defizit-${schiff.id}`,
-      stufe,
-      zeit: schiff.eta,
-      text: `Seestation: ${fehltText} — ${empfehlung}`,
+      id: "ag-planung-noetig",
+      stufe: planungStufe,
+      zeit: planungFrueheste,
+      text: `AG-Planung nötig — ${planungAnzahl} Schiff${planungAnzahl === 1 ? "" : "e"} ohne rechtzeitigen Lotsen, siehe Karte "AG-Planung"`,
     });
   }
   return meldungen;

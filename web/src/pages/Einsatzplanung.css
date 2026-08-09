@@ -48,6 +48,12 @@
   font-weight: 400;
 }
 
+/* Abrufzeit hinter Kat./EH-Klammer (bzw. hinter dem Namen): noch kleiner
+   als der Klammerzusatz, da Zusatzinfo zur Zusatzinfo. */
+.abruf-hinweis {
+  font-size: 0.75em;
+}
+
 /* Von/Type, Kat., Abt. Zeit, Lots. (Jobs-Seite) zentriert */
 .einsatz-table td.zentriert,
 .einsatz-table th.zentriert {
