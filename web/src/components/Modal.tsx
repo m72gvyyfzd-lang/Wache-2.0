@@ -10,9 +10,12 @@ interface ModalProps {
   maxWidth?: string;
   /** Überschrift zentrieren (z.B. Abteilen-Fragefenster) */
   titelZentriert?: boolean;
+  /** Zusatzelement auf Ebene der Überschrift, rechtsbündig vor dem
+   *  Schließen-Button (z.B. Kat.-Dropdown im Seestation-Bearbeitungsfenster) */
+  headerExtra?: ReactNode;
 }
 
-export function Modal({ title, onClose, children, maxWidth, titelZentriert }: ModalProps) {
+export function Modal({ title, onClose, children, maxWidth, titelZentriert, headerExtra }: ModalProps) {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -33,9 +36,12 @@ export function Modal({ title, onClose, children, maxWidth, titelZentriert }: Mo
       >
         <div className="modal__head">
           <h2>{title}</h2>
-          <button type="button" className="modal__close" onClick={onClose} aria-label="Schließen">
-            ×
-          </button>
+          <div className="modal__head-right">
+            {headerExtra}
+            <button type="button" className="modal__close" onClick={onClose} aria-label="Schließen">
+              ×
+            </button>
+          </div>
         </div>
         <div className="modal__body">{children}</div>
       </div>

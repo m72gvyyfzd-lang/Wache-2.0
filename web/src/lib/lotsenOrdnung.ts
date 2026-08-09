@@ -11,6 +11,15 @@
  *  Innerhalb einer Gruppe bleibt die bestehende Listenreihenfolge erhalten. */
 import type { AktuelleFahrt, Fahrt, LotsenEintrag } from "../data/types";
 
+/** CSS-Klasse je Fahrt-Zuweisung — Zeilenfarbe der Einsatzstation, geteilt
+ *  mit der Lotsen-Liste der Einsatzplanung (siehe dortige CSS-Definition
+ *  in Einsatzstation.css). "" (Bereitschaft) bleibt ungefärbt. */
+export const FAHRT_ZEILE_KLASSE: Record<string, string> = {
+  MoFa: "fahrt-zeile--mofa",
+  MiFa: "fahrt-zeile--mifa",
+  AFA: "fahrt-zeile--afa",
+};
+
 const ZYKLUS: AktuelleFahrt[] = ["MoFa", "MiFa", "AFA"];
 
 function fahrtRang(fahrt: Fahrt, aktuelleFahrt: AktuelleFahrt): number {

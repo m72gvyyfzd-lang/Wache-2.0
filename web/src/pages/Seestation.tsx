@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
 import { FrageModal } from "../components/FrageModal";
+import { SchiffKatSelect } from "../components/formShared";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
@@ -230,6 +231,17 @@ export function Seestation() {
     updateSeeSchiff(schiff.id, schiff);
     setSchiffAuswahl(null);
     setEditSchiff(null);
+  }
+
+  // Kat.-Dropdown auf Ebene der Modal-Überschrift: speichert sofort (wie
+  // "aktuelle Fahrt" in der Einsatzstation), kein eigener OK-Button nötig.
+  // editSchiff wird als lokale Kopie mitgeführt, damit ein anschließendes
+  // "OK" des restlichen Formulars die neue Kat. nicht wieder überschreibt.
+  function handleKategorieChange(wert: string) {
+    if (!editSchiff) return;
+    const aktualisiert = { ...editSchiff, kategorie: wert || undefined };
+    updateSeeSchiff(editSchiff.id, aktualisiert);
+    setEditSchiff(aktualisiert);
   }
 
   function handleSchiffLoeschenJa() {
@@ -489,7 +501,19 @@ export function Seestation() {
       )}
 
       {editSchiff && (
-        <Modal title={editSchiff.schiffsname} onClose={() => setEditSchiff(null)} maxWidth="360px" titelZentriert>
+        <Modal
+          title={editSchiff.schiffsname}
+          onClose={() => setEditSchiff(null)}
+          maxWidth="360px"
+          titelZentriert
+          headerExtra={
+            <SchiffKatSelect
+              value={editSchiff.kategorie ?? ""}
+              onChange={handleKategorieChange}
+              className="modal__head-select"
+            />
+          }
+        >
           <SeeSchiffEditModal
             schiff={editSchiff}
             onOk={handleSchiffOk}

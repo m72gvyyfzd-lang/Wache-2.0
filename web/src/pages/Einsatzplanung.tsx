@@ -12,7 +12,7 @@ import { Panel } from "../components/Panel";
 import type { JobEintrag } from "../data/types";
 import { benoetigteLotsenAnzahl, istAgJob, istOhneVNrJob, sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
-import { sortiereUndNummeriere, type LotseMitOrdnung } from "../lib/lotsenOrdnung";
+import { FAHRT_ZEILE_KLASSE, sortiereUndNummeriere, type LotseMitOrdnung } from "../lib/lotsenOrdnung";
 import { abteilzeitProLotse, eignungsWarnung, geplanterAbruf, planeEinsatzstation } from "../lib/planungEinsatzstation";
 import { berechnePotentielleVNrn } from "../lib/vNrPlanung";
 import { useData } from "../state/DataContext";
@@ -222,7 +222,7 @@ export function Einsatzplanung() {
 
   return (
     <div className="einsatzplanung-seite">
-      <PageHeader title="Einsatzplanung" />
+      <PageHeader title="Einsatzplanung" centered />
       <Panel
         // leeres Fragment statt Titel/Counter: der Kopf bleibt als
         // Platzhalter erhalten, damit der Abteilen-Button beim Erscheinen
@@ -270,8 +270,12 @@ export function Einsatzplanung() {
               const lotse = lotsenSortiert[i];
               const jobKlasse =
                 "einsatz-table__seite" + (paar && jobAuswahl === paar.eintrag.id ? " ist-ausgewaehlt" : "");
+              // Fahrt-Färbung wie in der Einsatzstation (reaktiv: die
+              // Zuweisung kommt live aus dem geteilten lotsen-State).
               const lotseKlasse =
-                "einsatz-table__seite" + (lotse && lotseAuswahl.includes(i) ? " ist-ausgewaehlt" : "");
+                "einsatz-table__seite" +
+                (lotse ? ` ${FAHRT_ZEILE_KLASSE[lotse.eintrag.fahrt] ?? ""}` : "") +
+                (lotse && lotseAuswahl.includes(i) ? " ist-ausgewaehlt" : "");
               const jobKlick = paar
                 ? () => setJobAuswahl((aktiv) => (aktiv === paar.eintrag.id ? null : paar.eintrag.id))
                 : undefined;

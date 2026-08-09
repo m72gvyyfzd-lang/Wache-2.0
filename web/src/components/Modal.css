@@ -47,6 +47,32 @@
   font-size: 1.05rem;
 }
 
+.modal__head-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* Kompaktes Dropdown auf Ebene der Überschrift (z.B. Kat.-Auswahl im
+   Seestation-Bearbeitungsfenster): Label und Select in einer Zeile statt
+   des sonst üblichen gestapelten Layouts. */
+.modal__head-select {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.modal__head-select select {
+  width: 72px;
+  padding: 5px 8px;
+}
+
 /* Zentrierte Überschrift (z.B. Abteilen-Fragefenster): der Schließen-Knopf
    bleibt rechts, die h2 nimmt die volle Breite ein */
 .modal--titel-zentriert .modal__head h2 {

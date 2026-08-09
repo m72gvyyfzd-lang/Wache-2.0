@@ -5,15 +5,9 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import type { AktuelleFahrt, LotsenEintrag } from "../data/types";
-import { formatAbrufzeit, sortiereUndNummeriere } from "../lib/lotsenOrdnung";
+import { FAHRT_ZEILE_KLASSE, formatAbrufzeit, sortiereUndNummeriere } from "../lib/lotsenOrdnung";
 import { useData } from "../state/DataContext";
 import "./Einsatzstation.css";
-
-const FAHRT_ZEILE_KLASSE: Record<string, string> = {
-  MoFa: "fahrt-zeile--mofa",
-  MiFa: "fahrt-zeile--mifa",
-  AFA: "fahrt-zeile--afa",
-};
 
 function zaehlerZelle(wert: number): string {
   return wert > 0 ? String(wert) : "·";
