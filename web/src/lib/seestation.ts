@@ -5,6 +5,20 @@ import type { Abteilung, SeestationLotse } from "../data/types";
  *  verfeinert) — auch Grundlage der AG-Fahrt-Vorschläge im Dashboard. */
 export const ANFAHRT_SEESTATION_MS = 3.5 * 3_600_000;
 
+/** Ein Lotse muss min. 1 Std. vor dem Schiffs-ETA auf der Seestation sein. */
+export const VORLAUF_AUF_STATION_MS = 3_600_000;
+
+/** Tender-AG: braucht min. 3 Std. Vorlauf, bis der Tender an der
+ *  Einsatzstation abfahren kann — die Anfahrt zur Seestation (siehe
+ *  ANFAHRT_SEESTATION_MS) kommt danach noch obendrauf.
+ *
+ *  Diese drei Konstanten liegen bewusst hier (statt in lib/meldungen.ts,
+ *  wo sie ursprünglich standen): lib/vorschau.ts braucht TENDER_VORLAUF_MS
+ *  und lib/meldungen.ts braucht künftig lib/vorschau.ts (für die
+ *  verplanten Lotsen in der Dashboard-Bilanz) — ein gemeinsames,
+ *  neutrales Modul ohne Rückimport vermeidet einen Zirkelbezug. */
+export const TENDER_VORLAUF_MS = 3 * 3_600_000;
+
 /** "Ankunft S-Stn"/"ETA Stn" eines Lotsen im Revier: Abteilzeit + Anfahrt;
  *  ein manueller Wert sticht die Berechnung aus. */
 export function etaSeestation(abteilung: Abteilung): Date {

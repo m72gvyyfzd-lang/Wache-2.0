@@ -15,11 +15,11 @@ import type { SeeSchiff } from "../data/types";
 import { formatUhrzeit } from "../lib/format";
 import {
   sortiereSeestation,
+  VORLAUF_AUF_STATION_MS,
   zeilenAusAbteilungen,
   zeilenAusSeestationLotsen,
   type SeestationZeile,
 } from "../lib/seestation";
-import { VORLAUF_AUF_STATION_MS } from "../lib/meldungen";
 import {
   eignungsWarnungSeestation,
   planeSeestation,

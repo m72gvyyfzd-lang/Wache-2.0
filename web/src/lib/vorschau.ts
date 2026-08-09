@@ -25,9 +25,8 @@ import type { AbteilzeitSettings } from "@wache/core";
 import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
 import { benoetigteLotsenAnzahl, istOhneVNrJob, sortiereEintraege } from "./coreJob";
 import { sortiereUndNummeriere } from "./lotsenOrdnung";
-import { TENDER_VORLAUF_MS } from "./meldungen";
 import { planeEinsatzstation } from "./planungEinsatzstation";
-import { ANFAHRT_SEESTATION_MS, type SeestationZeile } from "./seestation";
+import { ANFAHRT_SEESTATION_MS, TENDER_VORLAUF_MS, type SeestationZeile } from "./seestation";
 import { berechnePotentielleVNrn } from "./vNrPlanung";
 
 export interface VorschauZeilen {

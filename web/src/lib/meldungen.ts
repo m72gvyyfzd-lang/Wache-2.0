@@ -22,8 +22,16 @@ import type {
 import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "./coreJob";
 import { formatUhrzeit } from "./format";
 import { geplanterAbruf, planeEinsatzstation } from "./planungEinsatzstation";
-import { ANFAHRT_SEESTATION_MS, sortiereSeestation, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "./seestation";
+import {
+  ANFAHRT_SEESTATION_MS,
+  TENDER_VORLAUF_MS,
+  VORLAUF_AUF_STATION_MS,
+  sortiereSeestation,
+  zeilenAusAbteilungen,
+  zeilenAusSeestationLotsen,
+} from "./seestation";
 import { planeSeestation, schiffePriorisiert } from "./seestationAbteilen";
+import { vorschauZeilen } from "./vorschau";
 
 export type MeldungsStufe = "alarm" | "warnung" | "vorschlag" | "info";
 
@@ -38,14 +46,6 @@ export interface Meldung {
 
 /** Vorwarnzeit vor dem geplanten Abruf (Warnung orange). */
 export const ABRUF_VORWARNUNG_MS = 15 * 60_000;
-
-/** Ein Lotse muss min. 1 Std. vor dem Schiffs-ETA auf der Seestation sein. */
-export const VORLAUF_AUF_STATION_MS = 3_600_000;
-
-/** Tender-AG: braucht min. 3 Std. Vorlauf, bis der Tender an der
- *  Einsatzstation abfahren kann — die Anfahrt zur Seestation (3,5 Std.)
- *  kommt danach noch obendrauf. */
-export const TENDER_VORLAUF_MS = 3 * 3_600_000;
 
 /** Wird die letzte Handlungsmöglichkeit knapper als das, eskaliert ein
  *  AG-Vorschlag zur Warnung. */
@@ -121,13 +121,23 @@ function abrufMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitS
  * Seestations-Bilanz: teilt sich die Zuteilung mit der Seestation-Seite
  * (lib/seestationAbteilen.ts::planeSeestation — pünktliche Kandidaten
  * zuerst, dann Rest mit Verspätungs-Kennzeichnung, dann echtes Defizit).
- * Ein verspätet zugeteilter Lotse zählt hier weiterhin als Bedarf: er löst
- * zwar auf der Seestation-Seite keine "X Lotse(n) benötigt"-Meldung mehr
- * aus, aber operativ steht das Schiff trotzdem ohne pünktlichen Lotsen da
- * — der AG-Fahrt-Vorschlag bzw. Alarm bleibt also aktiv. Bei Unterdeckung
- * entsteht ein AG-Fahrt-Vorschlag mit konkreten Trägerjobs (Hamburg/NOK),
- * ersatzweise eine Tender-AG (min. 3 Std. Vorlauf); ist auch das nicht
- * mehr möglich, wird die Unterdeckung zum Alarm.
+ *
+ * Der Lotsen-Pool enthält zusätzlich zu den echten (auf Station/unterwegs)
+ * auch die VERPLANTEN Lotsen der Einsatzplanung (lib/vorschau.ts) — sobald
+ * ein AG-Job angelegt ist und die Planung Einsatzstation ihm rechtzeitig
+ * einen Lotsen zuweisen würde, gilt der Bedarf als gedeckt und die Meldung
+ * verschwindet, ohne dass der Lotse schon abgerufen/abgeteilt sein muss.
+ * FREIE Lotsen (noch ohne Job) zählen bewusst NICHT mit — die sollen ja
+ * erst durch einen neuen AG-Job gebunden werden, nicht schon vorher als
+ * Lösung gelten (sonst gäbe es nie einen Vorschlag). Ein verspätet
+ * zugeteilter Lotse zählt weiterhin als Bedarf: er löst auf der
+ * Seestation-Seite keine "X Lotse(n) benötigt"-Meldung mehr aus, aber
+ * operativ steht das Schiff trotzdem ohne pünktlichen Lotsen da — der
+ * AG-Fahrt-Vorschlag bzw. Alarm bleibt also aktiv. Bei Unterdeckung
+ * entsteht ein AG-Fahrt-Vorschlag mit konkreten Trägerjobs (Hamburg/NOK,
+ * ohne bereits per AG genutzte), ersatzweise eine Tender-AG (min. 3 Std.
+ * Vorlauf); ist auch das nicht mehr möglich, wird die Unterdeckung zum
+ * Alarm.
  */
 function seestationsMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitSettings): Meldung[] {
   const meldungen: Meldung[] = [];
@@ -135,20 +145,31 @@ function seestationsMeldungen(daten: MeldungsDaten, jetzt: Date, settings: Abtei
   for (const sa of daten.seeAbteilungen)
     abgeteiltProSchiff.set(sa.seeSchiffId, (abgeteiltProSchiff.get(sa.seeSchiffId) ?? 0) + 1);
 
+  // vNrStart/verbrauchteVNrn sind hier irrelevant (nur für die V-Nr.-
+  // Anzeige gebraucht, die diese Bilanz nicht darstellt).
+  const { verplante } = vorschauZeilen(daten.jobs, daten.lotsen, daten.aktuelleFahrt, daten.abteilungen, settings, 0, [], jetzt);
   const pool = sortiereSeestation([
     ...zeilenAusAbteilungen(daten.abteilungen),
     ...zeilenAusSeestationLotsen(daten.seestationLotsen),
+    ...verplante,
   ]);
   const schiffe = schiffePriorisiert(daten.seeSchiffe, abgeteiltProSchiff);
   const projektion = planeSeestation(schiffe, pool, abgeteiltProSchiff, VORLAUF_AUF_STATION_MS);
 
   // AG-Trägerjobs: künftige Hamburg/NOK-Abfahrten, an die eine AG-Fahrt
-  // gehängt werden kann (aufsteigend nach Abteilzeit).
+  // gehängt werden kann (aufsteigend nach Abteilzeit) — bereits per AG
+  // genutzte Träger werden nicht nochmal vorgeschlagen.
+  const traegerGenutzt = new Set(
+    daten.jobs
+      .filter((j) => j.liste === "andere" && j.typ === "AG" && j.agJobId !== undefined)
+      .map((j) => j.agJobId),
+  );
   const traeger = sortiereEintraege(daten.jobs, settings).filter(
     (p): p is { eintrag: JobEintrag; abteilzeit: Date } =>
       (p.eintrag.liste === "hamburg" || p.eintrag.liste === "nok") &&
       p.abteilzeit !== undefined &&
-      p.abteilzeit.getTime() >= jetzt.getTime(),
+      p.abteilzeit.getTime() >= jetzt.getTime() &&
+      !traegerGenutzt.has(p.eintrag.id),
   );
 
   for (const schiff of daten.seeSchiffe) {
