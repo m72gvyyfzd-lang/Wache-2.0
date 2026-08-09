@@ -101,16 +101,24 @@
   background: color-mix(in srgb, var(--accent) 16%, var(--surface)) !important;
 }
 
-/* "Abteilen"-Button: zentriert auf Höhe der Karten-Überschrift, erscheint
-   nur wenn ein Job und ein Lotse markiert sind */
+/* "Abteilen"-Button: zentriert im Kachel-Kopf, erscheint nur wenn ein Job
+   und Lotsen markiert sind. Ohne Titel dient der Kopf nur noch als
+   Platzhalter — feste Mindesthöhe, damit der Button nicht über die
+   Begrenzung ragt und das Layout beim Erscheinen nicht springt. */
 .panel__head {
   position: relative;
+}
+
+.einsatzplanung-seite .panel__head {
+  min-height: 62px;
+  box-sizing: border-box;
 }
 
 .einsatz-abteilen {
   position: absolute;
   left: 50%;
-  transform: translateX(-50%);
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 /* Gesperrt, solange der gewählte Lotse nicht abgerufen ist */

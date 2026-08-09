@@ -77,10 +77,12 @@ export function Einsatzplanung() {
   // Lotsen — wird bei jeder Änderung neu berechnet.
   const abteilzeitProLotseMap = abteilzeitProLotse(jobsSortiert, zuweisungen);
 
-  // Unabhängige Auswahl je Seite: ein Job UND ein Lotse können gleichzeitig
-  // markiert sein (z.B. Job 1 + Lotse 2). Erneuter Klick wählt wieder ab.
+  // Unabhängige Auswahl je Seite: ein Job UND Lotsen können gleichzeitig
+  // markiert sein. Mehrere Lotsen wählbar, wenn der gewählte Job mehr als
+  // einen braucht (AG/AG (Tender)) — wie das Doppeldecker-Abteilen der
+  // Seestation. Erneuter Klick wählt wieder ab.
   const [jobAuswahl, setJobAuswahl] = useState<number | null>(null);
-  const [lotseAuswahl, setLotseAuswahl] = useState<number | null>(null);
+  const [lotseAuswahl, setLotseAuswahl] = useState<number[]>([]);
   // Doppelklick auf "Lots." (nur bei AG-Jobs) öffnet das Bearbeitungsfenster
   const [lotsenAnzahlJob, setLotsenAnzahlJob] = useState<JobEintrag | null>(null);
   // Doppelklick auf "Abt. Zeit" öffnet das Bearbeitungsfenster für die Zeit
@@ -93,44 +95,73 @@ export function Einsatzplanung() {
   // "Abteilen": Rückfrage vor dem Verbinden von Job + Lotse
   const [abteilenFrage, setAbteilenFrage] = useState(false);
 
-  // Aktuelle Auswahl für das Abteilen — Button erscheint nur, wenn beides
-  // markiert ist. Aktiv wird er erst, wenn der Lotse abgerufen (also an
-  // der Einsatzstation) ist.
+  // Aktuelle Auswahl für das Abteilen — Button erscheint, sobald ein Job
+  // und mindestens ein Lotse markiert sind. Aktiv wird er erst, wenn genau
+  // so viele Lotsen ausgewählt sind, wie der Job noch braucht (AG-Jobs:
+  // Rest-Anzahl, sonst 1), und ALLE abgerufen (also an der Einsatzstation)
+  // sind.
   const abteilenJob = jobAuswahl !== null ? (jobs.find((j) => j.id === jobAuswahl) ?? null) : null;
-  const abteilenLotse = lotseAuswahl !== null ? (lotsenSortiert[lotseAuswahl] ?? null) : null;
-  const abteilenMoeglich = abteilenLotse?.eintrag.abgerufen ?? false;
-  // Warnung, wenn der gewählte Lotse die Anforderungen des Jobs nicht
-  // erfüllt (Kat., Job-Typ, EH) — abteilen bleibt trotzdem möglich.
+  const abteilenBenoetigt = abteilenJob
+    ? benoetigteLotsenAnzahl(abteilenJob) - (abgeteiltProJob.get(abteilenJob.id) ?? 0)
+    : 0;
+  const abteilenLotsen = lotseAuswahl
+    .map((i) => lotsenSortiert[i])
+    .filter((l): l is LotseMitOrdnung => l !== undefined);
+  const abteilenMoeglich =
+    abteilenLotsen.length === abteilenBenoetigt && abteilenLotsen.every((l) => l.eintrag.abgerufen);
+  // Warnung, wenn gewählte Lotsen die Anforderungen des Jobs nicht
+  // erfüllen (Kat., Job-Typ, EH) — abteilen bleibt trotzdem möglich.
+  const abteilenWarnungen = abteilenJob
+    ? abteilenLotsen.map((l) => eignungsWarnung(abteilenJob, l.eintrag)).filter((w): w is string => w !== undefined)
+    : [];
   const abteilenWarnung =
-    abteilenJob && abteilenLotse ? eignungsWarnung(abteilenJob, abteilenLotse.eintrag) : undefined;
+    abteilenWarnungen.length > 0 ? Array.from(new Set(abteilenWarnungen)).join(" / ") : undefined;
+
+  // V-Nrn der Auswahl (Anzeige + Abteilen, Index-gleich zu abteilenLotsen).
+  // Der Fallback zählt selbst weiter, damit zwei Lotsen ohne potentielle
+  // Nummer nicht dieselbe Fallback-Nummer bekommen.
+  const abteilenVNrn = (() => {
+    const verbraucht = new Set(verbrauchteVNrn);
+    let fallback = naechsteFreieVNr;
+    return abteilenLotsen.map((l) => {
+      const vNr = vNrProLotse.get(l.eintrag);
+      if (vNr !== undefined) return vNr;
+      while (verbraucht.has(fallback)) fallback += 1;
+      return fallback++;
+    });
+  })();
 
   function handleAbteilenJa() {
-    if (!abteilenJob || !abteilenLotse) return;
+    if (!abteilenJob || abteilenLotsen.length === 0) return;
     const ohne = istOhneVNrJob(abteilenJob);
-    teileAb(
-      {
-        jobId: abteilenJob.id,
-        vNr: ohne ? undefined : (vNrProLotse.get(abteilenLotse.eintrag) ?? naechsteFreieVNr),
-        typLabel: vonTypeLabel(abteilenJob),
-        schiffsname: abteilenJob.schiffsname,
-        lotsenName: abteilenLotse.eintrag.name,
-        lotsenKategorie: abteilenLotse.eintrag.kategorie,
-        elbehafen: abteilenLotse.eintrag.elbehafen,
-        abteilZeit: new Date(),
-      },
-      abteilenLotse.index,
-    );
+    abteilenLotsen.forEach((lotse, i) => {
+      teileAb(
+        {
+          jobId: abteilenJob.id,
+          vNr: ohne ? undefined : abteilenVNrn[i],
+          typLabel: vonTypeLabel(abteilenJob),
+          schiffsname: abteilenJob.schiffsname,
+          lotsenName: lotse.eintrag.name,
+          lotsenKategorie: lotse.eintrag.kategorie,
+          elbehafen: lotse.eintrag.elbehafen,
+          abteilZeit: new Date(),
+        },
+        lotse.index,
+      );
+    });
     setJobAuswahl(null);
-    setLotseAuswahl(null);
+    setLotseAuswahl([]);
     setAbteilenFrage(false);
   }
 
   const dennoch = abteilenWarnung ? "dennoch " : "";
+  const abteilenNamen = abteilenLotsen.map((l) => l.eintrag.name);
+  const sollen = abteilenNamen.length > 1 ? "Sollen" : "Soll";
   const abteilenFrageText =
-    abteilenJob && abteilenLotse
+    abteilenJob && abteilenLotsen.length > 0
       ? istOhneVNrJob(abteilenJob)
-        ? `Soll ${abteilenLotse.eintrag.name} zu ${[vonTypeLabel(abteilenJob), abteilenJob.schiffsname].filter(Boolean).join(" ")} ${dennoch}abgeteilt werden?`
-        : `Soll ${abteilenLotse.eintrag.name} zu ${abteilenJob.schiffsname ?? "?"} mit der V-Nr. ${vNrProLotse.get(abteilenLotse.eintrag) ?? naechsteFreieVNr} ${dennoch}abgeteilt werden?`
+        ? `${sollen} ${abteilenNamen.join(" und ")} zu ${[vonTypeLabel(abteilenJob), abteilenJob.schiffsname].filter(Boolean).join(" ")} ${dennoch}abgeteilt werden?`
+        : `${sollen} ${abteilenNamen.join(" und ")} zu ${abteilenJob.schiffsname ?? "?"} mit ${abteilenVNrn.length > 1 ? `den V-Nrn. ${abteilenVNrn.join(" und ")}` : `der V-Nr. ${abteilenVNrn[0]}`} ${dennoch}abgeteilt werden?`
       : "";
 
   // Nur AG-Jobs haben eine editierbare Lotsenanzahl — der Override schreibt
@@ -178,19 +209,19 @@ export function Einsatzplanung() {
       const abrufStunden = eintrag.abrufStunden ?? 1;
       updateLotse(index, { ...eintrag, abgerufen: true, anStationZeit: new Date(Date.now() + abrufStunden * 3_600_000) });
     }
-    setLotseAuswahl(null);
+    setLotseAuswahl([]);
     setAbrufenLotse(null);
   }
 
   function handleAnStationUebernehmen(wert: Date | undefined) {
     if (!anStationLotse) return;
     updateLotse(anStationLotse.index, { ...anStationLotse.eintrag, anStationZeit: wert });
-    setLotseAuswahl(null);
+    setLotseAuswahl([]);
     setAnStationLotse(null);
   }
 
   return (
-    <div>
+    <div className="einsatzplanung-seite">
       <PageHeader title="Einsatzplanung" />
       <Panel
         // leeres Fragment statt Titel/Counter: der Kopf bleibt als
@@ -198,7 +229,7 @@ export function Einsatzplanung() {
         // das Layout nicht verschiebt
         action={
           <>
-            {abteilenJob && abteilenLotse && (
+            {abteilenJob && abteilenLotsen.length > 0 && (
               <button
                 type="button"
                 className="btn btn--accent einsatz-abteilen"
@@ -239,11 +270,23 @@ export function Einsatzplanung() {
               const lotse = lotsenSortiert[i];
               const jobKlasse =
                 "einsatz-table__seite" + (paar && jobAuswahl === paar.eintrag.id ? " ist-ausgewaehlt" : "");
-              const lotseKlasse = "einsatz-table__seite" + (lotse && lotseAuswahl === i ? " ist-ausgewaehlt" : "");
+              const lotseKlasse =
+                "einsatz-table__seite" + (lotse && lotseAuswahl.includes(i) ? " ist-ausgewaehlt" : "");
               const jobKlick = paar
                 ? () => setJobAuswahl((aktiv) => (aktiv === paar.eintrag.id ? null : paar.eintrag.id))
                 : undefined;
-              const lotseKlick = lotse ? () => setLotseAuswahl((aktiv) => (aktiv === i ? null : i)) : undefined;
+              // Einfachauswahl, außer der gewählte Job braucht noch mehr als
+              // einen Lotsen (AG/AG (Tender)) — dann bis zu dessen
+              // verbleibendem Bedarf mehrere gleichzeitig wählbar.
+              const lotseKlick = lotse
+                ? () =>
+                    setLotseAuswahl((aktuell) => {
+                      if (aktuell.includes(i)) return aktuell.filter((x) => x !== i);
+                      const kapazitaet = Math.max(abteilenBenoetigt, 1);
+                      if (aktuell.length >= kapazitaet) return [i];
+                      return [...aktuell, i];
+                    })
+                : undefined;
               return (
                 <tr key={i}>
                   {paar ? (
@@ -310,7 +353,7 @@ export function Einsatzplanung() {
                         className={`${lotseKlasse} cell-name ${lotse.eintrag.abgerufen ? "fett" : "muted"}`}
                         onClick={lotseKlick}
                         onDoubleClick={() => {
-                          setLotseAuswahl(i);
+                          setLotseAuswahl([i]);
                           setAbrufenLotse(lotse);
                         }}
                       >
@@ -337,7 +380,7 @@ export function Einsatzplanung() {
                         onDoubleClick={
                           lotse.eintrag.abgerufen
                             ? () => {
-                                setLotseAuswahl(i);
+                                setLotseAuswahl([i]);
                                 setAnStationLotse(lotse);
                               }
                             : undefined
@@ -403,7 +446,7 @@ export function Einsatzplanung() {
         </Modal>
       )}
 
-      {abteilenFrage && abteilenJob && abteilenLotse && (
+      {abteilenFrage && abteilenJob && abteilenLotsen.length > 0 && (
         <Modal title="Abteilen" onClose={() => setAbteilenFrage(false)} maxWidth="380px" titelZentriert>
           <FrageModal
             frage={abteilenFrageText}
