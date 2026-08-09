@@ -1,8 +1,10 @@
 /**
  * Seestations-Defizit je Schiff: gemeinsame Berechnung für die Dashboard-
  * Bilanz (lib/meldungen.ts) und die AG-Planungs-Übersicht (lib/agPlanung.ts).
- * Reine Extraktion der bisherigen Schleife aus meldungen.ts::seestationsMeldungen
- * — keine fachliche Änderung.
+ * Ursprünglich reine Extraktion der Schleife aus
+ * meldungen.ts::seestationsMeldungen, inzwischen mit einer Korrektur: die
+ * Trägerkandidaten schließen bereits abgeteilte Trägerjobs aus (siehe
+ * Kommentar bei "traeger" unten).
  *
  * Nur ein Typ-Import aus lib/meldungen.ts (wird beim Kompilieren entfernt,
  * daher kein Zirkelbezug), meldungen.ts importiert von hier den Wert
@@ -10,7 +12,7 @@
  */
 import type { AbteilzeitSettings } from "@wache/core";
 import type { JobEintrag, SeeSchiff } from "../data/types";
-import { sortiereEintraege, vonTypeLabel } from "./coreJob";
+import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "./coreJob";
 import type { MeldungsDaten, MeldungsStufe } from "./meldungen";
 import { ANFAHRT_SEESTATION_MS, TENDER_VORLAUF_MS, VORLAUF_AUF_STATION_MS, sortiereSeestation, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "./seestation";
 import { planeSeestation, schiffePriorisiert } from "./seestationAbteilen";
@@ -51,18 +53,24 @@ export function berechneSeestationsDefizite(
 
   // AG-Trägerjobs: künftige Hamburg/NOK-Abfahrten, an die eine AG-Fahrt
   // gehängt werden kann (aufsteigend nach Abteilzeit) — bereits per AG
-  // genutzte Träger werden nicht nochmal vorgeschlagen.
+  // genutzte Träger werden nicht nochmal vorgeschlagen. Bereits abgeteilte
+  // Träger (eigener Lotse schon dispatcht, ohne dass dafür ein AG-Job
+  // angelegt wurde) fallen ebenfalls raus: die Fahrt ist schon losgefahren,
+  // ein nachträglich angelegter AG-Job könnte nicht mehr mitfahren.
   const traegerGenutzt = new Set(
     daten.jobs
       .filter((j) => j.liste === "andere" && j.typ === "AG" && j.agJobId !== undefined)
       .map((j) => j.agJobId),
   );
+  const abgeteiltProJob = new Map<number, number>();
+  for (const a of daten.abteilungen) abgeteiltProJob.set(a.jobId, (abgeteiltProJob.get(a.jobId) ?? 0) + 1);
   const traeger = sortiereEintraege(daten.jobs, settings).filter(
     (p): p is { eintrag: JobEintrag; abteilzeit: Date } =>
       (p.eintrag.liste === "hamburg" || p.eintrag.liste === "nok") &&
       p.abteilzeit !== undefined &&
       p.abteilzeit.getTime() >= jetzt.getTime() &&
-      !traegerGenutzt.has(p.eintrag.id),
+      !traegerGenutzt.has(p.eintrag.id) &&
+      benoetigteLotsenAnzahl(p.eintrag) - (abgeteiltProJob.get(p.eintrag.id) ?? 0) > 0,
   );
 
   const defizite: SeestationDefizit[] = [];
