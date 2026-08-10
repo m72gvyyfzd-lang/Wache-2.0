@@ -13,8 +13,18 @@ import "./DashboardCard.css";
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
 export function DashboardCard() {
-  const { jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, vNrStart, verbrauchteVNrn } =
-    useData();
+  const {
+    jobs,
+    lotsen,
+    aktuelleFahrt,
+    abteilungen,
+    seeSchiffe,
+    seestationLotsen,
+    seeAbteilungen,
+    vNrStart,
+    verbrauchteVNrn,
+    hwBrb,
+  } = useData();
 
   // Zeit-Tick: die Meldungen hängen an der Uhrzeit (gepl. Abruf etc.) und
   // werden daher regelmäßig neu berechnet, auch ohne Datenänderung.
@@ -86,6 +96,10 @@ export function DashboardCard() {
   const anzahlNOK = jobs.filter((j) => j.liste === "nok").length;
   const anzahlAnmeldungen = jobs.filter((j) => j.liste === "andere").length;
 
+  const zeit = (d: Date | undefined) =>
+    d ? d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "–";
+  const hwBrbText = hwBrb.hw1 ? `${zeit(hwBrb.hw1)} / ${zeit(hwBrb.hw2)}` : "–";
+
   return (
     <div className="dashboard-card">
       <div className="dashboard-card__scroll">
@@ -110,6 +124,7 @@ export function DashboardCard() {
             <div className="ton-tile__wert">{tonAn ? "an" : "aus"}</div>
           </button>
           <StatTile label="HH / NOK / Anmeldungen" value={`${anzahlHH} / ${anzahlNOK} / ${anzahlAnmeldungen}`} />
+          <StatTile label="HW Brb" value={hwBrbText} />
         </div>
       </div>
       {offenesPanel === "meldungen" && <MeldungsListe meldungen={meldungen} />}

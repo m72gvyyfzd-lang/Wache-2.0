@@ -4,6 +4,7 @@
 import type {
   Abteilung,
   AktuelleFahrt,
+  HwBrbEingabe,
   JobEintrag,
   LotsenEintrag,
   SeeAbteilung,
@@ -28,6 +29,7 @@ const SEE_ABTEILUNGEN_KEY = "wache.seeAbteilungen.v1";
 const A_NR_ZAEHLER_KEY = "wache.aNrZaehler.v1";
 const VERBRAUCHTE_V_NR_KEY = "wache.verbrauchteVNrn.v1";
 const ALARM_TON_KEY = "wache.alarmTon.v1";
+const HW_BRB_KEY = "wache.hwBrb.v1";
 
 const JOB_DATUM_FELDER = [
   "hh",
@@ -266,6 +268,24 @@ export function ladeVerbrauchteVNrn(): number[] {
 
 export function speichereVerbrauchteVNrn(vNrn: number[]): void {
   localStorage.setItem(VERBRAUCHTE_V_NR_KEY, JSON.stringify(vNrn));
+}
+
+export function ladeHwBrb(): HwBrbEingabe {
+  const raw = localStorage.getItem(HW_BRB_KEY);
+  if (!raw) return {};
+  try {
+    const wert = JSON.parse(raw) as Record<string, unknown>;
+    return {
+      hw1: typeof wert.hw1 === "string" ? new Date(wert.hw1) : undefined,
+      hw2: typeof wert.hw2 === "string" ? new Date(wert.hw2) : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+export function speichereHwBrb(hwBrb: HwBrbEingabe): void {
+  localStorage.setItem(HW_BRB_KEY, JSON.stringify(hwBrb));
 }
 
 export function ladeAlarmTonAktiv(): boolean {

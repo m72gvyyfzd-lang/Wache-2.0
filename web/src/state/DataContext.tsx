@@ -4,18 +4,20 @@ import { mockJobs, mockLotsenliste, mockSeeSchiffe } from "../data/mockData";
 import type {
   Abteilung,
   AktuelleFahrt,
+  HwBrbEingabe,
   JobEintrag,
   LotsenEintrag,
   SeeAbteilung,
   SeeSchiff,
   SeestationLotse,
 } from "../data/types";
-import { abteilzeitVon } from "../lib/coreJob";
+import { abteilzeitVon, setHwBrbAktuell } from "../lib/coreJob";
 import { tauschePositionen, verschiebeHinter } from "../lib/lotsenOrdnung";
 import {
   ladeAbteilungen,
   ladeAktuelleFahrt,
   ladeANrZaehler,
+  ladeHwBrb,
   ladeJobIdZaehler,
   ladeJobs,
   ladeLetzteVNr,
@@ -28,6 +30,7 @@ import {
   speichereAbteilungen,
   speichereAktuelleFahrt,
   speichereANrZaehler,
+  speichereHwBrb,
   speichereJobIdZaehler,
   speichereJobs,
   speichereLetzteVNr,
@@ -104,6 +107,10 @@ interface DataContextValue {
    *  "letzte V-Nr." + 1. Die Einstellungen selbst (letzte V-Nr., aktuelle
    *  Fahrt, Alarm-Ton) bleiben erhalten. */
   resetAlles: () => void;
+  /** HW-Paar Brunsbüttel (Settings) für die matrixbasierte Brb-Prognose der
+   *  HH-Jobs. Ohne HW_1 rechnen alle HH-Jobs mit den festen Offsets. */
+  hwBrb: HwBrbEingabe;
+  setHwBrb: (hwBrb: HwBrbEingabe) => void;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -120,6 +127,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [seestationLotsen, setSeestationLotsen] = useState<SeestationLotse[]>(() => ladeSeestationLotsen());
   const [seeAbteilungen, setSeeAbteilungen] = useState<SeeAbteilung[]>(() => ladeSeeAbteilungen());
   const [verbrauchteVNrn, setVerbrauchteVNrn] = useState<number[]>(() => ladeVerbrauchteVNrn());
+  const [hwBrb, setHwBrbState] = useState<HwBrbEingabe>(() => ladeHwBrb());
+
+  // Das HW-Paar fließt über ein Modul-Singleton in alle abteilzeitVon-
+  // Aufrufstellen (siehe coreJob.ts). Direkt im Render gesetzt (idempotent),
+  // damit es garantiert VOR dem Rendern der Kinder aktuell ist — ein
+  // useEffect liefe erst NACH deren Render, die Kinder würden also einmal
+  // mit dem veralteten Wert rechnen.
+  setHwBrbAktuell(hwBrb);
 
   // Persistenter ID-Zähler: einmal vergebene IDs werden nie wiederverwendet,
   // damit spätere Verweise (z.B. AG-Verknüpfung) eindeutig bleiben.
@@ -279,6 +294,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     speichereLetzteVNr(wert);
   }, []);
 
+  const setHwBrb = useCallback((wert: HwBrbEingabe) => {
+    setHwBrbState(wert);
+    speichereHwBrb(wert);
+  }, []);
+
   // Reset: alle Listen leeren, Zähler zurücksetzen. Die ID-/A-Nr.-Zähler
   // dürfen NUR deshalb neu starten, weil alle Listen, die auf sie
   // verweisen (Jobs, Abteilungen, SeeAbteilungen), im selben Schritt
@@ -318,6 +338,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setAktuelleFahrt,
         letzteVNr,
         setLetzteVNr,
+        hwBrb,
+        setHwBrb,
         vNrStart,
         abteilungen,
         teileAb,

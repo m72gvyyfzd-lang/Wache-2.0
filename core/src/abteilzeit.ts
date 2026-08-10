@@ -1,3 +1,4 @@
+import { berechneBrbPrognose, type HwBrb } from "./brbMatrix";
 import type { AbteilzeitSettings, Job, Zeitoffset } from "./types";
 
 function addOffset(datum: Date, offset: Zeitoffset): Date {
@@ -14,8 +15,17 @@ function addOffset(datum: Date, offset: Zeitoffset): Date {
  * Ein manueller Wert (`abteilungManuell`) sticht in jedem Routentyp alles aus.
  *
  * Destilliert aus Job-Liste::J (Formel-Spalte "ETA (Abteilung)").
+ *
+ * Ist `hwBrb` (HW-Paar Brunsbüttel) gegeben, wird für HH-Jobs mit FkW- oder
+ * Stade-Meldung statt der festen Offsets die EPP-Referenzmatrix verwendet
+ * (siehe brbMatrix.ts): Ankunft Brücke Brb − 20 min. Ohne HW-Eingabe oder
+ * ohne Meldepunkt gelten weiterhin die festen Offsets.
  */
-export function berechneAbteilzeit(job: Job, settings: AbteilzeitSettings): Date | undefined {
+export function berechneAbteilzeit(
+  job: Job,
+  settings: AbteilzeitSettings,
+  hwBrb?: HwBrb
+): Date | undefined {
   const { routentyp, hhHoltenau, fkwTickerAbgang, stadeKuden, abteilungManuell } = job;
 
   if (routentyp === "NOK") {
@@ -27,6 +37,10 @@ export function berechneAbteilzeit(job: Job, settings: AbteilzeitSettings): Date
 
   if (routentyp === "HH") {
     if (abteilungManuell) return abteilungManuell;
+    if (hwBrb) {
+      const prognose = berechneBrbPrognose(job, hwBrb);
+      if (prognose) return prognose.abteilzeit;
+    }
     if (stadeKuden) return addOffset(stadeKuden, settings.stadeAbteilung);
     if (fkwTickerAbgang) return addOffset(fkwTickerAbgang, settings.fkwAbteilung);
     if (hhHoltenau) return addOffset(hhHoltenau, settings.hhAbteilung);

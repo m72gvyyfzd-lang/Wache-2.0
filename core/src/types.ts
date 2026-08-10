@@ -30,6 +30,10 @@ export interface Job {
   stadeKuden?: Date;
   /** Spalte I: manueller Override, sticht immer alles andere aus */
   abteilungManuell?: Date;
+
+  /** Geschwindigkeitsklasse für die matrixbasierte Brb-Prognose (HH-Jobs).
+   *  Leer = "normal". Siehe brbMatrix.ts / brbMatrixDaten.ts. */
+  geschwindigkeitsklasse?: import("./brbMatrixDaten").Geschwindigkeitsklasse;
 }
 
 export interface Lotse {

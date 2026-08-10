@@ -1,4 +1,4 @@
-import type { AnmeldungsTyp } from "@wache/core";
+import type { AnmeldungsTyp, Geschwindigkeitsklasse } from "@wache/core";
 
 /** Zu welcher der drei Job-Listen ein Eintrag fest gehört. Ein Job wird in
  *  der Liste bearbeitet, in der er angelegt wurde — kein Wechsel über eine
@@ -28,6 +28,9 @@ export interface JobEintrag {
   fkw?: Date;
   stade?: Date;
   geplAbgang?: Date;
+  /** Geschwindigkeitsklasse für die matrixbasierte Brb-Prognose
+   *  (leer = "normal"). Nur für HH-Jobs relevant, siehe core::brbMatrix. */
+  geschwindigkeitsklasse?: Geschwindigkeitsklasse;
 
   // Liste NOK
   holt?: Date;
@@ -49,6 +52,13 @@ export interface JobEintrag {
   /** Hamburg/NOK: manueller Override der berechneten Abteilzeit.
    *  Andere Jobs: die direkt eingegebene Abteilzeit. */
   abtZeitManuell?: Date;
+}
+
+/** Vom Dispatcher eingegebenes HW-Paar Brunsbüttel (Settings). Solange
+ *  HW_1 fehlt, rechnen HH-Jobs mit den festen Offsets statt der Matrix. */
+export interface HwBrbEingabe {
+  hw1?: Date;
+  hw2?: Date;
 }
 
 /**

@@ -102,6 +102,14 @@
   text-align: right;
 }
 
+/* Hinweiszeile unter der Abt.-Zeit, wenn die Tiden-Matrix greift. */
+.job-form__brb-prognose {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Gemeinsames Zeitraster (HH/NOK): Ebene 1 (Schiffsname/Kat./ggf. Bütz),
    Ebene 2 (Zeiten) und Ebene 3 (Datum) teilen sich exakt dieselben vier
    Spalten — so schließt Schiffsname bündig mit der 2. Zeitspalte ab, Kat.

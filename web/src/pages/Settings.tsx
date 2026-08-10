@@ -3,6 +3,8 @@ import { FrageModal } from "../components/FrageModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
+import { handleZeitMitPrefill } from "../components/formShared";
+import { ausDatumUndZeit, toLocalDateInput, toLocalTimeInput } from "../lib/datetime";
 import { zufaelligeLotsen, zufaelligeSeeSchiffe } from "../lib/testdaten";
 import { useData } from "../state/DataContext";
 import "./Settings.css";
@@ -12,11 +14,26 @@ function formatVNr(wert: number): string {
 }
 
 export function Settings() {
-  const { letzteVNr, setLetzteVNr, addLotse, addSeeSchiff, resetAlles } = useData();
+  const { letzteVNr, setLetzteVNr, addLotse, addSeeSchiff, resetAlles, hwBrb, setHwBrb } = useData();
   const [eingabe, setEingabe] = useState(formatVNr(letzteVNr));
   const [testMeldung, setTestMeldung] = useState("");
   const [resetFrage, setResetFrage] = useState(false);
   const [resetMeldung, setResetMeldung] = useState("");
+
+  const [hw1Datum, setHw1Datum] = useState(toLocalDateInput(hwBrb.hw1));
+  const [hw1Zeit, setHw1Zeit] = useState(toLocalTimeInput(hwBrb.hw1));
+  const [hw2Datum, setHw2Datum] = useState(toLocalDateInput(hwBrb.hw2));
+  const [hw2Zeit, setHw2Zeit] = useState(toLocalTimeInput(hwBrb.hw2));
+
+  /** Beim Verlassen eines HW-Felds den aktuellen Stand aller vier Teilfelder
+   *  als HW-Paar übernehmen (nicht bei jedem Tastendruck — halbe Uhrzeiten
+   *  würden sonst schon als HW gespeichert). */
+  function uebernimmHw() {
+    setHwBrb({
+      hw1: ausDatumUndZeit(hw1Datum, hw1Zeit),
+      hw2: ausDatumUndZeit(hw2Datum, hw2Zeit),
+    });
+  }
 
   function handleResetJa() {
     resetAlles();
@@ -65,6 +82,47 @@ export function Settings() {
               value={eingabe}
               onChange={(e) => handleChange(e.target.value)}
               onBlur={handleBlur}
+            />
+          </label>
+        </div>
+      </Panel>
+      <Panel
+        title="HW Brunsbüttel"
+        description="Die nächsten beiden Hochwasser Brunsbüttel. Sobald HW 1 gesetzt ist, berechnen HH-Jobs mit FkW- oder Stade-Meldung ihre Abteilzeit über die Tiden-Matrix (Ankunft Brücke − 20 min) statt über die festen Offsets."
+      >
+        <div className="settings-feld-zeile">
+          <label className="settings-feld">
+            HW 1:
+            <input
+              type="time"
+              className="settings-feld__zeit"
+              value={hw1Zeit}
+              onChange={(e) => handleZeitMitPrefill(e.target.value, hw1Datum, setHw1Zeit, setHw1Datum)}
+              onBlur={uebernimmHw}
+            />
+            <input
+              type="date"
+              className="settings-feld__datum"
+              value={hw1Datum}
+              onChange={(e) => setHw1Datum(e.target.value)}
+              onBlur={uebernimmHw}
+            />
+          </label>
+          <label className="settings-feld">
+            HW 2:
+            <input
+              type="time"
+              className="settings-feld__zeit"
+              value={hw2Zeit}
+              onChange={(e) => handleZeitMitPrefill(e.target.value, hw2Datum, setHw2Zeit, setHw2Datum)}
+              onBlur={uebernimmHw}
+            />
+            <input
+              type="date"
+              className="settings-feld__datum"
+              value={hw2Datum}
+              onChange={(e) => setHw2Datum(e.target.value)}
+              onBlur={uebernimmHw}
             />
           </label>
         </div>

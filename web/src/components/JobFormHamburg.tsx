@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { getAbteilzeitSettings } from "@wache/core";
+import { getAbteilzeitSettings, GESCHWINDIGKEIT_KN, type Geschwindigkeitsklasse } from "@wache/core";
 import type { JobEintrag } from "../data/types";
-import { abteilzeitVon } from "../lib/coreJob";
+import { abteilzeitVon, brbPrognoseVon } from "../lib/coreJob";
 import { ausDatumUndZeit, toLocalDateInput, toLocalTimeInput } from "../lib/datetime";
+import { formatUhrzeit } from "../lib/format";
 import { AbtZeitAnzeige, DatumToggleButton, FormActions, handleZeitMitPrefill, SchiffKatSelect } from "./formShared";
 import "./JobForm.css";
 
@@ -27,6 +28,9 @@ export function JobFormHamburg({ initial, onSubmit, onDelete, onCancel }: JobFor
   const [kategorie, setKategorie] = useState(initial?.kategorie ?? "");
   const [bemerkung, setBemerkung] = useState(initial?.bemerkung ?? "");
   const [buetz, setBuetz] = useState(initial?.buetzfleth ?? false);
+  const [geschwindigkeit, setGeschwindigkeit] = useState<Geschwindigkeitsklasse>(
+    initial?.geschwindigkeitsklasse ?? "normal",
+  );
   const [hhDatum, setHhDatum] = useState(toLocalDateInput(initial?.hh));
   const [hhZeit, setHhZeit] = useState(toLocalTimeInput(initial?.hh));
   const [fkwDatum, setFkwDatum] = useState(toLocalDateInput(initial?.fkw));
@@ -70,6 +74,7 @@ export function JobFormHamburg({ initial, onSubmit, onDelete, onCancel }: JobFor
       stade: ausDatumUndZeit(stadeDatum, stadeZeit),
       geplAbgang: buetz ? ausDatumUndZeit(geplAbgangDatum, geplAbgangZeit) : undefined,
       abtZeitManuell: ausDatumUndZeit(manDatum, manZeit),
+      geschwindigkeitsklasse: buetz || geschwindigkeit === "normal" ? undefined : geschwindigkeit,
     };
   }
 
@@ -79,6 +84,10 @@ export function JobFormHamburg({ initial, onSubmit, onDelete, onCancel }: JobFor
   }
 
   const abteilzeit = abteilzeitVon(entwurf(), settings);
+  // Matrixbasierte Brb-Prognose (nur mit HW-Paar in den Settings + FkW-/
+  // Stade-Meldung): Ankunft Brücke und Fahrzeit zusätzlich anzeigen — die
+  // Abt. Zeit ist dann bereits Ankunft − 20 min.
+  const prognose = brbPrognoseVon(entwurf());
 
   return (
     <form className="job-form job-form--zentriert" onSubmit={handleSubmit}>
@@ -171,8 +180,32 @@ export function JobFormHamburg({ initial, onSubmit, onDelete, onCancel }: JobFor
           Bemerkung
           <input value={bemerkung} onChange={(e) => setBemerkung(e.target.value)} />
         </label>
+        {!buetz && (
+          <label>
+            Geschw.
+            <select
+              value={geschwindigkeit}
+              onChange={(e) => setGeschwindigkeit(e.target.value as Geschwindigkeitsklasse)}
+            >
+              {(Object.keys(GESCHWINDIGKEIT_KN) as Geschwindigkeitsklasse[]).map((klasse) => (
+                <option key={klasse} value={klasse}>
+                  {klasse} ({GESCHWINDIGKEIT_KN[klasse].toLocaleString("de-DE")} kn)
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <AbtZeitAnzeige wert={abteilzeit} manuellAktiv={manZeit !== ""} />
       </div>
+      {prognose && manZeit === "" && (
+        <div className="job-form__row">
+          <span className="job-form__brb-prognose">
+            Tiden-Matrix ({prognose.basis === "stade" ? "ab Stade" : "ab FkW"}): Ankunft Brücke{" "}
+            {formatUhrzeit(prognose.ankunftBrb)}, Fahrzeit {Math.floor(prognose.fahrzeitMin / 60)}:
+            {String(prognose.fahrzeitMin % 60).padStart(2, "0")} h
+          </span>
+        </div>
+      )}
       <div className="job-form__row">
         <label>
           Datum

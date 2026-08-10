@@ -1,8 +1,18 @@
 /** Übersetzt den UI-Datentyp JobEintrag in den Berechnungstyp Job aus
  *  @wache/core und bündelt die darauf aufbauenden Helfer. */
-import { berechneAbteilzeit } from "@wache/core";
-import type { AbteilzeitSettings, Job } from "@wache/core";
-import type { JobEintrag } from "../data/types";
+import { berechneAbteilzeit, berechneBrbPrognose } from "@wache/core";
+import type { AbteilzeitSettings, BrbPrognose, HwBrb, Job } from "@wache/core";
+import type { HwBrbEingabe, JobEintrag } from "../data/types";
+
+/** Aktuell gültiges HW-Paar Brunsbüttel für die matrixbasierte Brb-Prognose.
+ *  Wird vom DataContext aus dem persistierten Settings-Wert gesetzt (Modul-
+ *  Singleton, damit nicht jede der vielen abteilzeitVon-Aufrufstellen das
+ *  HW-Paar durchreichen muss); undefined = Matrix aus, feste Offsets. */
+let hwBrbAktuell: HwBrb | undefined;
+
+export function setHwBrbAktuell(eingabe: HwBrbEingabe): void {
+  hwBrbAktuell = eingabe.hw1 ? { hw1: eingabe.hw1, hw2: eingabe.hw2 } : undefined;
+}
 
 export function zuCoreJob(eintrag: JobEintrag): Job {
   if (eintrag.liste === "hamburg") {
@@ -15,6 +25,7 @@ export function zuCoreJob(eintrag: JobEintrag): Job {
       fkwTickerAbgang: eintrag.buetzfleth ? eintrag.geplAbgang : eintrag.fkw,
       stadeKuden: eintrag.stade,
       abteilungManuell: eintrag.abtZeitManuell,
+      geschwindigkeitsklasse: eintrag.geschwindigkeitsklasse,
     };
   }
   if (eintrag.liste === "nok") {
@@ -35,7 +46,15 @@ export function zuCoreJob(eintrag: JobEintrag): Job {
 }
 
 export function abteilzeitVon(eintrag: JobEintrag, settings: AbteilzeitSettings): Date | undefined {
-  return berechneAbteilzeit(zuCoreJob(eintrag), settings);
+  return berechneAbteilzeit(zuCoreJob(eintrag), settings, hwBrbAktuell);
+}
+
+/** Matrixbasierte Brb-Prognose (Ankunft Brücke + Fahrzeit) für die Anzeige;
+ *  undefined, solange kein HW-Paar eingegeben ist oder der Eintrag kein
+ *  HH-Job mit FkW-/Stade-Meldung ist. */
+export function brbPrognoseVon(eintrag: JobEintrag): BrbPrognose | undefined {
+  if (!hwBrbAktuell) return undefined;
+  return berechneBrbPrognose(zuCoreJob(eintrag), hwBrbAktuell);
 }
 
 /** Anzeige für die Spalte "Von / Type": Herkunftsliste bzw. Anmeldungs-Typ.
