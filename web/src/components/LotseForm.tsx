@@ -1,14 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { LOTSEN_KATEGORIEN } from "@wache/core";
 import type { Fahrt, LotsenEintrag } from "../data/types";
+import { ABRUF_OPTIONEN, formatAbrufOption } from "../lib/lotsenOrdnung";
 import { FormActions } from "./formShared";
 import "./JobForm.css";
-
-const ABRUF_OPTIONEN = [undefined, 0.5, 1, 1.5, 2, 2.5] as const;
-
-function formatAbrufOption(stunden: number | undefined): string {
-  return stunden === undefined ? "–" : `${stunden.toFixed(1).replace(".", ",")} Std`;
-}
 
 interface LotseFormProps {
   initial?: LotsenEintrag;

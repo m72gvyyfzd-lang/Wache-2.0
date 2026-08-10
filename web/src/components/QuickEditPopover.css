@@ -1,0 +1,53 @@
+/* Fangfläche für den Klick daneben — durchsichtig, nur zum Schließen. */
+.quick-edit__fang {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+
+.quick-edit {
+  position: fixed;
+  box-sizing: border-box;
+  padding: 10px 12px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+}
+
+.quick-edit__titel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-bottom: 6px;
+}
+
+.quick-edit input,
+.quick-edit select {
+  width: 100%;
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 7px 10px;
+  box-sizing: border-box;
+}
+
+/* Fahrt-Auswahl trägt die Farbe ihrer Gruppe (gleiche Tönung wie die
+   Zeilen der Liste), damit die Zuweisung schon am geschlossenen Feld
+   ablesbar ist — die Farbe der aufgeklappten Einträge zeigt nur der
+   Desktop-Browser, iOS rendert die native Auswahl ohne Optionsfarben. */
+.quick-edit__fahrt--mofa,
+.quick-edit option[value="MoFa"] {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.quick-edit__fahrt--mifa,
+.quick-edit option[value="MiFa"] {
+  background: rgba(147, 51, 234, 0.18);
+}
+
+.quick-edit__fahrt--afa,
+.quick-edit option[value="AFA"] {
+  background: rgba(34, 197, 94, 0.18);
+}

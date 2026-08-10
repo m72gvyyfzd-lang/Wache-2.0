@@ -68,6 +68,21 @@ export function formatAbrufzeit(stunden: number | undefined): string {
   return stunden.toFixed(1).replace(".", ",");
 }
 
+/** Auswählbare Abrufzeiten (0,5er-Schritte); undefined = Standard 1,0 Std.
+ *  Geteilt zwischen dem Lotsen-Formular und dem Quick-Edit der
+ *  Einsatzstation, damit beide dieselben Werte anbieten. */
+export const ABRUF_OPTIONEN = [undefined, 0.5, 1, 1.5, 2, 2.5] as const;
+
+/** Beschriftung einer Abruf-Option im Auswahlfeld (dort wird auch der
+ *  Standard 1,0 Std. ausgeschrieben — anders als in der Listenanzeige). */
+export function formatAbrufOption(stunden: number | undefined): string {
+  return stunden === undefined ? "–" : `${stunden.toFixed(1).replace(".", ",")} Std`;
+}
+
+/** Auswählbare Fahrt-Zuweisungen inkl. Bereitschaft ("") — Reihenfolge der
+ *  Dropdowns in Formular und Quick-Edit. */
+export const FAHRT_OPTIONEN: Fahrt[] = ["", "MoFa", "MiFa", "AFA"];
+
 /**
  * "Tauschen": Lotse A (indexA) und Lotse B (indexB) tauschen ihre Position
  * in der Liste — A landet an B's altem Platz und übernimmt dabei B's alten

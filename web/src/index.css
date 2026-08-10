@@ -127,6 +127,18 @@ td.cell-name {
   filter: brightness(0.97);
 }
 
+/* Gesperrter Knopf (z.B. Bearbeiten/Tauschen/Verschieben ohne passende
+   Auswahl, Abteilen ohne erfüllte Bedingungen): deutlich blasser und ohne
+   Hover-Reaktion, damit erkennbar ist, dass erst etwas gewählt werden muss. */
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn:disabled:hover {
+  filter: none;
+}
+
 .btn--accent {
   background: var(--accent);
   border-color: var(--accent);

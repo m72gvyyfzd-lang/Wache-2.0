@@ -1,8 +1,0 @@
-.manage-pilot__aktionen {
-  display: flex;
-  gap: 10px;
-}
-
-.manage-pilot__aktionen > button {
-  flex: 1;
-}
