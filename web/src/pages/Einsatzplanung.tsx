@@ -115,6 +115,13 @@ export function Einsatzplanung() {
   const abteilenLotsen = lotseAuswahl
     .map((i) => lotsenSortiert[i])
     .filter((l): l is LotseMitOrdnung => l !== undefined);
+  // Live-Vorschau für die Jobs-Zeile des gerade gewählten Jobs: sobald
+  // Lotsen markiert sind, zieht die Lots.-Rest-Anzahl sie schon vorab ab
+  // (orange, wie bei bereits teilweise abgeteilten AG-Jobs) und die
+  // Vorschlagsnamen hinter dem Schiffsnamen zeigen nur noch die, die
+  // dadurch noch offen bleiben — reine Anzeige, das eigentliche Abteilen
+  // erfolgt erst über den Abteilen-Button.
+  const selektierteLotsen = new Set(abteilenLotsen.map((l) => l.eintrag));
   const abteilenMoeglich =
     abteilenLotsen.length === abteilenBenoetigt && abteilenLotsen.every((l) => l.eintrag.abgerufen);
   // Warnung, wenn gewählte Lotsen die Anforderungen des Jobs nicht
@@ -278,6 +285,17 @@ export function Einsatzplanung() {
               const lotse = lotsenSortiert[i];
               const jobKlasse =
                 "einsatz-table__seite" + (paar && jobAuswahl === paar.eintrag.id ? " ist-ausgewaehlt" : "");
+              // Live-Vorschau nur für die Zeile des gerade gewählten Jobs,
+              // und erst sobald mindestens ein Lotse markiert ist.
+              const istAuswahlZiel =
+                paar !== undefined && jobAuswahl === paar.eintrag.id && abteilenLotsen.length > 0;
+              const lotsRestGesamt = paar
+                ? benoetigteLotsenAnzahl(paar.eintrag) - (abgeteiltProJob.get(paar.eintrag.id) ?? 0)
+                : 0;
+              const lotsRestAnzeige = istAuswahlZiel ? lotsRestGesamt - abteilenLotsen.length : lotsRestGesamt;
+              const vorschlagsNamen = (paar ? (zuweisungen.get(paar.eintrag.id) ?? []) : [])
+                .filter((l) => !istAuswahlZiel || !selektierteLotsen.has(l))
+                .map((l) => l.name);
               // Fahrt-Färbung wie in der Einsatzstation (reaktiv: die
               // Zuweisung kommt live aus dem geteilten lotsen-State).
               const lotseKlasse =
@@ -311,7 +329,7 @@ export function Einsatzplanung() {
                       </td>
                       <td className={`${jobKlasse} cell-name`} onClick={jobKlick}>
                         {paar.eintrag.schiffsname ?? "–"}
-                        <PlanungHinweis namen={(zuweisungen.get(paar.eintrag.id) ?? []).map((l) => l.name)} />
+                        <PlanungHinweis namen={vorschlagsNamen} />
                       </td>
                       <td className={`${jobKlasse} num muted zentriert`} onClick={jobKlick}>
                         {paar.eintrag.kategorie ?? "·"}
@@ -332,7 +350,7 @@ export function Einsatzplanung() {
                       <td
                         className={
                           `${jobKlasse} num zentriert` +
-                          ((abgeteiltProJob.get(paar.eintrag.id) ?? 0) > 0 ? " lots-rest" : "")
+                          ((abgeteiltProJob.get(paar.eintrag.id) ?? 0) > 0 || istAuswahlZiel ? " lots-rest" : "")
                         }
                         onClick={jobKlick}
                         onDoubleClick={
@@ -344,7 +362,7 @@ export function Einsatzplanung() {
                             : undefined
                         }
                       >
-                        {benoetigteLotsenAnzahl(paar.eintrag) - (abgeteiltProJob.get(paar.eintrag.id) ?? 0)}
+                        {lotsRestAnzeige}
                       </td>
                     </>
                   ) : (
