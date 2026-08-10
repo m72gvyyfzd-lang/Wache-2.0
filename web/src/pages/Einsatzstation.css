@@ -23,7 +23,9 @@
   padding: 7px 12px;
 }
 
-/* Bearbeiten / Tauschen / Verschieben: gleiche Breite, gleicher Abstand. */
+/* Bearbeiten / Tauschen / Verschieben: gleiche Breite, gleicher Abstand,
+   gleiche Höhe wie das Suchfeld (identisches Vertikal-Padding + Schriftgröße
+   bei gemeinsamer 1px-Umrandung ergibt gleiche Gesamthöhe). */
 .lotsen-aktionen {
   display: flex;
   gap: 8px;
@@ -33,6 +35,8 @@
 .lotsen-aktionen > .btn {
   flex: 1 1 0;
   min-width: 108px;
+  padding: 7px 16px;
+  font-size: 0.85rem;
 }
 
 .lotsen-toolbar .fahrt-auswahl {

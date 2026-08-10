@@ -178,12 +178,12 @@ export function Einsatzstation() {
             />
           </div>
           <div className="lotsen-aktionen">
-            <button type="button" className="btn btn--small" disabled={einzelAuswahl === null} onClick={handleBearbeiten}>
+            <button type="button" className="btn btn--accent" disabled={einzelAuswahl === null} onClick={handleBearbeiten}>
               Bearbeiten
             </button>
             <button
               type="button"
-              className="btn btn--small"
+              className="btn btn--accent"
               disabled={auswahl.length !== 2}
               onClick={() => setTauschenFrage(true)}
             >
@@ -191,7 +191,7 @@ export function Einsatzstation() {
             </button>
             <button
               type="button"
-              className="btn btn--small"
+              className="btn btn--accent"
               disabled={einzelAuswahl === null}
               onClick={() => setVerschiebenOffen(true)}
             >
