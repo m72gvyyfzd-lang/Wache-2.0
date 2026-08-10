@@ -210,16 +210,16 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
           <input value={bemerkung} onChange={(e) => setBemerkung(e.target.value)} />
         </label>
         <label>
+          Datum
+          <input type="date" value={abtZeitDatum} onChange={(e) => setAbtZeitDatum(e.target.value)} />
+        </label>
+        <label>
           Abt. Zeit
           <input
             type="time"
             value={abtZeitZeit}
             onChange={(e) => handleZeitMitPrefill(e.target.value, abtZeitDatum, setAbtZeitZeit, setAbtZeitDatum)}
           />
-        </label>
-        <label>
-          Datum
-          <input type="date" value={abtZeitDatum} onChange={(e) => setAbtZeitDatum(e.target.value)} />
         </label>
       </div>
 

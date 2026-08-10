@@ -15,10 +15,6 @@
   min-width: 0;
 }
 
-.job-form__row--3 > label {
-  flex-basis: 33%;
-}
-
 /* Breitenverhältnisse laut Spezifikation (3/4, 2/3, 1/2) — auch auf
    nicht-label Elemente anwendbar (z.B. Platzhalter-Spacer) */
 .job-form__row > .job-form__grow3 {
@@ -83,6 +79,7 @@
   font-variant-numeric: tabular-nums;
   font-size: 0.9rem;
   color: var(--ink);
+  text-align: center;
 }
 
 /* Wert stammt aus "man. Abt.Zeit" → dezent rot hinterlegen */
@@ -93,6 +90,45 @@
 
 .job-form__abtzeit-eingabe input {
   text-align: right;
+}
+
+/* Gemeinsames Zeitraster (HH/NOK): Ebene 1 (Schiffsname/Kat./ggf. Bütz),
+   Ebene 2 (Zeiten) und Ebene 3 (Datum) teilen sich exakt dieselben vier
+   Spalten — so schließt Schiffsname bündig mit der 2. Zeitspalte ab, Kat.
+   erbt die Breite der 3. Zeitspalte, und die Datumsfelder sind automatisch
+   genauso breit wie ihre Zeitfelder darüber. Die 4. Spalte ist schmal und
+   fest (Bütz-Häkchen bzw. Kalender-Knopf bzw. in Ebene 3 leer). */
+.job-form__zeitgitter {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 38px;
+  gap: 12px;
+  align-items: end;
+}
+
+.job-form__zg-name {
+  grid-column: 1 / 3;
+}
+
+.job-form__zg-kat {
+  grid-column: 3;
+}
+
+.job-form__zg-extra {
+  grid-column: 4;
+}
+
+/* "Alle Überschriften zentrieren" (HH/NOK): die Beschriftung über jedem
+   Feld mittig statt linksbündig — die Eingaben selbst bleiben über
+   align-self: stretch trotzdem auf voller Feldbreite. */
+.job-form--zentriert label {
+  align-items: center;
+}
+
+.job-form--zentriert label > input,
+.job-form--zentriert label > select,
+.job-form--zentriert label > output,
+.job-form--zentriert label > span {
+  align-self: stretch;
 }
 
 /* Kalender-Umschalter (Ebene 2, HH/NOK): quadratischer Knopf am Zeilenende,

@@ -27,9 +27,9 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
   const [kudenZeit, setKudenZeit] = useState(toLocalTimeInput(initial?.kuden));
   const [manDatum, setManDatum] = useState(toLocalDateInput(initial?.abtZeitManuell));
   const [manZeit, setManZeit] = useState(toLocalTimeInput(initial?.abtZeitManuell));
-  // Ebene 3 (Datumsfelder): beim Bearbeiten offen (Termin könnte von heute
-  // abweichen), bei einer Neuanlage zu.
-  const [zeigeDatum, setZeigeDatum] = useState(() => initial !== undefined);
+  // Ebene 3 (Datumsfelder): beim Öffnen immer zu — das Datum tritt erst bei
+  // Bedarf per Kalender-Knopf hinzu.
+  const [zeigeDatum, setZeigeDatum] = useState(false);
 
   function entwurf(): JobEintrag {
     return {
@@ -53,16 +53,16 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
   const abteilzeit = abteilzeitVon(entwurf(), settings);
 
   return (
-    <form className="job-form" onSubmit={handleSubmit}>
-      <div className="job-form__row">
-        <label className="job-form__half">
+    <form className="job-form job-form--zentriert" onSubmit={handleSubmit}>
+      <div className="job-form__row job-form__zeitgitter">
+        <label className="job-form__zg-name">
           Schiffsname
           <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} />
         </label>
-        <SchiffKatSelect value={kategorie} onChange={setKategorie} />
+        <SchiffKatSelect value={kategorie} onChange={setKategorie} className="job-form__zg-kat" />
       </div>
 
-      <div className="job-form__row job-form__row--3">
+      <div className="job-form__row job-form__zeitgitter">
         <label>
           Holt.
           <input
@@ -87,11 +87,13 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
             onChange={(e) => handleZeitMitPrefill(e.target.value, kudenDatum, setKudenZeit, setKudenDatum)}
           />
         </label>
-        <DatumToggleButton offen={zeigeDatum} onClick={() => setZeigeDatum((v) => !v)} />
+        <span className="job-form__zg-extra">
+          <DatumToggleButton offen={zeigeDatum} onClick={() => setZeigeDatum((v) => !v)} />
+        </span>
       </div>
 
       {zeigeDatum && (
-        <div className="job-form__row job-form__row--3">
+        <div className="job-form__row job-form__zeitgitter">
           <label>
             Datum Holt.
             <input type="date" value={holtDatum} onChange={(e) => setHoltDatum(e.target.value)} />
@@ -104,18 +106,22 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
             Datum Kuden
             <input type="date" value={kudenDatum} onChange={(e) => setKudenDatum(e.target.value)} />
           </label>
-          <span aria-hidden="true" />
+          <span className="job-form__zg-extra" aria-hidden="true" />
         </div>
       )}
 
       <div className="job-form__row">
-        <AbtZeitAnzeige wert={abteilzeit} manuellAktiv={manZeit !== ""} />
         <label className="job-form__half">
           Bemerkung
           <input value={bemerkung} onChange={(e) => setBemerkung(e.target.value)} />
         </label>
+        <AbtZeitAnzeige wert={abteilzeit} manuellAktiv={manZeit !== ""} />
       </div>
       <div className="job-form__row">
+        <label>
+          Datum
+          <input type="date" value={manDatum} onChange={(e) => setManDatum(e.target.value)} />
+        </label>
         <label>
           man. Abt.Zeit
           <input
@@ -123,10 +129,6 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
             value={manZeit}
             onChange={(e) => handleZeitMitPrefill(e.target.value, manDatum, setManZeit, setManDatum)}
           />
-        </label>
-        <label>
-          Datum
-          <input type="date" value={manDatum} onChange={(e) => setManDatum(e.target.value)} />
         </label>
       </div>
 
