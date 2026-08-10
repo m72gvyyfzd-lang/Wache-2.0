@@ -13,7 +13,8 @@ import "./DashboardCard.css";
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
 export function DashboardCard() {
-  const { jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen } = useData();
+  const { jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, vNrStart, verbrauchteVNrn } =
+    useData();
 
   // Zeit-Tick: die Meldungen hängen an der Uhrzeit (gepl. Abruf etc.) und
   // werden daher regelmäßig neu berechnet, auch ohne Datenänderung.
@@ -26,20 +27,20 @@ export function DashboardCard() {
   const meldungen = useMemo(
     () =>
       berechneMeldungen(
-        { jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen },
+        { jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, vNrStart, verbrauchteVNrn },
         jetzt,
         settings,
       ),
-    [jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, jetzt],
+    [jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, vNrStart, verbrauchteVNrn, jetzt],
   );
   const agGruppen = useMemo(
     () =>
       berechneAgPlanung(
-        { jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen },
+        { jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, vNrStart, verbrauchteVNrn },
         jetzt,
         settings,
       ),
-    [jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, jetzt],
+    [jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, vNrStart, verbrauchteVNrn, jetzt],
   );
   // Nur eine Liste gleichzeitig aufgeklappt (beide sind absolut über die
   // volle Kartenbreite positioniert und würden sich sonst überlagern).

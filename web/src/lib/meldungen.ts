@@ -46,6 +46,13 @@ export interface MeldungsDaten {
   seeSchiffe: SeeSchiff[];
   seestationLotsen: SeestationLotse[];
   seeAbteilungen: SeeAbteilung[];
+  /** echte V-Nr.-Zählung (Settings + verbrauchte Nummern): die potentiellen
+   *  V-Nrn der Vorschau-Lotsen bestimmen ihre Position im Seestations-Pool —
+   *  und damit, wer bei knappen Lotsen welches Schiff bekommt. Die Bilanz
+   *  muss hier exakt wie die Seestation-Seite rechnen (siehe
+   *  lib/seestationBedarf.ts). */
+  vNrStart: number;
+  verbrauchteVNrn: number[];
 }
 
 const STUFEN_RANG: Record<MeldungsStufe, number> = { alarm: 0, warnung: 1, vorschlag: 2, info: 3 };

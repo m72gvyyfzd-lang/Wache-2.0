@@ -40,9 +40,23 @@ export function berechneSeestationsDefizite(
   for (const sa of daten.seeAbteilungen)
     abgeteiltProSchiff.set(sa.seeSchiffId, (abgeteiltProSchiff.get(sa.seeSchiffId) ?? 0) + 1);
 
-  // vNrStart/verbrauchteVNrn sind hier irrelevant (nur für die V-Nr.-
-  // Anzeige gebraucht, die diese Bilanz nicht darstellt).
-  const { verplante } = vorschauZeilen(daten.jobs, daten.lotsen, daten.aktuelleFahrt, daten.abteilungen, settings, 0, [], jetzt);
+  // Die echten vNrStart/verbrauchteVNrn sind hier NICHT nur Anzeige: die
+  // potentielle V-Nr. bestimmt, wo ein Vorschau-Lotse im sortierten Pool
+  // steht — und planeSeestation vergibt reihenfolgesensitiv (greedy mit
+  // Kat./EH-Eignung). Mit Kunst-Nummern ab 0 rutschten die verplanten
+  // Lotsen an den Pool-Anfang, wurden von früheren Schiffen "verbraucht"
+  // und die Bilanz meldete Defizite, die die Seestation-Seite (mit echten
+  // Nummern) gar nicht sieht.
+  const { verplante } = vorschauZeilen(
+    daten.jobs,
+    daten.lotsen,
+    daten.aktuelleFahrt,
+    daten.abteilungen,
+    settings,
+    daten.vNrStart,
+    daten.verbrauchteVNrn,
+    jetzt,
+  );
   const pool = sortiereSeestation([
     ...zeilenAusAbteilungen(daten.abteilungen),
     ...zeilenAusSeestationLotsen(daten.seestationLotsen),

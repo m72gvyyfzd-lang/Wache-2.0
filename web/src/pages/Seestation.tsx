@@ -162,9 +162,11 @@ export function Seestation() {
     : undefined;
   const aktiveZuteilung = vorschauZuteilung ?? basisZuteilung;
 
-  // Nur die verplanten/freien Kandidaten anzeigen, die die Vorschau-Zuteilung
-  // tatsächlich irgendeinem Schiff zuweist (egal ob pünktlich oder
-  // verspätet) — der Rest bleibt als ungenutzter Pool unsichtbar. Die
+  // VERPLANTE Kandidaten erscheinen immer — sie kommen mit ihrem Job-Schiff
+  // ohnehin zur Seestation, ob ein ETA-Schiff sie braucht oder nicht. FREIE
+  // Kandidaten (per AG erst noch zu holen) dagegen nur, wenn die Vorschau-
+  // Zuteilung sie tatsächlich irgendeinem Schiff zuweist (egal ob pünktlich
+  // oder verspätet) — der Rest bleibt als ungenutzter Pool unsichtbar. Die
   // Verspätung wird für die "Auf Seestation"-Zeile selbst mitgeführt.
   const verspaetetProKey = new Map<string, boolean>();
   if (vorschauZuteilung) {
@@ -175,7 +177,7 @@ export function Seestation() {
   }
   // Vorschau-Lotsen anhand ihrer potentiellen V-Nr. zwischen die echten
   // Zeilen einsortieren — dort stünden sie später auch wirklich.
-  const projizierte = [...verplante, ...freie].filter((z) => verspaetetProKey.has(z.key));
+  const projizierte = [...verplante, ...freie.filter((z) => verspaetetProKey.has(z.key))];
   const anzeigeLotsen = sortiereSeestation([...lotsenZeilen, ...projizierte]);
   const zeilen = Math.max(schiffeSortiert.length, anzeigeLotsen.length);
 
