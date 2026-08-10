@@ -88,10 +88,14 @@ export function JobFormHamburg({ initial, onSubmit, onDelete, onCancel }: JobFor
           <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} />
         </label>
         <SchiffKatSelect value={kategorie} onChange={setKategorie} className="job-form__zg-kat" />
-        <label className="job-form__check job-form__zg-extra">
-          <span>
-            <input type="checkbox" checked={buetz} onChange={(e) => toggleBuetz(e.target.checked)} /> Bütz
-          </span>
+        <label className="job-form__zg-extra">
+          Bütz
+          <input
+            type="checkbox"
+            className="job-form__checkbox-solo"
+            checked={buetz}
+            onChange={(e) => toggleBuetz(e.target.checked)}
+          />
         </label>
       </div>
 

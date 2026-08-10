@@ -69,6 +69,16 @@
   accent-color: var(--accent);
 }
 
+/* Bütz-Häkchen (HH-Formular, Ebene 1): Beschriftung oben, Häkchen darunter
+   — wie jedes andere Feld im Zeitgitter, statt Beschriftung und Häkchen
+   nebeneinander (das sprengte die schmale 4. Spalte und lief am
+   Fensterrand ab). */
+.job-form__checkbox-solo {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
 .job-form__abtzeit {
   display: block;
   padding: 8px 10px;
