@@ -172,7 +172,14 @@ export function Jobs() {
   const hamburg = sortiereEintraege(jobs.filter((j) => j.liste === "hamburg" && sichtbar(j)), settings);
   const nok = sortiereEintraege(jobs.filter((j) => j.liste === "nok" && sichtbar(j)), settings);
   const andere = sortiereEintraege(jobs.filter((j) => j.liste === "andere" && sichtbar(j)), settings);
-  const verknuepfbar = jobs.filter((j) => j.liste !== "andere");
+  // Nur aktuell verfügbare Trägerjobs zur Auswahl: bereits voll abgeteilte
+  // Hamburg/NOK-Jobs (eigener Lotse schon dispatcht) fliegen raus — außer es
+  // ist der Job, den der gerade bearbeitete AG-Job selbst referenziert
+  // (sonst würde die Auswahl beim Bearbeiten unsichtbar, obwohl sie ja
+  // weiterhin gilt).
+  const verknuepfbar = jobs.filter(
+    (j) => j.liste !== "andere" && (sichtbar(j) || j.id === dialog?.eintrag?.agJobId),
+  );
 
   function handleSubmit(job: JobEintrag) {
     if (dialog?.eintrag) {
@@ -193,6 +200,14 @@ export function Jobs() {
     onSubmit: handleSubmit,
     onDelete: dialog?.eintrag ? handleDelete : undefined,
     onCancel: () => setDialog(null),
+  };
+
+  // Feste, listenbezogene Überschrift statt "Job bearbeiten"/"Neuer Job" —
+  // die Liste steht ja schon durch die Auswahl fest.
+  const DIALOG_TITEL: Record<JobListe, string> = {
+    hamburg: "Hamburg / Bützfleth",
+    nok: "NOK",
+    andere: "Andere Jobs",
   };
 
   return (
@@ -226,7 +241,7 @@ export function Jobs() {
       />
 
       {dialog && (
-        <Modal title={dialog.eintrag ? "Job bearbeiten" : "Neuer Job"} onClose={() => setDialog(null)}>
+        <Modal title={DIALOG_TITEL[dialog.liste]} onClose={() => setDialog(null)}>
           {dialog.liste === "hamburg" && <JobFormHamburg {...formProps} />}
           {dialog.liste === "nok" && <JobFormNok {...formProps} />}
           {dialog.liste === "andere" && <JobFormAndere {...formProps} verknuepfbareJobs={verknuepfbar} />}

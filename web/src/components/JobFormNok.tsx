@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
 import type { JobEintrag } from "../data/types";
-import { fromLocalInput, toLocalInput } from "../lib/datetime";
 import { abteilzeitVon } from "../lib/coreJob";
-import { AbtZeitAnzeige, FormActions, SchiffKatSelect } from "./formShared";
+import { ausDatumUndZeit, toLocalDateInput, toLocalTimeInput } from "../lib/datetime";
+import { AbtZeitAnzeige, DatumToggleButton, FormActions, handleZeitMitPrefill, SchiffKatSelect } from "./formShared";
 import "./JobForm.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
@@ -19,10 +19,17 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
   const [schiffsname, setSchiffsname] = useState(initial?.schiffsname ?? "");
   const [kategorie, setKategorie] = useState(initial?.kategorie ?? "");
   const [bemerkung, setBemerkung] = useState(initial?.bemerkung ?? "");
-  const [holt, setHolt] = useState(toLocalInput(initial?.holt));
-  const [ticker, setTicker] = useState(toLocalInput(initial?.ticker));
-  const [kuden, setKuden] = useState(toLocalInput(initial?.kuden));
-  const [manuell, setManuell] = useState(toLocalInput(initial?.abtZeitManuell));
+  const [holtDatum, setHoltDatum] = useState(toLocalDateInput(initial?.holt));
+  const [holtZeit, setHoltZeit] = useState(toLocalTimeInput(initial?.holt));
+  const [tickerDatum, setTickerDatum] = useState(toLocalDateInput(initial?.ticker));
+  const [tickerZeit, setTickerZeit] = useState(toLocalTimeInput(initial?.ticker));
+  const [kudenDatum, setKudenDatum] = useState(toLocalDateInput(initial?.kuden));
+  const [kudenZeit, setKudenZeit] = useState(toLocalTimeInput(initial?.kuden));
+  const [manDatum, setManDatum] = useState(toLocalDateInput(initial?.abtZeitManuell));
+  const [manZeit, setManZeit] = useState(toLocalTimeInput(initial?.abtZeitManuell));
+  // Ebene 3 (Datumsfelder): beim Bearbeiten offen (Termin könnte von heute
+  // abweichen), bei einer Neuanlage zu.
+  const [zeigeDatum, setZeigeDatum] = useState(() => initial !== undefined);
 
   function entwurf(): JobEintrag {
     return {
@@ -31,10 +38,10 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
       schiffsname: schiffsname.trim() || undefined,
       kategorie: kategorie || undefined,
       bemerkung: bemerkung.trim() || undefined,
-      holt: fromLocalInput(holt),
-      ticker: fromLocalInput(ticker),
-      kuden: fromLocalInput(kuden),
-      abtZeitManuell: fromLocalInput(manuell),
+      holt: ausDatumUndZeit(holtDatum, holtZeit),
+      ticker: ausDatumUndZeit(tickerDatum, tickerZeit),
+      kuden: ausDatumUndZeit(kudenDatum, kudenZeit),
+      abtZeitManuell: ausDatumUndZeit(manDatum, manZeit),
     };
   }
 
@@ -48,40 +55,78 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
   return (
     <form className="job-form" onSubmit={handleSubmit}>
       <div className="job-form__row">
-        <label className="job-form__grow3">
+        <label className="job-form__half">
           Schiffsname
           <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} />
         </label>
         <SchiffKatSelect value={kategorie} onChange={setKategorie} />
       </div>
 
+      <div className="job-form__row job-form__row--3">
+        <label>
+          Holt.
+          <input
+            type="time"
+            value={holtZeit}
+            onChange={(e) => handleZeitMitPrefill(e.target.value, holtDatum, setHoltZeit, setHoltDatum)}
+          />
+        </label>
+        <label>
+          Ticker
+          <input
+            type="time"
+            value={tickerZeit}
+            onChange={(e) => handleZeitMitPrefill(e.target.value, tickerDatum, setTickerZeit, setTickerDatum)}
+          />
+        </label>
+        <label>
+          Kuden
+          <input
+            type="time"
+            value={kudenZeit}
+            onChange={(e) => handleZeitMitPrefill(e.target.value, kudenDatum, setKudenZeit, setKudenDatum)}
+          />
+        </label>
+        <DatumToggleButton offen={zeigeDatum} onClick={() => setZeigeDatum((v) => !v)} />
+      </div>
+
+      {zeigeDatum && (
+        <div className="job-form__row job-form__row--3">
+          <label>
+            Datum Holt.
+            <input type="date" value={holtDatum} onChange={(e) => setHoltDatum(e.target.value)} />
+          </label>
+          <label>
+            Datum Ticker
+            <input type="date" value={tickerDatum} onChange={(e) => setTickerDatum(e.target.value)} />
+          </label>
+          <label>
+            Datum Kuden
+            <input type="date" value={kudenDatum} onChange={(e) => setKudenDatum(e.target.value)} />
+          </label>
+          <span aria-hidden="true" />
+        </div>
+      )}
+
       <div className="job-form__row">
+        <AbtZeitAnzeige wert={abteilzeit} manuellAktiv={manZeit !== ""} />
         <label className="job-form__half">
           Bemerkung
           <input value={bemerkung} onChange={(e) => setBemerkung(e.target.value)} />
         </label>
       </div>
-
-      <div className="job-form__row job-form__row--3">
-        <label>
-          Holt.
-          <input type="datetime-local" value={holt} onChange={(e) => setHolt(e.target.value)} />
-        </label>
-        <label>
-          Ticker
-          <input type="datetime-local" value={ticker} onChange={(e) => setTicker(e.target.value)} />
-        </label>
-        <label>
-          Kuden
-          <input type="datetime-local" value={kuden} onChange={(e) => setKuden(e.target.value)} />
-        </label>
-      </div>
-
       <div className="job-form__row">
-        <AbtZeitAnzeige wert={abteilzeit} manuellAktiv={manuell !== ""} />
         <label>
           man. Abt.Zeit
-          <input type="datetime-local" value={manuell} onChange={(e) => setManuell(e.target.value)} />
+          <input
+            type="time"
+            value={manZeit}
+            onChange={(e) => handleZeitMitPrefill(e.target.value, manDatum, setManZeit, setManDatum)}
+          />
+        </label>
+        <label>
+          Datum
+          <input type="date" value={manDatum} onChange={(e) => setManDatum(e.target.value)} />
         </label>
       </div>
 

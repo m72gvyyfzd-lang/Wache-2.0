@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { SCHIFFS_KATEGORIEN } from "@wache/core";
 import { formatUhrzeit } from "../lib/format";
+import { toLocalDateInput } from "../lib/datetime";
 
 interface SchiffKatSelectProps {
   value: string;
@@ -41,6 +42,53 @@ export function AbtZeitAnzeige({ wert, manuellAktiv }: AbtZeitAnzeigeProps) {
         {formatUhrzeit(wert)}
       </output>
     </label>
+  );
+}
+
+/** Uhrzeit setzen und dabei automatisch das heutige Datum vorbelegen, sobald
+ *  zum ersten Mal eine Uhrzeit ohne zugehöriges Datum eingetragen wird —
+ *  verhindert eine "schwebende" Uhrzeit ohne Tagesbezug. Greift nur beim
+ *  Wechsel von leer auf gesetzt; ein bereits vorhandenes (ggf. abweichendes)
+ *  Datum bleibt unangetastet. */
+export function handleZeitMitPrefill(
+  wert: string,
+  datumWert: string,
+  setZeit: (wert: string) => void,
+  setDatum: (wert: string) => void,
+) {
+  setZeit(wert);
+  if (wert !== "" && datumWert === "") setDatum(toLocalDateInput(new Date()));
+}
+
+function KalenderIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="1.5" y="2.5" width="13" height="12" rx="2" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M1.5 6h13" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M4.5 1v3M11.5 1v3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+interface DatumToggleButtonProps {
+  offen: boolean;
+  onClick: () => void;
+}
+
+/** Blendet die Datumszeile (Ebene 3) der HH-/NOK-Formulare ein/aus — die
+ *  Uhrzeiten selbst bleiben immer sichtbar, das Datum braucht man nur bei
+ *  einem vom heutigen Tag abweichenden Termin. */
+export function DatumToggleButton({ offen, onClick }: DatumToggleButtonProps) {
+  return (
+    <button
+      type="button"
+      className={"job-form__datum-toggle" + (offen ? " job-form__datum-toggle--aktiv" : "")}
+      onClick={onClick}
+      aria-pressed={offen}
+      title={offen ? "Datumsfelder ausblenden" : "Datumsfelder einblenden"}
+    >
+      <KalenderIcon />
+    </button>
   );
 }
 

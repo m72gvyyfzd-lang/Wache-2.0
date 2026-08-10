@@ -95,6 +95,34 @@
   text-align: right;
 }
 
+/* Kalender-Umschalter (Ebene 2, HH/NOK): quadratischer Knopf am Zeilenende,
+   Höhe an ein normales Eingabefeld angeglichen, damit er mit den
+   Zeit-Feldern (align-items: flex-end) bündig unten abschließt. */
+.job-form__datum-toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.job-form__datum-toggle:hover {
+  filter: brightness(0.97);
+}
+
+.job-form__datum-toggle--aktiv {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 .job-form__actions {
   display: flex;
   align-items: center;

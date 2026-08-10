@@ -3,8 +3,8 @@ import { ANMELDUNGS_TYPEN, getAbteilzeitSettings } from "@wache/core";
 import type { AnmeldungsTyp } from "@wache/core";
 import type { JobEintrag } from "../data/types";
 import { abteilzeitVon } from "../lib/coreJob";
-import { fromLocalInput, toLocalInput } from "../lib/datetime";
-import { FormActions, SchiffKatSelect } from "./formShared";
+import { ausDatumUndZeit, fromLocalInput, toLocalDateInput, toLocalInput, toLocalTimeInput } from "../lib/datetime";
+import { FormActions, handleZeitMitPrefill, SchiffKatSelect } from "./formShared";
 import "./JobForm.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
@@ -35,7 +35,15 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
   const [ehfBestAbgang, setEhfBestAbgang] = useState(toLocalInput(initial?.ehfBestAbgang));
   const [ehfLotse, setEhfLotse] = useState(initial?.ehfLotseBenoetigt ?? false);
   const [bhfBesetzZeit, setBhfBesetzZeit] = useState(toLocalInput(initial?.bhfBesetzZeit));
-  const [abtZeit, setAbtZeit] = useState(toLocalInput(initial?.abtZeitManuell));
+  const [abtZeitDatum, setAbtZeitDatum] = useState(toLocalDateInput(initial?.abtZeitManuell));
+  const [abtZeitZeit, setAbtZeitZeit] = useState(toLocalTimeInput(initial?.abtZeitManuell));
+
+  // Setzt Datum+Zeit der Abt. Zeit gemeinsam — für die Kaskaden (AG-
+  // Verknüpfung, EHF/BHF), die einen fertigen Zeitpunkt berechnen.
+  function setzeAbtZeit(wert: Date | undefined) {
+    setAbtZeitDatum(toLocalDateInput(wert));
+    setAbtZeitZeit(toLocalTimeInput(wert));
+  }
 
   /** Beim Wechsel auf AG/Nebelradar Schiffsname+Kat. leeren — beide Felder
    *  sind dort ausgeblendet und sollen keine Altwerte mit einreichen. */
@@ -68,11 +76,11 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
     setAgJobId(wert);
     aktualisiereAgVerknuepfung(wert, agLotsen);
     if (wert === "") {
-      setAbtZeit("");
+      setzeAbtZeit(undefined);
       return;
     }
     const job = verknuepfbareJobs.find((j) => String(j.id) === wert);
-    if (job) setAbtZeit(toLocalInput(abteilzeitVon(job, settings)));
+    if (job) setzeAbtZeit(abteilzeitVon(job, settings));
   }
 
   function handleAgLotsen(wert: string) {
@@ -85,7 +93,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
   function handleBestAbgang(wert: string) {
     setEhfBestAbgang(wert);
     const abgang = fromLocalInput(wert);
-    if (abgang) setAbtZeit(toLocalInput(new Date(abgang.getTime() - 3_600_000)));
+    if (abgang) setzeAbtZeit(new Date(abgang.getTime() - 3_600_000));
   }
 
   /** BHF-Regel: nach Eingabe der Besetz-Zeit wird die Abteilzeit
@@ -93,7 +101,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
   function handleBesetzZeit(wert: string) {
     setBhfBesetzZeit(wert);
     const besetzt = fromLocalInput(wert);
-    if (besetzt) setAbtZeit(toLocalInput(new Date(besetzt.getTime() + 1_800_000)));
+    if (besetzt) setzeAbtZeit(new Date(besetzt.getTime() + 1_800_000));
   }
 
   function handleSubmit(e: FormEvent) {
@@ -112,7 +120,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
       ehfBestAbgang: typ === "EHF" ? fromLocalInput(ehfBestAbgang) : undefined,
       ehfLotseBenoetigt: typ === "EHF" ? ehfLotse : undefined,
       bhfBesetzZeit: typ === "BHF" ? fromLocalInput(bhfBesetzZeit) : undefined,
-      abtZeitManuell: fromLocalInput(abtZeit),
+      abtZeitManuell: ausDatumUndZeit(abtZeitDatum, abtZeitZeit),
     });
   }
 
@@ -197,13 +205,21 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
       </div>
 
       <div className="job-form__row">
-        <label className="job-form__grow2">
+        <label className="job-form__half">
           Bemerkungen
           <input value={bemerkung} onChange={(e) => setBemerkung(e.target.value)} />
         </label>
-        <label className="job-form__abtzeit-eingabe">
+        <label>
           Abt. Zeit
-          <input type="datetime-local" value={abtZeit} onChange={(e) => setAbtZeit(e.target.value)} />
+          <input
+            type="time"
+            value={abtZeitZeit}
+            onChange={(e) => handleZeitMitPrefill(e.target.value, abtZeitDatum, setAbtZeitZeit, setAbtZeitDatum)}
+          />
+        </label>
+        <label>
+          Datum
+          <input type="date" value={abtZeitDatum} onChange={(e) => setAbtZeitDatum(e.target.value)} />
         </label>
       </div>
 
