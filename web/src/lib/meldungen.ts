@@ -23,6 +23,8 @@ import { abteilzeitVon, benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel 
 import { formatUhrzeit } from "./format";
 import { istListenvergabeJob, VERGABE_GRUPPE } from "./listenvergabe";
 import { geplanterAbruf, planeEinsatzstation, planeEinsatzstationMitVergaben } from "./planungEinsatzstation";
+import { etaSeestation } from "./seestation";
+import { seeLotsenAnzahl } from "./seestationAbteilen";
 import { berechneSeestationsDefizite } from "./seestationBedarf";
 
 export type MeldungsStufe = "alarm" | "warnung" | "vorschlag" | "info";
@@ -138,6 +140,118 @@ function abrufMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitS
           art: "Abruf bald fällig",
           zeit: abruf,
           text: `${lotse.name} um ${formatUhrzeit(abruf)} abrufen (${jobLabel(job)}, Abt. ${formatUhrzeit(abteilzeit)})`,
+        });
+      }
+    }
+  }
+  return meldungen;
+}
+
+/**
+ * Abteilung Einsatzplanung überfällig: die berechnete Abt.Zeit eines Jobs
+ * ist bereits verstrichen, der Job aber noch nicht vollständig abgeteilt.
+ * Listenvergaben haben dafür schon eine eigene Meldung (siehe
+ * listenvergabeMeldungen weiter unten, Abteilung erfolgt dort direkt mit
+ * dem Anruf) — hier ausgeschlossen, um nicht doppelt zu melden.
+ */
+function abteilungEinsatzplanungMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitSettings): Meldung[] {
+  const meldungen: Meldung[] = [];
+  const abgeteiltProJob = new Map<number, number>();
+  for (const a of daten.abteilungen) abgeteiltProJob.set(a.jobId, (abgeteiltProJob.get(a.jobId) ?? 0) + 1);
+  const jobsSortiert = sortiereEintraege(daten.jobs, settings).filter(
+    ({ eintrag }) => benoetigteLotsenAnzahl(eintrag) - (abgeteiltProJob.get(eintrag.id) ?? 0) > 0,
+  );
+  for (const { eintrag: job, abteilzeit } of jobsSortiert) {
+    if (!abteilzeit || istListenvergabeJob(job) || abteilzeit.getTime() > jetzt.getTime()) continue;
+    meldungen.push({
+      id: `abteilung-ep-alarm-${job.id}`,
+      stufe: "alarm",
+      art: "Abteilung überfällig",
+      zeit: abteilzeit,
+      text: `Abteilung überfällig: ${jobLabel(job)} sollte bereits um ${formatUhrzeit(abteilzeit)} abgeteilt sein`,
+    });
+  }
+  return meldungen;
+}
+
+/**
+ * Ankunft Seestation überfällig: ein bereits abgeteilter Lotse (Versetzliste
+ * "Lotsen im Revier") ist noch nicht "Auf Seestation" markiert, obwohl seine
+ * berechnete/manuelle ETA Stn (siehe lib/seestation.ts::etaSeestation)
+ * schon verstrichen ist.
+ */
+function seestationAnkunftMeldungen(daten: MeldungsDaten, jetzt: Date): Meldung[] {
+  const meldungen: Meldung[] = [];
+  for (const a of daten.abteilungen) {
+    if (a.vNr === undefined || a.abgeschoepft || a.ankert || a.seeAbgeteilt || a.aufSeestation) continue;
+    const eta = etaSeestation(a);
+    if (eta.getTime() > jetzt.getTime()) continue;
+    meldungen.push({
+      id: `seestation-ankunft-alarm-${a.id}`,
+      stufe: "alarm",
+      art: "Ankunft Seestation überfällig",
+      zeit: eta,
+      text: `Ankunft Seestation überfällig: ${a.lotsenName} sollte bereits um ${formatUhrzeit(eta)} auf der Seestation sein`,
+    });
+  }
+  return meldungen;
+}
+
+/** Vorwarnzeit/Eskalation der "Anmeldung Seestation" (siehe
+ *  seestationSchiffMeldungen): Warnung ab 30 Min. vor ETA, Alarm ab 15 Min.
+ *  danach — bewusst andere Schwellen als ABRUF_VORWARNUNG_MS, da es hier
+ *  nicht um einen Handlungszeitpunkt, sondern eine reine Registrierung geht. */
+export const ANMELDUNG_VORWARNUNG_MS = 30 * 60_000;
+export const ANMELDUNG_ESKALATION_MS = 15 * 60_000;
+
+/**
+ * Zwei Meldungen je See-Schiff (Liste "ETA Seestation"):
+ * - Abteilung Seestation überfällig: die ETA ist verstrichen, es fehlen
+ *   aber noch Lotsen (siehe lib/seestationAbteilen.ts::seeLotsenAnzahl
+ *   abzüglich bereits vorhandener SeeAbteilungen) — unabhängig davon, ob
+ *   überhaupt ein Lotse dafür verfügbar wäre (das deckt bereits die
+ *   Seestations-Bilanz oben ab); hier geht es um die reine Fälligkeit.
+ * - Anmeldung überfällig/bald fällig: das Schiff ist noch nicht
+ *   "angemeldet" (SeeSchiff.angemeldet).
+ * Beide entfallen, sobald das Schiff vollständig abgeteilt ist.
+ */
+function seestationSchiffMeldungen(daten: MeldungsDaten, jetzt: Date): Meldung[] {
+  const meldungen: Meldung[] = [];
+  const abgeteiltProSchiff = new Map<number, number>();
+  for (const sa of daten.seeAbteilungen)
+    abgeteiltProSchiff.set(sa.seeSchiffId, (abgeteiltProSchiff.get(sa.seeSchiffId) ?? 0) + 1);
+
+  for (const schiff of daten.seeSchiffe) {
+    const verbleibend = seeLotsenAnzahl(schiff) - (abgeteiltProSchiff.get(schiff.id) ?? 0);
+    if (verbleibend <= 0) continue;
+
+    if (schiff.eta.getTime() <= jetzt.getTime()) {
+      meldungen.push({
+        id: `seestation-abteilung-alarm-${schiff.id}`,
+        stufe: "alarm",
+        art: "Abteilung Seestation überfällig",
+        zeit: schiff.eta,
+        text: `Abteilung Seestation überfällig: ${schiff.schiffsname} sollte bereits um ${formatUhrzeit(schiff.eta)} Lotsen erhalten haben`,
+      });
+    }
+
+    if (!schiff.angemeldet) {
+      const rest = schiff.eta.getTime() - jetzt.getTime();
+      if (rest <= -ANMELDUNG_ESKALATION_MS) {
+        meldungen.push({
+          id: `seestation-anmeldung-alarm-${schiff.id}`,
+          stufe: "alarm",
+          art: "Anmeldung überfällig",
+          zeit: schiff.eta,
+          text: `Anmeldung überfällig: ${schiff.schiffsname} (ETA ${formatUhrzeit(schiff.eta)}) noch nicht angemeldet`,
+        });
+      } else if (rest <= ANMELDUNG_VORWARNUNG_MS) {
+        meldungen.push({
+          id: `seestation-anmeldung-warnung-${schiff.id}`,
+          stufe: "warnung",
+          art: "Anmeldung bald fällig",
+          zeit: schiff.eta,
+          text: `${schiff.schiffsname} (ETA ${formatUhrzeit(schiff.eta)}) noch nicht angemeldet`,
         });
       }
     }
@@ -277,6 +391,9 @@ function listenvergabeMeldungen(daten: MeldungsDaten, settings: AbteilzeitSettin
 export function berechneMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitSettings): Meldung[] {
   return sortiereMeldungen([
     ...abrufMeldungen(daten, jetzt, settings),
+    ...abteilungEinsatzplanungMeldungen(daten, jetzt, settings),
+    ...seestationAnkunftMeldungen(daten, jetzt),
+    ...seestationSchiffMeldungen(daten, jetzt),
     ...seestationsMeldungen(daten, jetzt, settings),
     ...namensMeldungen(daten),
     ...listenvergabeMeldungen(daten, settings),

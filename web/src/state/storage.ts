@@ -30,6 +30,7 @@ const A_NR_ZAEHLER_KEY = "wache.aNrZaehler.v1";
 const VERBRAUCHTE_V_NR_KEY = "wache.verbrauchteVNrn.v1";
 const ALARM_TON_KEY = "wache.alarmTon.v1";
 const HW_BRB_KEY = "wache.hwBrb.v1";
+const THEME_KEY = "wache.theme.v1";
 
 const JOB_DATUM_FELDER = [
   "hh",
@@ -294,4 +295,16 @@ export function ladeAlarmTonAktiv(): boolean {
 
 export function speichereAlarmTonAktiv(aktiv: boolean): void {
   localStorage.setItem(ALARM_TON_KEY, aktiv ? "1" : "0");
+}
+
+/** Tag/Nacht-Umschalter (Uhr-Kachel): undefined = noch nicht manuell
+ *  gewählt, dann gilt weiterhin die Systemeinstellung (prefers-color-scheme,
+ *  siehe index.html/index.css). Erst ein Klick legt sich fest. */
+export function ladeTheme(): "hell" | "dunkel" | undefined {
+  const wert = localStorage.getItem(THEME_KEY);
+  return wert === "hell" || wert === "dunkel" ? wert : undefined;
+}
+
+export function speichereTheme(wert: "hell" | "dunkel"): void {
+  localStorage.setItem(THEME_KEY, wert);
 }

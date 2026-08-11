@@ -19,8 +19,12 @@
   color-scheme: light dark;
 }
 
+/* Tag/Nacht-Umschalter (Uhr-Kachel): ohne manuelle Wahl gilt weiterhin die
+   Systemeinstellung (":not([data-theme=\"hell\"])" lässt eine manuelle
+   Hell-Wahl die dunkle Systemeinstellung übersteuern); die explizite
+   data-theme="dunkel"-Regel danach erzwingt Dunkel unabhängig vom System. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="hell"]) {
     --bg: #0d1517;
     --surface: #142023;
     --surface-2: #101b1d;
@@ -32,6 +36,19 @@
     --accent-ink: #f2c294;
     --accent-2: #4fb3a0;
   }
+}
+
+:root[data-theme="dunkel"] {
+  --bg: #0d1517;
+  --surface: #142023;
+  --surface-2: #101b1d;
+  --ink: #e7edec;
+  --ink-muted: #8ca0a3;
+  --ink-faint: #5c6f72;
+  --line: #24373a;
+  --accent: #e0975a;
+  --accent-ink: #f2c294;
+  --accent-2: #4fb3a0;
 }
 
 * {

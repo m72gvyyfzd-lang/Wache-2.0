@@ -13,6 +13,7 @@ import {
 } from "../components/SeestationModals";
 import type { SeeSchiff } from "../data/types";
 import { formatUhrzeit } from "../lib/format";
+import { ANMELDUNG_ESKALATION_MS, ANMELDUNG_VORWARNUNG_MS } from "../lib/meldungen";
 import {
   sortiereSeestation,
   VORLAUF_AUF_STATION_MS,
@@ -410,7 +411,38 @@ export function Seestation() {
                 "seestation-table__seite" +
                 (schiff && schiffAuswahl === schiff.id ? " ist-ausgewaehlt" : "") +
                 (schiff?.angemeldet ? " fett" : "");
+              // Abteilung Seestation überfällig: ETA verstrichen, noch nicht
+              // vollständig abgeteilt — unabhängig von der Anmeldung.
+              const schiffAbteilungUeberfaellig =
+                schiff !== undefined && jetzt.getTime() >= schiff.eta.getTime() && verbleibendeLotsen(schiff) > 0;
+              // Anmeldung überfällig (Alarm) bzw. bald fällig (Warnung) —
+              // dieselben Schwellen wie die Dashboard-Meldung (lib/meldungen.ts).
+              const schiffAnmeldungRest = schiff ? schiff.eta.getTime() - jetzt.getTime() : Number.POSITIVE_INFINITY;
+              const schiffAnmeldungAlarm =
+                schiff !== undefined &&
+                !schiff.angemeldet &&
+                verbleibendeLotsen(schiff) > 0 &&
+                schiffAnmeldungRest <= -ANMELDUNG_ESKALATION_MS;
+              const schiffAnmeldungWarnung =
+                schiff !== undefined &&
+                !schiff.angemeldet &&
+                verbleibendeLotsen(schiff) > 0 &&
+                !schiffAnmeldungAlarm &&
+                schiffAnmeldungRest <= ANMELDUNG_VORWARNUNG_MS;
+              const etaKlasse = schiffAbteilungUeberfaellig || schiffAnmeldungAlarm
+                ? " zeit-ueberfaellig"
+                : schiffAnmeldungWarnung
+                  ? " zeit-warnung"
+                  : "";
               const lotseVerspaetet = lotse?.projiziert ? (verspaetetProKey.get(lotse.key) ?? false) : false;
+              // Ankunft Seestation überfällig: echter (nicht projizierter)
+              // Lotse noch nicht "Auf Seestation", ETA Stn schon verstrichen.
+              const lotseAnkunftUeberfaellig =
+                lotse !== undefined &&
+                !lotse.projiziert &&
+                !lotse.aufStation &&
+                lotse.etaStn !== undefined &&
+                jetzt.getTime() >= lotse.etaStn.getTime();
               const lotseKlasse =
                 "seestation-table__seite" +
                 (lotse && lotseAuswahl.includes(lotse.key) ? " ist-ausgewaehlt" : "") +
@@ -462,7 +494,7 @@ export function Seestation() {
                         {i + 1}
                       </td>
                       <td
-                        className={`${schiffKlasse} num zentriert${schiff.e3st ? " eta-rot" : ""}`}
+                        className={`${schiffKlasse} num zentriert${schiff.e3st ? " eta-rot" : ""}${etaKlasse}`}
                         onClick={schiffKlick}
                         onDoubleClick={schiffDoppelklick}
                       >
@@ -506,7 +538,11 @@ export function Seestation() {
                       <td className={`${lotseKlasse} num zentriert`} onClick={lotseKlick} onDoubleClick={lotseDoppelklick}>
                         {lotse.elbehafen ? "✓" : ""}
                       </td>
-                      <td className={`${lotseKlasse} num zentriert`} onClick={lotseKlick} onDoubleClick={lotseDoppelklick}>
+                      <td
+                        className={`${lotseKlasse} num zentriert` + (lotseAnkunftUeberfaellig ? " zeit-ueberfaellig" : "")}
+                        onClick={lotseKlick}
+                        onDoubleClick={lotseDoppelklick}
+                      >
                         {lotse.aufStation ? "–" : formatUhrzeit(lotse.etaStn)}
                       </td>
                     </>

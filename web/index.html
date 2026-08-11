@@ -12,6 +12,18 @@
     <link rel="apple-touch-icon" href="%BASE_URL%icons/apple-touch-icon.png" />
     <title>Wache 2.0</title>
     <script>
+      // Tag/Nacht-Umschalter (Uhr-Kachel): manuelle Wahl vor dem ersten
+      // Rendern anwenden, damit die Seite nicht kurz im falschen Theme
+      // aufblitzt. Ohne gespeicherte Wahl bleibt data-theme ungesetzt —
+      // dann greift weiterhin prefers-color-scheme (siehe index.css).
+      (function () {
+        try {
+          var t = localStorage.getItem("wache.theme.v1");
+          if (t === "hell" || t === "dunkel") document.documentElement.dataset.theme = t;
+        } catch (e) {}
+      })();
+    </script>
+    <script>
       // Gegenstück zu public/404.html: stellt den ursprünglich aufgerufenen
       // Pfad wieder her, bevor react-router übernimmt.
       (function (l) {

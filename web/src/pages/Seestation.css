@@ -57,6 +57,19 @@
   background: rgba(181, 67, 47, 0.14);
 }
 
+/* Überfällig (Abteilung Seestation/Einsatzplanung-Ankunft/Anmeldung-Alarm):
+   Text rot+fett — dieselbe Farbe/Konvention wie Einsatzplanung::zeit-ueberfaellig. */
+.seestation-table td.zeit-ueberfaellig {
+  color: #b5432f;
+  font-weight: 700;
+}
+
+/* Anmeldung bald fällig (Warnung, noch vor Eskalation zum Alarm): orange+fett. */
+.seestation-table td.zeit-warnung {
+  color: #c77d1e;
+  font-weight: 700;
+}
+
 /* Auswahl/Hover je Seite (links Spalten 1–5, Divider 6, rechts ab 7) */
 .seestation-table tbody tr:hover td {
   background: transparent;

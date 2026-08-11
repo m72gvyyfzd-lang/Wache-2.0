@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
 import { spieleAlarmTon, tonEntsperren } from "../lib/alarmTon";
 import { berechneAgPlanung } from "../lib/agPlanung";
+import { benoetigteLotsenAnzahl } from "../lib/coreJob";
 import { berechneMeldungen, gruppiereMeldungen } from "../lib/meldungen";
 import { ladeAlarmTonAktiv, speichereAlarmTonAktiv } from "../state/storage";
 import { useData } from "../state/DataContext";
@@ -122,9 +123,16 @@ export function DashboardCard() {
     if (neue.length > 0 && tonAn) spieleAlarmTon();
   }, [alarmSchluessel, tonAn]);
 
-  const anzahlHH = jobs.filter((j) => j.liste === "hamburg").length;
-  const anzahlNOK = jobs.filter((j) => j.liste === "nok").length;
-  const anzahlAnmeldungen = jobs.filter((j) => j.liste === "andere").length;
+  // Nur noch nicht (vollständig) abgeteilte Jobs zählen — dieselbe
+  // Sichtbarkeits-Regel wie auf Tafel Brb selbst (siehe Jobs.tsx::sichtbar).
+  const abgeteiltProJobZaehlung = new Map<number, number>();
+  for (const a of abteilungen) abgeteiltProJobZaehlung.set(a.jobId, (abgeteiltProJobZaehlung.get(a.jobId) ?? 0) + 1);
+  const offeneJobs = jobs.filter(
+    (j) => benoetigteLotsenAnzahl(j) - (abgeteiltProJobZaehlung.get(j.id) ?? 0) > 0,
+  );
+  const anzahlHH = offeneJobs.filter((j) => j.liste === "hamburg").length;
+  const anzahlNOK = offeneJobs.filter((j) => j.liste === "nok").length;
+  const anzahlAnmeldungen = offeneJobs.filter((j) => j.liste === "andere").length;
 
   return (
     <div className="dashboard-card">
