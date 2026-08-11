@@ -18,17 +18,63 @@ import { ANFAHRT_SEESTATION_MS, TENDER_VORLAUF_MS, VORLAUF_AUF_STATION_MS, sorti
 import { planeSeestation, schiffePriorisiert } from "./seestationAbteilen";
 import { vorschauZeilen } from "./vorschau";
 
+/** Ein AG-Lotse soll möglichst nicht länger als 6 Std. auf der Seestation
+ *  auf sein Schiff warten (Ankunft über den gewählten Träger bis zum
+ *  Schiffs-ETA). Wird das nicht erreicht (kein Träger fährt spät genug ab),
+ *  bleibt die Zuteilung trotzdem bestehen, eskaliert aber zur Warnung — die
+ *  Prognose blendet lange Wartezeiten nicht aus, sondern zeigt sie an. */
+export const WARTE_MAX_AG_MS = 6 * 3_600_000;
+
+export interface AgZuteilung {
+  traeger: { eintrag: JobEintrag; abteilzeit: Date };
+  /** Anzahl der AG-Lotsen, die über diesen Träger fahren sollen */
+  anzahl: number;
+  /** Ankunft über den Träger bis zum Schiffs-ETA */
+  wartezeitMs: number;
+  ueberWarteziel: boolean;
+}
+
 export interface SeestationDefizit {
   schiff: SeeSchiff;
   fehlt: number;
   /** "alarm" = kein Trägerjob und Tender-AG nicht mehr rechtzeitig möglich */
   stufe: MeldungsStufe;
-  /** bester (spätester noch passender) Trägerjob-Kandidat */
-  primaerTraeger?: { eintrag: JobEintrag; abteilzeit: Date };
-  /** zweitbester Kandidat, für die "oder"-Empfehlung im Einzelfall */
-  sekundaerTraeger?: { eintrag: JobEintrag; abteilzeit: Date };
+  /** Trägerschiff(e), auf die die fehlenden Lotsen aufgeteilt würden — leer,
+   *  wenn kein Träger mehr rechtzeitig möglich ist (dann bleibt nur die
+   *  Tender-AG). Mehr als ein Eintrag nur ab 4 fehlenden Lotsen und wenn ein
+   *  zweiter Träger existiert (siehe planeAgTraeger) — bei weniger Bedarf
+   *  würde ein Split nur unnötig eine 1-Lotsen-Gruppe erzeugen. */
+  zuteilungen: AgZuteilung[];
   tenderMoeglich: boolean;
   tenderFrist: number;
+}
+
+/**
+ * Verteilt die fehlenden Lotsen eines Schiffs auf Trägerkandidaten
+ * (aufsteigend nach Abteilzeit sortiert): der späteste Träger hat die
+ * kürzeste Wartezeit und wird bevorzugt. Ab 4 fehlenden Lotsen kommt —
+ * sofern vorhanden — ein zweiter (der zweitspäteste) Träger dazu, damit
+ * nicht die gesamte Gruppe auf ein einziges Schiff gepackt wird; bei 1–3
+ * fehlenden Lotsen bliebe von einem Split nur eine unnötige 1-Lotsen-Gruppe
+ * übrig, daher bleibt es dort bei einem Träger für den vollen Bedarf.
+ */
+export function planeAgTraeger(
+  kandidatenAufsteigend: { eintrag: JobEintrag; abteilzeit: Date }[],
+  fehlt: number,
+  schiffEta: Date,
+): AgZuteilung[] {
+  if (kandidatenAufsteigend.length === 0) return [];
+  function zuteilung(traeger: { eintrag: JobEintrag; abteilzeit: Date }, anzahl: number): AgZuteilung {
+    const wartezeitMs = schiffEta.getTime() - (traeger.abteilzeit.getTime() + ANFAHRT_SEESTATION_MS);
+    return { traeger, anzahl, wartezeitMs, ueberWarteziel: wartezeitMs > WARTE_MAX_AG_MS };
+  }
+  const beste = kandidatenAufsteigend[kandidatenAufsteigend.length - 1];
+  const zweitBeste = kandidatenAufsteigend[kandidatenAufsteigend.length - 2];
+  if (fehlt >= 4 && zweitBeste) {
+    const ersteAnzahl = Math.ceil(fehlt / 2);
+    return [zuteilung(beste, ersteAnzahl), zuteilung(zweitBeste, fehlt - ersteAnzahl)];
+  }
+  return [zuteilung(beste, fehlt)];
 }
 
 export function berechneSeestationsDefizite(
@@ -104,24 +150,21 @@ export function berechneSeestationsDefizite(
     const tenderMoeglich = jetzt.getTime() <= tenderFrist;
 
     if (kandidaten.length === 0 && !tenderMoeglich) {
-      defizite.push({ schiff, fehlt, stufe: "alarm", tenderMoeglich, tenderFrist });
+      defizite.push({ schiff, fehlt, stufe: "alarm", zuteilungen: [], tenderMoeglich, tenderFrist });
       continue;
     }
 
-    const letzte = kandidaten.slice(-2).reverse();
+    const zuteilungen = planeAgTraeger(kandidaten, fehlt, schiff.eta);
     const traegerFrist = kandidaten.length > 0 ? kandidaten[kandidaten.length - 1].abteilzeit.getTime() : -Infinity;
     const handlungsFrist = Math.max(traegerFrist, tenderMoeglich ? tenderFrist : -Infinity);
-    const stufe: MeldungsStufe = handlungsFrist - jetzt.getTime() <= AG_ESKALATION_MS ? "warnung" : "vorschlag";
+    // Neben der üblichen Zeitnot eskaliert auch eine zu lange Wartezeit auf
+    // der Seestation zur Warnung — die Prognose soll das sichtbar machen,
+    // nicht stillschweigend hinnehmen.
+    const ueberWarteziel = zuteilungen.some((z) => z.ueberWarteziel);
+    const stufe: MeldungsStufe =
+      handlungsFrist - jetzt.getTime() <= AG_ESKALATION_MS || ueberWarteziel ? "warnung" : "vorschlag";
 
-    defizite.push({
-      schiff,
-      fehlt,
-      stufe,
-      primaerTraeger: letzte[0],
-      sekundaerTraeger: letzte[1],
-      tenderMoeglich,
-      tenderFrist,
-    });
+    defizite.push({ schiff, fehlt, stufe, zuteilungen, tenderMoeglich, tenderFrist });
   }
   return defizite;
 }

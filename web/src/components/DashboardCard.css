@@ -7,21 +7,31 @@
   border-bottom: 1px solid var(--line);
 }
 
-/* Scroll-Container getrennt vom positionierten Wrapper, damit die
-   aufklappbare Meldungs-Liste (absolute) nicht vom overflow-x
-   abgeschnitten wird. */
+/* Kein overflow-x/-y mehr auf dem Scroll-Container: die Meldungs-/
+   AG-Planungs-Kacheln tragen ihre Detailliste jetzt direkt als eigenes,
+   absolut positioniertes Kind (statt einer gemeinsamen Liste unterhalb der
+   ganzen Leiste) — ein "overflow: auto"-Vorfahre würde die Liste sonst
+   abschneiden, da bei "overflow-x: auto" auch overflow-y zu "auto" wird.
+   Zu schmale Breiten lösen stattdessen über flex-wrap um. */
 .dashboard-card__scroll {
   height: 100%;
   display: flex;
-  align-items: center;
-  padding: 0 max(20px, env(safe-area-inset-right)) 0 20px;
-  overflow-x: auto;
+  align-items: flex-start;
+  padding: 16px max(20px, env(safe-area-inset-right)) 0 20px;
+  overflow: visible;
 }
 
 .dashboard-card__stats {
   display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
   gap: 12px;
   width: 100%;
+}
+
+/* Schiebt den Alarm-Ton-Schalter an den rechten Rand der Leiste. */
+.dashboard-card__spacer {
+  flex: 1 1 0%;
 }
 
 @media (max-width: 720px) {
@@ -30,7 +40,7 @@
   }
 
   .dashboard-card__scroll {
-    padding: 0 12px;
+    padding: 8px 12px 0;
   }
 
   .dashboard-card__stats {

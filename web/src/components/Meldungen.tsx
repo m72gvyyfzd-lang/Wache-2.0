@@ -1,62 +1,69 @@
-/** Meldungszentrale des Dashboards: Kachel mit der dringendsten Meldung
- *  (farbig nach Stufe) plus aufklappbare Liste aller Meldungen. */
-import type { Meldung, MeldungsStufe } from "../lib/meldungen";
+/** Meldungszentrale des Dashboards: Kachel mit nach Art gruppierten Zeilen
+ *  ("3× Abruf überfällig") plus aufklappbare Detailliste. Klick auf die
+ *  Kachel (außerhalb einer Gruppenzeile) zeigt alle Meldungen, Klick auf
+ *  eine Gruppenzeile nur deren Details. */
+import type { RefObject } from "react";
+import type { Meldung, MeldungsGruppe } from "../lib/meldungen";
 import { formatUhrzeit } from "../lib/format";
 import "./Meldungen.css";
 
-const STUFEN_LABEL: Record<MeldungsStufe, string> = {
-  alarm: "Alarm",
-  warnung: "Warnung",
-  vorschlag: "Vorschlag",
-  info: "Info",
-};
-
-function zaehlung(meldungen: Meldung[]): Partial<Record<MeldungsStufe, number>> {
-  const anzahl: Partial<Record<MeldungsStufe, number>> = {};
-  for (const m of meldungen) anzahl[m.stufe] = (anzahl[m.stufe] ?? 0) + 1;
-  return anzahl;
-}
-
 interface MeldungsTileProps {
-  meldungen: Meldung[];
-  offen: boolean;
-  onToggle: () => void;
+  gruppen: MeldungsGruppe[];
+  /** null = Kachel zu; "" = alle Meldungen offen; sonst die offene Art */
+  aktiv: string | null;
+  onAlle: () => void;
+  onGruppe: (art: string) => void;
+  /** Wurzel-Element — dient dem Dashboard zur Erkennung von Klicks
+   *  außerhalb (schließt die Detailliste, siehe DashboardCard.tsx). */
+  containerRef: RefObject<HTMLDivElement | null>;
 }
 
-export function MeldungsTile({ meldungen, offen, onToggle }: MeldungsTileProps) {
-  const top = meldungen[0];
-  const stufe = top?.stufe ?? "leer";
-  const anzahl = zaehlung(meldungen);
+export function MeldungsTile({ gruppen, aktiv, onAlle, onGruppe, containerRef }: MeldungsTileProps) {
+  const stufe = gruppen[0]?.stufe ?? "leer";
   return (
-    <button
-      type="button"
-      className={`meldungs-tile meldungs-tile--${stufe}` + (offen ? " meldungs-tile--offen" : "")}
-      onClick={onToggle}
-      aria-expanded={offen}
+    <div
+      ref={containerRef}
+      className={`meldungs-tile meldungs-tile--${stufe}` + (aktiv !== null ? " meldungs-tile--offen" : "")}
+      onClick={onAlle}
     >
       <div className="meldungs-tile__kopf">
         <span className="meldungs-tile__label">Meldungen</span>
-        {(["alarm", "warnung", "vorschlag", "info"] as const).map(
-          (s) =>
-            (anzahl[s] ?? 0) > 0 && (
-              <span key={s} className={`meldungs-badge meldungs-badge--${s}`} title={STUFEN_LABEL[s]}>
-                {anzahl[s]}
-              </span>
-            ),
-        )}
+        {gruppen.length > 0 && <span className={`meldungs-badge meldungs-badge--${stufe}`}>{gruppen.length}</span>}
       </div>
-      <div className="meldungs-tile__text">{top ? top.text : "keine Meldungen"}</div>
-    </button>
+      <div className="meldungs-tile__gruppen">
+        {gruppen.map((g) => (
+          <button
+            key={g.art}
+            type="button"
+            className={"meldungs-tile__gruppe" + (aktiv === g.art ? " meldungs-tile__gruppe--aktiv" : "")}
+            onClick={(e) => {
+              e.stopPropagation();
+              onGruppe(g.art);
+            }}
+          >
+            <span className={`meldungs-punkt meldungs-punkt--${g.stufe}`} aria-hidden="true" />
+            <span className="meldungs-tile__gruppe-text">
+              {g.anzahl}× {g.art}
+            </span>
+          </button>
+        ))}
+        {gruppen.length === 0 && <div className="meldungs-tile__leer">keine Meldungen</div>}
+      </div>
+      {aktiv !== null && <MeldungsListe gruppen={gruppen} art={aktiv} />}
+    </div>
   );
 }
 
 interface MeldungsListeProps {
-  meldungen: Meldung[];
+  gruppen: MeldungsGruppe[];
+  /** "" = alle Gruppen, sonst nur die Meldungen dieser Art */
+  art: string;
 }
 
-export function MeldungsListe({ meldungen }: MeldungsListeProps) {
+function MeldungsListe({ gruppen, art }: MeldungsListeProps) {
+  const meldungen: Meldung[] = art === "" ? gruppen.flatMap((g) => g.meldungen) : (gruppen.find((g) => g.art === art)?.meldungen ?? []);
   return (
-    <div className="meldungs-liste">
+    <div className="meldungs-liste" onClick={(e) => e.stopPropagation()}>
       {meldungen.map((m) => (
         <div key={m.id} className="meldungs-liste__eintrag">
           <span className={`meldungs-punkt meldungs-punkt--${m.stufe}`} aria-hidden="true" />

@@ -2,13 +2,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
 import { spieleAlarmTon, tonEntsperren } from "../lib/alarmTon";
 import { berechneAgPlanung } from "../lib/agPlanung";
-import { berechneMeldungen } from "../lib/meldungen";
+import { berechneMeldungen, gruppiereMeldungen } from "../lib/meldungen";
 import { ladeAlarmTonAktiv, speichereAlarmTonAktiv } from "../state/storage";
 import { useData } from "../state/DataContext";
-import { AgPlanungListe, AgPlanungTile } from "./AgPlanung";
-import { MeldungsListe, MeldungsTile } from "./Meldungen";
+import { AgPlanungTile } from "./AgPlanung";
+import { MeldungsTile } from "./Meldungen";
 import { StatTile } from "./StatTile";
 import "./DashboardCard.css";
+
+/** Welches der beiden Kachel-Panels gerade seine Detailliste zeigt — nur
+ *  eins gleichzeitig (beide Listen ragen absolut positioniert über andere
+ *  Kacheln und würden sich sonst überlagern). Die Meldungs-Kachel merkt sich
+ *  zusätzlich, ob "alle" oder nur eine Gruppen-Art aufgeklappt ist. */
+type OffenesPanel = { typ: "meldungen"; art: string } | { typ: "ag-planung" } | null;
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
@@ -23,7 +29,6 @@ export function DashboardCard() {
     seeAbteilungen,
     vNrStart,
     verbrauchteVNrn,
-    hwBrb,
   } = useData();
 
   // Zeit-Tick: die Meldungen hängen an der Uhrzeit (gepl. Abruf etc.) und
@@ -52,9 +57,34 @@ export function DashboardCard() {
       ),
     [jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, vNrStart, verbrauchteVNrn, jetzt],
   );
-  // Nur eine Liste gleichzeitig aufgeklappt (beide sind absolut über die
-  // volle Kartenbreite positioniert und würden sich sonst überlagern).
-  const [offenesPanel, setOffenesPanel] = useState<"meldungen" | "ag-planung" | null>(null);
+  const meldungsGruppen = useMemo(() => gruppiereMeldungen(meldungen), [meldungen]);
+
+  const [offenesPanel, setOffenesPanel] = useState<OffenesPanel>(null);
+  const meldungenRef = useRef<HTMLDivElement>(null);
+  const agPlanungRef = useRef<HTMLDivElement>(null);
+
+  // Klick außerhalb der offenen Kachel (bzw. ihrer Detailliste, die als
+  // DOM-Kind darin liegt) schließt sie wieder.
+  useEffect(() => {
+    if (!offenesPanel) return;
+    const ref = offenesPanel.typ === "meldungen" ? meldungenRef : agPlanungRef;
+    function schliessenBeiAussenklick(e: PointerEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOffenesPanel(null);
+    }
+    document.addEventListener("pointerdown", schliessenBeiAussenklick);
+    return () => document.removeEventListener("pointerdown", schliessenBeiAussenklick);
+  }, [offenesPanel]);
+
+  function toggleAlleMeldungen() {
+    setOffenesPanel((p) => (p?.typ === "meldungen" && p.art === "" ? null : { typ: "meldungen", art: "" }));
+  }
+  function toggleMeldungsGruppe(art: string) {
+    setOffenesPanel((p) => (p?.typ === "meldungen" && p.art === art ? null : { typ: "meldungen", art }));
+  }
+  function toggleAgPlanung() {
+    setOffenesPanel((p) => (p?.typ === "ag-planung" ? null : { typ: "ag-planung" }));
+  }
+  const meldungenAktiv = offenesPanel?.typ === "meldungen" ? offenesPanel.art : null;
 
   // Alarm-Ton: einmaliger Ton pro NEUEM Alarm (stabile Meldungs-IDs).
   // Browser erlauben Ton erst nach einer Nutzer-Interaktion — das
@@ -96,24 +126,25 @@ export function DashboardCard() {
   const anzahlNOK = jobs.filter((j) => j.liste === "nok").length;
   const anzahlAnmeldungen = jobs.filter((j) => j.liste === "andere").length;
 
-  const zeit = (d: Date | undefined) =>
-    d ? d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "–";
-  const hwBrbText = hwBrb.hw1 ? `${zeit(hwBrb.hw1)} / ${zeit(hwBrb.hw2)}` : "–";
-
   return (
     <div className="dashboard-card">
       <div className="dashboard-card__scroll">
         <div className="dashboard-card__stats">
           <MeldungsTile
-            meldungen={meldungen}
-            offen={offenesPanel === "meldungen"}
-            onToggle={() => setOffenesPanel((p) => (p === "meldungen" ? null : "meldungen"))}
+            gruppen={meldungsGruppen}
+            aktiv={meldungenAktiv}
+            onAlle={toggleAlleMeldungen}
+            onGruppe={toggleMeldungsGruppe}
+            containerRef={meldungenRef}
           />
           <AgPlanungTile
             gruppen={agGruppen}
-            offen={offenesPanel === "ag-planung"}
-            onToggle={() => setOffenesPanel((p) => (p === "ag-planung" ? null : "ag-planung"))}
+            offen={offenesPanel?.typ === "ag-planung"}
+            onToggle={toggleAgPlanung}
+            containerRef={agPlanungRef}
           />
+          <StatTile label="HH / NOK / Sonstige" value={`${anzahlHH} / ${anzahlNOK} / ${anzahlAnmeldungen}`} />
+          <span className="dashboard-card__spacer" />
           <button
             type="button"
             className={"ton-tile" + (tonAn ? " ton-tile--an" : "")}
@@ -123,12 +154,8 @@ export function DashboardCard() {
             <div className="ton-tile__label">Alarm-Ton</div>
             <div className="ton-tile__wert">{tonAn ? "an" : "aus"}</div>
           </button>
-          <StatTile label="HH / NOK / Anmeldungen" value={`${anzahlHH} / ${anzahlNOK} / ${anzahlAnmeldungen}`} />
-          <StatTile label="HW Brb" value={hwBrbText} />
         </div>
       </div>
-      {offenesPanel === "meldungen" && <MeldungsListe meldungen={meldungen} />}
-      {offenesPanel === "ag-planung" && <AgPlanungListe gruppen={agGruppen} />}
     </div>
   );
 }

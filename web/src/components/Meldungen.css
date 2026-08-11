@@ -1,12 +1,16 @@
-/* Meldungs-Kachel: gleiche Grundform wie StatTile, aber breiter und farbig
-   nach der höchsten Meldungsstufe. */
+/* Meldungs-/AG-Planungs-Kachel: 1/4 der Dashboard-Breite, feste Höhe
+   (Überschrift + 4 Gruppenzeilen) — bleibt bei mehr Gruppen stabil, die
+   Zeilenliste scrollt dann für sich (Überschrift bleibt fix). */
 .meldungs-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 12px 16px;
-  flex: 2 0 220px;
-  min-width: 220px;
+  flex: 0 0 25%;
+  box-sizing: border-box;
+  height: 168px;
   text-align: left;
   font: inherit;
   color: var(--ink);
@@ -14,9 +18,11 @@
 }
 
 .meldungs-tile__kopf {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 6px;
+  padding: 12px 14px 8px;
 }
 
 .meldungs-tile__label {
@@ -27,19 +33,54 @@
   white-space: nowrap;
 }
 
-.meldungs-tile__text {
-  margin-top: 5px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+/* Gruppenzeilen-Liste: exakt 4 Zeilen sichtbar (4 × 26px), Rest scrollt. */
+.meldungs-tile__gruppen {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 8px;
 }
 
-.meldungs-tile--leer .meldungs-tile__text {
+.meldungs-tile__gruppe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 26px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.meldungs-tile__gruppe--statisch {
+  cursor: default;
+}
+
+.meldungs-tile__gruppe:hover {
+  background: var(--surface-2);
+}
+
+.meldungs-tile__gruppe--aktiv {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+}
+
+.meldungs-tile__gruppe-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.meldungs-tile__leer {
+  padding: 4px 6px;
   color: var(--ink-faint);
+  font-size: 0.82rem;
   font-weight: 400;
 }
 
@@ -49,26 +90,14 @@
   animation: meldungs-pulsieren 1.6s ease-in-out infinite;
 }
 
-.meldungs-tile--alarm .meldungs-tile__text {
-  color: #b5432f;
-}
-
 .meldungs-tile--warnung {
   border-color: #c77d1e;
   background: rgba(199, 125, 30, 0.12);
 }
 
-.meldungs-tile--warnung .meldungs-tile__text {
-  color: #9a6113;
-}
-
 .meldungs-tile--vorschlag {
   border-color: #3b6ea5;
   background: rgba(59, 110, 165, 0.1);
-}
-
-.meldungs-tile--vorschlag .meldungs-tile__text {
-  color: #2f5885;
 }
 
 @keyframes meldungs-pulsieren {
@@ -81,7 +110,7 @@
   }
 }
 
-/* Zähler-Badges im Kachel-Kopf */
+/* Zähler-Badge im Kachel-Kopf */
 .meldungs-badge {
   min-width: 18px;
   padding: 1px 5px;
@@ -104,23 +133,21 @@
   background: #3b6ea5;
 }
 
-.meldungs-badge--info {
-  background: var(--ink-muted);
-}
-
-/* Aufklappbare Liste unterhalb der Kartenleiste */
+/* Detailliste: direkt unter der jeweiligen Kachel, 2/4 der Dashboard-Breite
+   (= 200% der 1/4-breiten Kachel selbst). */
 .meldungs-liste {
   position: absolute;
   top: 100%;
-  left: 20px;
-  right: 20px;
+  left: 0;
+  width: 200%;
   z-index: 30;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 0 0 12px 12px;
+  border-radius: 0 12px 12px 12px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
   max-height: 320px;
   overflow-y: auto;
+  cursor: default;
 }
 
 .meldungs-liste__eintrag {
@@ -212,4 +239,15 @@
 
 .ton-tile--an .ton-tile__wert {
   color: var(--accent-ink);
+}
+
+@media (max-width: 720px) {
+  .meldungs-tile {
+    flex-basis: 40%;
+    height: 140px;
+  }
+
+  .meldungs-liste {
+    width: 250%;
+  }
 }

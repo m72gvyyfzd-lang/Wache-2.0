@@ -31,6 +31,10 @@ export interface Meldung {
   /** stabiler Schlüssel, solange die Ursache besteht (Ton-Erkennung, React-Key) */
   id: string;
   stufe: MeldungsStufe;
+  /** Kategorie für die gruppierte Kachel-Anzeige (z.B. "Abruf überfällig") —
+   *  mehrere Meldungen derselben Art werden dort zu einer Zeile "N× Art"
+   *  zusammengefasst (siehe gruppiereMeldungen). */
+  art: string;
   text: string;
   /** Zeitbezug der Meldung (für die Sortierung innerhalb einer Stufe) */
   zeit?: Date;
@@ -99,6 +103,7 @@ function abrufMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitS
         meldungen.push({
           id: `vergabe-abteilung-alarm-${job.id}`,
           stufe: "alarm",
+          art: "Listenvergabe überfällig",
           zeit: abteilzeit,
           text: `Listenvergabe ${job.typ} überfällig: Abteilung ${formatUhrzeit(abteilzeit)} — ${wer}`,
         });
@@ -106,6 +111,7 @@ function abrufMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitS
         meldungen.push({
           id: `vergabe-abteilung-warnung-${job.id}`,
           stufe: "warnung",
+          art: "Listenvergabe bald abteilen",
           zeit: abteilzeit,
           text: `Listenvergabe ${job.typ} um ${formatUhrzeit(abteilzeit)} abteilen — ${wer}`,
         });
@@ -121,6 +127,7 @@ function abrufMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitS
         meldungen.push({
           id: `abruf-alarm-${lotse.name}`,
           stufe: "alarm",
+          art: "Abruf überfällig",
           zeit: abruf,
           text: `Abruf überfällig: ${lotse.name} sofort abrufen — gepl. Abruf ${formatUhrzeit(abruf)} (${jobLabel(job)}, Abt. ${formatUhrzeit(abteilzeit)})`,
         });
@@ -128,6 +135,7 @@ function abrufMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitS
         meldungen.push({
           id: `abruf-warnung-${lotse.name}`,
           stufe: "warnung",
+          art: "Abruf bald fällig",
           zeit: abruf,
           text: `${lotse.name} um ${formatUhrzeit(abruf)} abrufen (${jobLabel(job)}, Abt. ${formatUhrzeit(abteilzeit)})`,
         });
@@ -141,45 +149,27 @@ function abrufMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitS
  * Seestations-Bilanz: nutzt die geteilte Defizit-Berechnung (siehe
  * lib/seestationBedarf.ts, dort auch die ausführliche Erläuterung zu
  * VERPLANTEN/FREIEN Lotsen und dem "verspätet zählt weiterhin als Bedarf"-
- * Prinzip). Echte Alarme (kein Trägerjob und Tender-AG nicht mehr
- * rechtzeitig möglich) bleiben je Schiff eine eigene, dringende Meldung.
- * Vorschlag/Warnung-Fälle (noch eine AG-Fahrt planbar) werden dagegen zu
- * EINER Sammelmeldung "AG-Planung nötig" zusammengefasst — die Detailliste
- * mit den nach Träger gruppierten Empfehlungen zeigt die eigene "AG-
- * Planung"-Karte im Dashboard (siehe lib/agPlanung.ts), damit nicht für
- * jedes betroffene Schiff derselbe Trägervorschlag als eigene Zeile
- * erscheint.
+ * Prinzip). Nur echte Alarme (kein Trägerjob und Tender-AG nicht mehr
+ * rechtzeitig möglich) werden hier je Schiff als eigene, dringende Meldung
+ * geführt. Vorschlag/Warnung-Fälle (noch eine AG-Fahrt planbar) erscheinen
+ * NICHT in der Meldungs-/Alarm-Kachel — die eigene "AG-Planung"-Karte im
+ * Dashboard (siehe lib/agPlanung.ts) ist dafür die alleinige Anzeige, damit
+ * dieselbe Information nicht doppelt (und potenziell mit Ton-Alarm)
+ * auftaucht.
  */
 function seestationsMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitSettings): Meldung[] {
   const meldungen: Meldung[] = [];
   const defizite = berechneSeestationsDefizite(daten, jetzt, settings);
 
-  let planungAnzahl = 0;
-  let planungStufe: MeldungsStufe = "vorschlag";
-  let planungFrueheste: Date | undefined;
-
   for (const d of defizite) {
+    if (d.stufe !== "alarm") continue;
     const fehltText = `um ${formatUhrzeit(d.schiff.eta)} fehl${d.fehlt === 1 ? "t" : "en"} ${d.fehlt} Lotse${d.fehlt === 1 ? "" : "n"} für ${d.schiff.schiffsname}`;
-    if (d.stufe === "alarm") {
-      meldungen.push({
-        id: `seestation-defizit-${d.schiff.id}`,
-        stufe: "alarm",
-        zeit: d.schiff.eta,
-        text: `Seestation: ${fehltText} — kein Trägerjob und Tender-AG nicht mehr rechtzeitig (3 Std. Vorlauf + 3,5 Std. Anfahrt)`,
-      });
-      continue;
-    }
-    planungAnzahl += 1;
-    if (d.stufe === "warnung") planungStufe = "warnung";
-    if (!planungFrueheste || d.schiff.eta.getTime() < planungFrueheste.getTime()) planungFrueheste = d.schiff.eta;
-  }
-
-  if (planungAnzahl > 0) {
     meldungen.push({
-      id: "ag-planung-noetig",
-      stufe: planungStufe,
-      zeit: planungFrueheste,
-      text: `AG-Planung nötig — ${planungAnzahl} Schiff${planungAnzahl === 1 ? "" : "e"} ohne rechtzeitigen Lotsen, siehe Karte "AG-Planung"`,
+      id: `seestation-defizit-${d.schiff.id}`,
+      stufe: "alarm",
+      art: "Seestation: Lotse fehlt",
+      zeit: d.schiff.eta,
+      text: `Seestation: ${fehltText} — kein Trägerjob und Tender-AG nicht mehr rechtzeitig (3 Std. Vorlauf + 3,5 Std. Anfahrt)`,
     });
   }
   return meldungen;
@@ -200,6 +190,7 @@ function namensMeldungen(daten: MeldungsDaten): Meldung[] {
     meldungen.push({
       id: `doppelname-${name}`,
       stufe: "warnung",
+      art: "Doppelter Lotsenname",
       text: `Doppelter Lotsenname: "${name}" ist ${anzahl}× in der Lotsenliste — bitte eindeutig machen (Verwechslungsgefahr)`,
     });
   }
@@ -239,6 +230,7 @@ function listenvergabeMeldungen(daten: MeldungsDaten, settings: AbteilzeitSettin
     meldungen.push({
       id: `vergabe-unterbesetzt-${job.id}`,
       stufe: "alarm",
+      art: "Listenvergabe unterbesetzt",
       zeit: abteilzeit,
       text:
         gruppe.length === 0
@@ -259,6 +251,7 @@ function listenvergabeMeldungen(daten: MeldungsDaten, settings: AbteilzeitSettin
     meldungen.push({
       id: `vergabe-zeitgleich-${jobs.map((j) => j.id).join("-")}`,
       stufe: "alarm",
+      art: "Listenvergaben zeitgleich",
       text: `Listenvergaben ${jobs.map((j) => j.typ).join(" und ")} zeitgleich um ${formatUhrzeit(zeit)} — bitte im Minutenabstand abteilen (z.B. ${formatUhrzeit(zeit)}, ${formatUhrzeit(new Date(zeit.getTime() + 60_000))}, …)`,
       zeit,
     });
@@ -272,6 +265,7 @@ function listenvergabeMeldungen(daten: MeldungsDaten, settings: AbteilzeitSettin
     meldungen.push({
       id: `vergabe-wr-zeit-${job.id}`,
       stufe: "alarm",
+      art: "WR-Zeit falsch eingetragen",
       text: `WR-Vergabe um ${formatUhrzeit(abteilzeit)} eingetragen — WR wird um 06:01, 12:01 oder 18:01 abgeteilt`,
       zeit: abteilzeit,
     });
@@ -287,4 +281,37 @@ export function berechneMeldungen(daten: MeldungsDaten, jetzt: Date, settings: A
     ...namensMeldungen(daten),
     ...listenvergabeMeldungen(daten, settings),
   ]);
+}
+
+/** Eine Zeile der Alarm-Kachel: alle Meldungen derselben Art gebündelt zu
+ *  "N× Art" (dieselbe Kurzform wie die AG-Planungs-Karte). Stufe = höchste
+ *  Einzelstufe der Gruppe (alarm sticht warnung usw.), Sortierung wie
+ *  sortiereMeldungen (Stufe, dann früheste Zeit). */
+export interface MeldungsGruppe {
+  art: string;
+  stufe: MeldungsStufe;
+  anzahl: number;
+  meldungen: Meldung[];
+  frueheste?: Date;
+}
+
+export function gruppiereMeldungen(meldungen: Meldung[]): MeldungsGruppe[] {
+  const gruppen = new Map<string, MeldungsGruppe>();
+  for (const m of meldungen) {
+    const bestehend = gruppen.get(m.art);
+    if (bestehend) {
+      bestehend.anzahl += 1;
+      bestehend.meldungen.push(m);
+      if (STUFEN_RANG[m.stufe] < STUFEN_RANG[bestehend.stufe]) bestehend.stufe = m.stufe;
+      if (m.zeit && (!bestehend.frueheste || m.zeit.getTime() < bestehend.frueheste.getTime())) {
+        bestehend.frueheste = m.zeit;
+      }
+    } else {
+      gruppen.set(m.art, { art: m.art, stufe: m.stufe, anzahl: 1, meldungen: [m], frueheste: m.zeit });
+    }
+  }
+  return [...gruppen.values()].sort((a, b) => {
+    if (STUFEN_RANG[a.stufe] !== STUFEN_RANG[b.stufe]) return STUFEN_RANG[a.stufe] - STUFEN_RANG[b.stufe];
+    return (a.frueheste?.getTime() ?? 0) - (b.frueheste?.getTime() ?? 0);
+  });
 }
