@@ -5,6 +5,7 @@ import type { JobEintrag } from "../data/types";
 import { abteilzeitVon } from "../lib/coreJob";
 import { ausDatumUndZeit, fromLocalInput, toLocalDateInput, toLocalInput, toLocalTimeInput } from "../lib/datetime";
 import { FormActions, handleZeitMitPrefill, SchiffKatSelect, SpeedSelect } from "./formShared";
+import { Switch } from "./SeestationModals";
 import "./JobForm.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
@@ -44,6 +45,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
   const [agLotsen, setAgLotsen] = useState(initial?.agLotsenAnzahl !== undefined ? String(initial.agLotsenAnzahl) : "");
   const [ehfBestAbgang, setEhfBestAbgang] = useState(toLocalInput(initial?.ehfBestAbgang));
   const [ehfLotse, setEhfLotse] = useState(initial?.ehfLotseBenoetigt ?? false);
+  const [ehfWache, setEhfWache] = useState(initial?.ehfWache ?? false);
   const [bhfBesetzZeit, setBhfBesetzZeit] = useState(toLocalInput(initial?.bhfBesetzZeit));
   const [abtZeitDatum, setAbtZeitDatum] = useState(toLocalDateInput(initial?.abtZeitManuell));
   const [abtZeitZeit, setAbtZeitZeit] = useState(toLocalTimeInput(initial?.abtZeitManuell));
@@ -129,6 +131,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
       agLotsenAnzahl: (typ === "AG" || typ === "AG (Tender)") && agLotsen !== "" ? Number(agLotsen) : undefined,
       ehfBestAbgang: typ === "EHF" ? fromLocalInput(ehfBestAbgang) : undefined,
       ehfLotseBenoetigt: typ === "EHF" ? ehfLotse : undefined,
+      ehfWache: typ === "EHF" ? ehfWache : undefined,
       bhfBesetzZeit: typ === "BHF" ? fromLocalInput(bhfBesetzZeit) : undefined,
       abtZeitManuell: ausDatumUndZeit(abtZeitDatum, abtZeitZeit),
       geschwindigkeitsklasse:
@@ -198,12 +201,8 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
               best. Abgang
               <input type="datetime-local" value={ehfBestAbgang} onChange={(e) => handleBestAbgang(e.target.value)} />
             </label>
-            <label className="job-form__check">
-              <span>
-                <input type="checkbox" checked={ehfLotse} onChange={(e) => setEhfLotse(e.target.checked)} /> EHF-Lotse
-                benötigt
-              </span>
-            </label>
+            <Switch label="EHF-Lotse benötigt" checked={ehfLotse} onChange={setEhfLotse} />
+            <Switch label="EHF-Wache" checked={ehfWache} onChange={setEhfWache} />
           </>
         )}
         {typ === "BHF" && (

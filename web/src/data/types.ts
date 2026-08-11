@@ -52,6 +52,10 @@ export interface JobEintrag {
   /** EHF: bestätigter Abgang; Abt.Zeit wird im Formular als Abgang − 1h vorbelegt */
   ehfBestAbgang?: Date;
   ehfLotseBenoetigt?: boolean;
+  /** EHF-Wache: der abgeteilte Lotse ankert (bleibt auf dem Schiff) statt
+   *  zur Seestation zu fahren — setzt beim Abteilen automatisch "Ankert"
+   *  der entstehenden Abteilung (siehe lib/vorschau.ts, Versetzliste). */
+  ehfWache?: boolean;
   /** BHF: Besetz-Zeit */
   bhfBesetzZeit?: Date;
 

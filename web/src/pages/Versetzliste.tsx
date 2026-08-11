@@ -1,8 +1,10 @@
 import { useState } from "react";
+import type { Geschwindigkeitsklasse } from "@wache/core";
 import { Badge } from "../components/Badge";
 import { FrageModal } from "../components/FrageModal";
 import { Modal } from "../components/Modal";
 import { Panel } from "../components/Panel";
+import { SpeedSelect } from "../components/formShared";
 import { Switch } from "../components/SeestationModals";
 import type { Abteilung } from "../data/types";
 import { formatUhrzeit } from "../lib/format";
@@ -17,28 +19,37 @@ function eintragLabel(abteilung: Abteilung): string {
   return [abteilung.typLabel, abteilung.schiffsname].filter(Boolean).join(" ");
 }
 
-/** Doppelklick auf "Ankert": Switch umschalten, mit Abbrechen/OK. */
-function AnkertModal({
+/** Doppelklick auf eine Zeile "Lotsen im Revier": Ankert-Status und Speed
+ *  (Brb>>SEE-Matrix) nachträglich anpassen — die Ankunft S-Stn wird daraus
+ *  live neu berechnet (siehe lib/seestation.ts::etaSeestation), auch wenn
+ *  der Lotse schon abgeteilt ist. */
+function AbteilungBearbeitenModal({
   initial,
   onUebernehmen,
   onAbbrechen,
 }: {
-  initial: boolean;
-  onUebernehmen: (wert: boolean) => void;
+  initial: { ankert: boolean; geschwindigkeitsklasse: Geschwindigkeitsklasse };
+  onUebernehmen: (wert: { ankert: boolean; geschwindigkeitsklasse: Geschwindigkeitsklasse }) => void;
   onAbbrechen: () => void;
 }) {
-  const [ankert, setAnkert] = useState(initial);
+  const [ankert, setAnkert] = useState(initial.ankert);
+  const [geschwindigkeit, setGeschwindigkeit] = useState(initial.geschwindigkeitsklasse);
   return (
     <div className="job-form">
       <div className="job-form__row">
         <Switch label="ankert" checked={ankert} onChange={setAnkert} />
+        <SpeedSelect value={geschwindigkeit} onChange={setGeschwindigkeit} />
       </div>
       <div className="job-form__actions">
         <button type="button" className="btn btn--ghost" onClick={onAbbrechen}>
           Abbrechen
         </button>
         <span className="job-form__spacer" />
-        <button type="button" className="btn btn--accent" onClick={() => onUebernehmen(ankert)}>
+        <button
+          type="button"
+          className="btn btn--accent"
+          onClick={() => onUebernehmen({ ankert, geschwindigkeitsklasse: geschwindigkeit })}
+        >
           OK
         </button>
       </div>
@@ -51,7 +62,7 @@ export function Versetzliste() {
   // Auswahl gilt über beide Listen hinweg — erneuter Klick wählt wieder ab
   const [auswahl, setAuswahl] = useState<number | null>(null);
   const [frageOffen, setFrageOffen] = useState(false);
-  const [ankertAbteilung, setAnkertAbteilung] = useState<Abteilung | null>(null);
+  const [bearbeiteAbteilung, setBearbeiteAbteilung] = useState<Abteilung | null>(null);
 
   // Lotsen, die schon auf der Seestation angekommen sind ("Auf Station"),
   // verschwinden aus dieser Liste — sie stehen dann nur noch im Tab
@@ -106,6 +117,7 @@ export function Versetzliste() {
                 key={a.id}
                 className={"row-click" + (auswahl === a.id ? " ist-ausgewaehlt" : "")}
                 onClick={() => zeilenKlick(a.id)}
+                onDoubleClick={() => setBearbeiteAbteilung(a)}
               >
                 <td className="num zentriert fett">{a.vNr}</td>
                 <td className="cell-name">{a.schiffsname ?? "–"}</td>
@@ -114,9 +126,7 @@ export function Versetzliste() {
                 <td className="num zentriert">{a.elbehafen ? "✓" : ""}</td>
                 <td className="num zentriert">{formatUhrzeit(a.abteilZeit)}</td>
                 <td className="num muted zentriert">{formatUhrzeit(etaSeestation(a))}</td>
-                <td className="num muted zentriert" onDoubleClick={() => setAnkertAbteilung(a)}>
-                  {a.ankert ? "⚓️" : "–"}
-                </td>
+                <td className="num muted zentriert">{a.ankert ? "⚓️" : "–"}</td>
               </tr>
             ))}
             {revier.length === 0 && (
@@ -176,15 +186,26 @@ export function Versetzliste() {
         </Modal>
       )}
 
-      {ankertAbteilung && (
-        <Modal title="Ankert" onClose={() => setAnkertAbteilung(null)} maxWidth="300px" titelZentriert>
-          <AnkertModal
-            initial={ankertAbteilung.ankert ?? false}
-            onUebernehmen={(wert) => {
-              updateAbteilung(ankertAbteilung.id, { ankert: wert });
-              setAnkertAbteilung(null);
+      {bearbeiteAbteilung && (
+        <Modal
+          title={bearbeiteAbteilung.schiffsname ?? "Abteilung"}
+          onClose={() => setBearbeiteAbteilung(null)}
+          maxWidth="340px"
+          titelZentriert
+        >
+          <AbteilungBearbeitenModal
+            initial={{
+              ankert: bearbeiteAbteilung.ankert ?? false,
+              geschwindigkeitsklasse: bearbeiteAbteilung.geschwindigkeitsklasse ?? "normal",
             }}
-            onAbbrechen={() => setAnkertAbteilung(null)}
+            onUebernehmen={(wert) => {
+              updateAbteilung(bearbeiteAbteilung.id, {
+                ankert: wert.ankert,
+                geschwindigkeitsklasse: wert.geschwindigkeitsklasse,
+              });
+              setBearbeiteAbteilung(null);
+            }}
+            onAbbrechen={() => setBearbeiteAbteilung(null)}
           />
         </Modal>
       )}

@@ -15,8 +15,14 @@
   padding: 10px 14px 6px;
 }
 
-/* Spaltenbreiten am Inhalt ausrichten, damit beide Listen eng
-   nebeneinander in die Karte passen */
+/* Feste Spaltenbreiten über <colgroup> (siehe Einsatzplanung.tsx) statt
+   inhaltsbasierter Breitenberechnung — bleibt stabil, auch wenn eine Seite
+   mal keine einzige echte Zelle mehr in einer Spalte hat (leerer
+   colSpan-Platzhalter). */
+.einsatz-table {
+  table-layout: fixed;
+}
+
 .einsatz-table th,
 .einsatz-table td {
   white-space: nowrap;

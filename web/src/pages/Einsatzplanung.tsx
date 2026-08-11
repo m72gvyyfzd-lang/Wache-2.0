@@ -188,6 +188,10 @@ export function Einsatzplanung() {
           abteilZeit: new Date(),
           seeHerkunft: seeReise?.herkunft,
           geschwindigkeitsklasse: seeReise?.klasse,
+          // EHF-Wache: der Lotse ankert auf dem Schiff statt zur Seestation
+          // zu fahren — direkt beim Abteilen als "Ankert" der Abteilung
+          // gesetzt (siehe Versetzliste, dort auch wieder deaktivierbar).
+          ankert: abteilenJob.ehfWache || undefined,
         },
         lotse.index,
       );
@@ -287,6 +291,25 @@ export function Einsatzplanung() {
       >
         <div className="tabelle-scroll">
         <table className="einsatz-table">
+          {/* Feste Spaltenbreiten (table-layout: fixed, siehe CSS): sonst
+              bricht die Breite der Jobs-Seite zusammen, sobald deren letzte
+              Zeile durch einen abgeteilten Job auf den leeren
+              colSpan-Platzhalter wechselt — ohne eine einzige echte Zelle
+              je Spalte hat der Browser keine Grundlage mehr, die Breiten zu
+              berechnen. */}
+          <colgroup>
+            <col style={{ width: 37 }} />
+            <col style={{ width: 98 }} />
+            <col style={{ width: 159 }} />
+            <col style={{ width: 90 }} />
+            <col style={{ width: 94 }} />
+            <col style={{ width: 65 }} />
+            <col style={{ width: 32 }} />
+            <col style={{ width: 65 }} />
+            <col style={{ width: 137 }} />
+            <col style={{ width: 72 }} />
+            <col style={{ width: 80 }} />
+          </colgroup>
           <thead>
             <tr className="einsatz-table__gruppen">
               <th colSpan={6}>Jobs</th>

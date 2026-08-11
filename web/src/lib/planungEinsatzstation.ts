@@ -25,7 +25,11 @@ import { sortiereUndNummeriere } from "./lotsenOrdnung";
  *  (siehe lib/seestationAbteilen.ts), nicht für AG-Jobs. */
 export function eignungsWarnung(job: JobEintrag, lotse: LotsenEintrag): string | undefined {
   const schiffsKat = job.kategorie ?? "";
-  if (!darfFahren(schiffsKat, lotse.kategorie)) return "Kat. des Lotsen zu klein";
+  // Sonderradar/Nebelradar sind Lotsen-Dienste ohne festes Schiff — die
+  // eingegebene Kat. (Schiff) ist reine Zusatzinfo und darf die Zuweisung
+  // nicht einschränken. Maßgeblich ist allein darfJobTyp (min. Kat. 3+).
+  const istRadar = job.typ === "Sonderradar" || job.typ === "Nebelradar";
+  if (!istRadar && !darfFahren(schiffsKat, lotse.kategorie)) return "Kat. des Lotsen zu klein";
   if (job.typ !== undefined && !darfJobTyp(job.typ, lotse.kategorie)) return `Kat. des Lotsen reicht nicht für ${job.typ}`;
   if (job.ehfLotseBenoetigt && schiffsRang(schiffsKat) >= 4 && !lotse.elbehafen) return "Lotse nicht in EH-Liste";
   if (job.liste === "andere" && istListenvergabeTyp(job.typ) && toernStand(lotse, job.typ) <= 0)

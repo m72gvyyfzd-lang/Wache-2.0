@@ -80,7 +80,10 @@ export function vorschauZeilen(
 
   const verplante: SeestationZeile[] = [];
   for (const { eintrag: job, abteilzeit } of jobsSortiert) {
-    if (!abteilzeit || istOhneVNrJob(job)) continue;
+    // EHF-Wache: der Lotse wird beim Abteilen direkt "Ankert" gesetzt und
+    // fährt gar nicht erst zur Seestation — taucht daher auch in der
+    // Vorschau nicht als ankommender Lotse auf.
+    if (!abteilzeit || istOhneVNrJob(job) || job.ehfWache) continue;
     // Überfällige Jobs (Abteilzeit schon vorbei) fahren frühestens jetzt ab
     // — sonst gälte der Lotse fälschlich als längst angekommen.
     const abfahrt = new Date(Math.max(abteilzeit.getTime(), jetzt.getTime()));
