@@ -21,8 +21,8 @@ import type {
 } from "../data/types";
 import { abteilzeitVon, benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "./coreJob";
 import { formatUhrzeit } from "./format";
-import { istListenvergabeJob } from "./listenvergabe";
-import { geplanterAbruf, planeEinsatzstation } from "./planungEinsatzstation";
+import { istListenvergabeJob, VERGABE_GRUPPE } from "./listenvergabe";
+import { geplanterAbruf, planeEinsatzstation, planeEinsatzstationMitVergaben } from "./planungEinsatzstation";
 import { berechneSeestationsDefizite } from "./seestationBedarf";
 
 export type MeldungsStufe = "alarm" | "warnung" | "vorschlag" | "info";
@@ -211,12 +211,41 @@ function namensMeldungen(daten: MeldungsDaten): Meldung[] {
  * - zwei Listenvergaben dürfen nicht zeitgleich abgeteilt werden (bei
  *   mehreren Vergaben gilt 1 Minute Abstand: 12:01, 12:02, …)
  * - WR wird nur um 06:01, 12:01 oder 18:01 abgeteilt.
+ * - die 4er-Gruppe muss voll besetzt werden können — stehen weniger als 4
+ *   geeignete Lotsen zur Verfügung, ist das ein Alarm.
  */
 function listenvergabeMeldungen(daten: MeldungsDaten, settings: AbteilzeitSettings): Meldung[] {
   const meldungen: Meldung[] = [];
   const vergaben = daten.jobs
     .map((job) => ({ job, abteilzeit: abteilzeitVon(job, settings) }))
     .filter(({ job }) => istListenvergabeJob(job));
+
+  // Unterbesetzte Zählgruppen: dieselbe Planung wie die Einsatzplanung —
+  // die Meldung erlischt, sobald die Vergabe abgeteilt ist (kein
+  // Restbedarf) oder wieder genug geeignete Lotsen in der Liste stehen.
+  const abgeteiltProJob = new Map<number, number>();
+  for (const a of daten.abteilungen) abgeteiltProJob.set(a.jobId, (abgeteiltProJob.get(a.jobId) ?? 0) + 1);
+  const planung = planeEinsatzstationMitVergaben(
+    daten.jobs,
+    daten.lotsen,
+    daten.aktuelleFahrt,
+    settings,
+    abgeteiltProJob,
+  );
+  for (const { job, abteilzeit } of vergaben) {
+    if (benoetigteLotsenAnzahl(job) - (abgeteiltProJob.get(job.id) ?? 0) <= 0) continue;
+    const gruppe = planung.vergaben.get(job.id)?.gruppe ?? [];
+    if (gruppe.length >= VERGABE_GRUPPE) continue;
+    meldungen.push({
+      id: `vergabe-unterbesetzt-${job.id}`,
+      stufe: "alarm",
+      zeit: abteilzeit,
+      text:
+        gruppe.length === 0
+          ? `Listenvergabe ${job.typ}: kein geeigneter Lotse für die Zählung verfügbar`
+          : `Listenvergabe ${job.typ}: nur ${gruppe.length} von ${VERGABE_GRUPPE} Lotsen für die Zählung verfügbar`,
+    });
+  }
 
   const proMinute = new Map<number, JobEintrag[]>();
   for (const { job, abteilzeit } of vergaben) {
