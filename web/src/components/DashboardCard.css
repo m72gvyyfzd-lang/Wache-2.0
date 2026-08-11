@@ -1,10 +1,13 @@
+/* Trial-Look (siehe ClockCard.css): dieselbe gedeckte Seitenfarbe wie die
+   Uhr-Kachel und der App-Inhalt darunter — die einzelnen Kacheln (Meldungen,
+   AG-Planung, Stat, Ton) tragen jetzt selbst den abgerundeten/beschatteten
+   Karten-Look (siehe Meldungen.css/StatTile.css) und "schweben" darauf. */
 .dashboard-card {
   position: relative;
   flex: 1;
   min-width: 0;
   height: var(--sidebar-width);
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  background: var(--bg);
 }
 
 /* Kein overflow-x/-y mehr auf dem Scroll-Container: die Meldungs-/

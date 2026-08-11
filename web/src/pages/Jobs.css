@@ -1,3 +1,10 @@
+/* Zellen mit Zeilen-Klick (öffnet das Bearbeitungsformular) — die
+   Zeitspalten haben stattdessen (bzw. zusätzlich beim verwaisten AG-Job)
+   einen eigenen Doppelklick fürs Quick-Edit, siehe Jobs.tsx. */
+td.row-click {
+  cursor: pointer;
+}
+
 /* Verwaister AG-Job (verknüpfter Hamburg/NOK-Job wurde gelöscht) */
 .zeile-warnung td {
   background: rgba(181, 67, 47, 0.08);

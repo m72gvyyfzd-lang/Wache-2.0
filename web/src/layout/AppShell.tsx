@@ -18,18 +18,20 @@ export function AppShell() {
       <TopBar />
       <div className="app-shell">
         <nav className="app-nav" aria-label="Hauptnavigation">
-          <ul className="app-nav__list">
-            {NAV_ITEMS.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  className={({ isActive }) => "app-nav__link" + (isActive ? " app-nav__link--active" : "")}
-                >
-                  {item.label}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
+          <div className="app-nav__karte">
+            <ul className="app-nav__list">
+              {NAV_ITEMS.map((item) => (
+                <li key={item.to}>
+                  <NavLink
+                    to={item.to}
+                    className={({ isActive }) => "app-nav__link" + (isActive ? " app-nav__link--active" : "")}
+                  >
+                    {item.label}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </div>
         </nav>
         <main className="app-content">
           <Outlet />

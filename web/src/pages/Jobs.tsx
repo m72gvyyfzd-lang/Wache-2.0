@@ -6,8 +6,9 @@ import { JobFormNok } from "../components/JobFormNok";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
+import { ZeitFeldModal } from "../components/ZeitFeldModal";
 import type { JobEintrag, JobListe } from "../data/types";
-import { benoetigteLotsenAnzahl, istVerwaisterAgJob, sortiereEintraege, type EintragMitAbteilzeit } from "../lib/coreJob";
+import { benoetigteLotsenAnzahl, istAgJob, istVerwaisterAgJob, sortiereEintraege, type EintragMitAbteilzeit } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { useData } from "../state/DataContext";
 import "./Jobs.css";
@@ -18,19 +19,50 @@ function formatCheckpoint(datum: Date | undefined): string {
   return datum ? formatUhrzeit(datum) : "·";
 }
 
+/** "Lots.": nur bei mehr als 1 verbleibendem Lotsen (bzw. bei AG/AG (Tender)
+ *  immer, auch bei genau 1) einen Wert anzeigen — bei Hamburg/NOK (nie AG)
+ *  bleibt die Spalte damit praktisch immer leer, da dort ohnehin je Job nur
+ *  ein Lotse vorgesehen ist. */
+function lotsAnzeige(eintrag: JobEintrag, rest: number): string {
+  if (rest === 1 && !istAgJob(eintrag)) return "";
+  return String(rest);
+}
+
+/** Ein per Doppelklick bearbeitbares Datumsfeld eines Jobs — Wert +
+ *  Zielfeld, das beim Übernehmen geschrieben wird ("FkW" zeigt bei
+ *  Bützfleth-Jobs den geplanten Abgang, schreibt dann auch geplAbgang statt
+ *  fkw). */
+interface ZeitFeld {
+  wert: Date | undefined;
+  feld: keyof JobEintrag;
+}
+
 interface CheckpointListeProps {
   titel: string;
   zeilen: EintragMitAbteilzeit[];
   abgeteiltProJob: Map<number, number>;
   checkpointLabels: [string, string, string];
-  checkpoints: (job: JobEintrag) => [Date | undefined, Date | undefined, Date | undefined];
+  checkpoints: (job: JobEintrag) => [ZeitFeld, ZeitFeld, ZeitFeld];
   onNeu: () => void;
   onZeile: (job: JobEintrag) => void;
+  onZeitBearbeiten: (job: JobEintrag, feld: keyof JobEintrag, label: string, wert: Date | undefined) => void;
 }
 
 /** Hamburg- und NOK-Liste haben identische Spalten, nur die drei
- *  Checkpoint-Bezeichnungen und -Felder unterscheiden sich. */
-function CheckpointListe({ titel, zeilen, abgeteiltProJob, checkpointLabels, checkpoints, onNeu, onZeile }: CheckpointListeProps) {
+ *  Checkpoint-Bezeichnungen und -Felder unterscheiden sich. Feste
+ *  Spaltenbreiten (colgroup) statt inhaltsbasierter Breite, damit beide
+ *  Listen exakt symmetrisch untereinanderstehen (bei gleicher Panel-Breite
+ *  ergeben identische Prozentwerte identische Pixelbreiten). */
+function CheckpointListe({
+  titel,
+  zeilen,
+  abgeteiltProJob,
+  checkpointLabels,
+  checkpoints,
+  onNeu,
+  onZeile,
+  onZeitBearbeiten,
+}: CheckpointListeProps) {
   const [label1, label2, label3] = checkpointLabels;
   return (
     <Panel
@@ -42,7 +74,18 @@ function CheckpointListe({ titel, zeilen, abgeteiltProJob, checkpointLabels, che
         </button>
       }
     >
-      <table>
+      <table className="jobs-table">
+        <colgroup>
+          <col style={{ width: "6%" }} />
+          <col style={{ width: "20%" }} />
+          <col style={{ width: "15%" }} />
+          <col style={{ width: "8%" }} />
+          <col style={{ width: "10%" }} />
+          <col style={{ width: "10%" }} />
+          <col style={{ width: "10%" }} />
+          <col style={{ width: "12%" }} />
+          <col style={{ width: "9%" }} />
+        </colgroup>
         <thead>
           <tr>
             <th className="num">Nr</th>
@@ -58,20 +101,50 @@ function CheckpointListe({ titel, zeilen, abgeteiltProJob, checkpointLabels, che
         </thead>
         <tbody>
           {zeilen.map(({ eintrag, abteilzeit }, i) => {
-            const [zeit1, zeit2, zeit3] = checkpoints(eintrag);
+            const [cp1, cp2, cp3] = checkpoints(eintrag);
             const abgeteilt = abgeteiltProJob.get(eintrag.id) ?? 0;
+            const rest = benoetigteLotsenAnzahl(eintrag) - abgeteilt;
+            const zeilenKlick = () => onZeile(eintrag);
             return (
-              <tr key={eintrag.id} className="row-click" onClick={() => onZeile(eintrag)}>
-                <td className="num muted">{i + 1}</td>
-                <td className="cell-name">{eintrag.schiffsname ?? "–"}</td>
-                <td className="muted">{eintrag.bemerkung}</td>
-                <td className="num muted">{eintrag.kategorie ?? "·"}</td>
-                <td className="num">{formatCheckpoint(zeit1)}</td>
-                <td className="num">{formatCheckpoint(zeit2)}</td>
-                <td className="num">{formatCheckpoint(zeit3)}</td>
-                <td className="num">{formatUhrzeit(abteilzeit)}</td>
-                <td className={abgeteilt > 0 ? "num lots-rest" : "num muted"}>
-                  {benoetigteLotsenAnzahl(eintrag) - abgeteilt}
+              <tr key={eintrag.id}>
+                <td className="num muted row-click" onClick={zeilenKlick}>
+                  {i + 1}
+                </td>
+                <td className="cell-name row-click" onClick={zeilenKlick}>
+                  {eintrag.schiffsname ?? "–"}
+                </td>
+                <td className="muted row-click" onClick={zeilenKlick}>
+                  {eintrag.bemerkung}
+                </td>
+                <td className="num muted row-click" onClick={zeilenKlick}>
+                  {eintrag.kategorie ?? "·"}
+                </td>
+                <td
+                  className="num row-click"
+                  onDoubleClick={() => onZeitBearbeiten(eintrag, cp1.feld, label1, cp1.wert)}
+                >
+                  {formatCheckpoint(cp1.wert)}
+                </td>
+                <td
+                  className="num row-click"
+                  onDoubleClick={() => onZeitBearbeiten(eintrag, cp2.feld, label2, cp2.wert)}
+                >
+                  {formatCheckpoint(cp2.wert)}
+                </td>
+                <td
+                  className="num row-click"
+                  onDoubleClick={() => onZeitBearbeiten(eintrag, cp3.feld, label3, cp3.wert)}
+                >
+                  {formatCheckpoint(cp3.wert)}
+                </td>
+                <td
+                  className="num row-click"
+                  onDoubleClick={() => onZeitBearbeiten(eintrag, "abtZeitManuell", "Abt. Zeit", abteilzeit)}
+                >
+                  {formatUhrzeit(abteilzeit)}
+                </td>
+                <td className={(abgeteilt > 0 ? "num lots-rest" : "num muted") + " row-click"} onClick={zeilenKlick}>
+                  {lotsAnzeige(eintrag, rest)}
                 </td>
               </tr>
             );
@@ -96,9 +169,10 @@ interface AndereListeProps {
   onNeu: () => void;
   onZeile: (job: JobEintrag) => void;
   onWarnung: (job: JobEintrag) => void;
+  onZeitBearbeiten: (job: JobEintrag, feld: keyof JobEintrag, label: string, wert: Date | undefined) => void;
 }
 
-function AndereListe({ zeilen, alleJobs, abgeteiltProJob, onNeu, onZeile, onWarnung }: AndereListeProps) {
+function AndereListe({ zeilen, alleJobs, abgeteiltProJob, onNeu, onZeile, onWarnung, onZeitBearbeiten }: AndereListeProps) {
   return (
     <Panel
       title="Andere Jobs"
@@ -124,19 +198,34 @@ function AndereListe({ zeilen, alleJobs, abgeteiltProJob, onNeu, onZeile, onWarn
           {zeilen.map(({ eintrag, abteilzeit }, i) => {
             const verwaist = istVerwaisterAgJob(eintrag, alleJobs);
             const abgeteilt = abgeteiltProJob.get(eintrag.id) ?? 0;
+            const rest = benoetigteLotsenAnzahl(eintrag) - abgeteilt;
+            const zeilenKlick = () => (verwaist ? onWarnung(eintrag) : onZeile(eintrag));
+            const klasse = "row-click" + (verwaist ? " zeile-warnung" : "");
             return (
-              <tr
-                key={eintrag.id}
-                className={"row-click" + (verwaist ? " zeile-warnung" : "")}
-                onClick={() => (verwaist ? onWarnung(eintrag) : onZeile(eintrag))}
-              >
-                <td className="num muted">{i + 1}</td>
-                <td>{eintrag.typ}</td>
-                <td className="cell-name">{eintrag.schiffsname ?? "–"}</td>
-                <td className="num muted">{eintrag.kategorie ?? "·"}</td>
-                <td className="num">{formatUhrzeit(abteilzeit)}</td>
-                <td className={abgeteilt > 0 ? "num lots-rest" : "num muted"}>
-                  {benoetigteLotsenAnzahl(eintrag) - abgeteilt}
+              <tr key={eintrag.id}>
+                <td className={`num muted ${klasse}`} onClick={zeilenKlick}>
+                  {i + 1}
+                </td>
+                <td className={klasse} onClick={zeilenKlick}>
+                  {eintrag.typ}
+                </td>
+                <td className={`cell-name ${klasse}`} onClick={zeilenKlick}>
+                  {eintrag.schiffsname ?? "–"}
+                </td>
+                <td className={`num muted ${klasse}`} onClick={zeilenKlick}>
+                  {eintrag.kategorie ?? "·"}
+                </td>
+                <td
+                  className={`num ${klasse}`}
+                  onClick={verwaist ? zeilenKlick : undefined}
+                  onDoubleClick={
+                    verwaist ? undefined : () => onZeitBearbeiten(eintrag, "abtZeitManuell", "Abt. Zeit", abteilzeit)
+                  }
+                >
+                  {formatUhrzeit(abteilzeit)}
+                </td>
+                <td className={(abgeteilt > 0 ? "num lots-rest" : "num muted") + ` ${klasse}`} onClick={zeilenKlick}>
+                  {lotsAnzeige(eintrag, rest)}
                 </td>
               </tr>
             );
@@ -160,6 +249,14 @@ export function Jobs() {
   // Klick auf einen verwaisten AG-Job (verknüpfter Job wurde gelöscht)
   // öffnet zuerst die Alarminfo statt direkt das Bearbeitungsformular
   const [warnJob, setWarnJob] = useState<JobEintrag | null>(null);
+  // Doppelklick auf eine Zeitspalte (HH/FkW/Stade, Holt./Ticker/Kuden,
+  // Abt. Zeit): kleines Quick-Edit-Fenster statt des ganzen Formulars.
+  const [zeitEdit, setZeitEdit] = useState<{
+    job: JobEintrag;
+    feld: keyof JobEintrag;
+    label: string;
+    wert: Date | undefined;
+  } | null>(null);
 
   // Voll abgeteilte Jobs sind auch hier ausgeblendet (Rückgängig blendet
   // sie wieder ein); AG-Jobs zeigen bis dahin die Rest-Anzahl in "Lots.".
@@ -195,6 +292,12 @@ export function Jobs() {
     setDialog(null);
   }
 
+  function handleZeitUebernehmen(wert: Date | undefined) {
+    if (!zeitEdit) return;
+    updateJob(zeitEdit.job.id, { ...zeitEdit.job, [zeitEdit.feld]: wert });
+    setZeitEdit(null);
+  }
+
   const formProps = {
     initial: dialog?.eintrag,
     onSubmit: handleSubmit,
@@ -218,18 +321,28 @@ export function Jobs() {
         zeilen={hamburg}
         abgeteiltProJob={abgeteiltProJob}
         checkpointLabels={["HH", "FkW", "Stade"]}
-        checkpoints={(job) => [job.hh, job.buetzfleth ? job.geplAbgang : job.fkw, job.stade]}
+        checkpoints={(job) => [
+          { wert: job.hh, feld: "hh" },
+          { wert: job.buetzfleth ? job.geplAbgang : job.fkw, feld: job.buetzfleth ? "geplAbgang" : "fkw" },
+          { wert: job.stade, feld: "stade" },
+        ]}
         onNeu={() => setDialog({ liste: "hamburg" })}
         onZeile={(eintrag) => setDialog({ liste: "hamburg", eintrag })}
+        onZeitBearbeiten={(job, feld, label, wert) => setZeitEdit({ job, feld, label, wert })}
       />
       <CheckpointListe
         titel="NOK"
         zeilen={nok}
         abgeteiltProJob={abgeteiltProJob}
         checkpointLabels={["Holt.", "Ticker", "Kuden"]}
-        checkpoints={(job) => [job.holt, job.ticker, job.kuden]}
+        checkpoints={(job) => [
+          { wert: job.holt, feld: "holt" },
+          { wert: job.ticker, feld: "ticker" },
+          { wert: job.kuden, feld: "kuden" },
+        ]}
         onNeu={() => setDialog({ liste: "nok" })}
         onZeile={(eintrag) => setDialog({ liste: "nok", eintrag })}
+        onZeitBearbeiten={(job, feld, label, wert) => setZeitEdit({ job, feld, label, wert })}
       />
       <AndereListe
         zeilen={andere}
@@ -238,6 +351,7 @@ export function Jobs() {
         onNeu={() => setDialog({ liste: "andere" })}
         onZeile={(eintrag) => setDialog({ liste: "andere", eintrag })}
         onWarnung={setWarnJob}
+        onZeitBearbeiten={(job, feld, label, wert) => setZeitEdit({ job, feld, label, wert })}
       />
 
       {dialog && (
@@ -274,6 +388,17 @@ export function Jobs() {
               </button>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {zeitEdit && (
+        <Modal title={zeitEdit.job.schiffsname ?? "Job"} onClose={() => setZeitEdit(null)} maxWidth="320px" titelZentriert>
+          <ZeitFeldModal
+            label={zeitEdit.label}
+            initial={zeitEdit.wert}
+            onUebernehmen={handleZeitUebernehmen}
+            onAbbrechen={() => setZeitEdit(null)}
+          />
         </Modal>
       )}
     </div>
