@@ -11,12 +11,14 @@
  *   berücksichtigt, abgerufene Jobs verbrauchen ihre Lotsen positionsweise
  *   von oben (AG/Tender mit ihrer Lotsenanzahl).
  *
- * Teilnahmebedingungen innerhalb der Gruppe: Kat. >= 4 (darfJobTyp),
- * Törnstand > 0 in der passenden Spalte (0 = keine Teilnahme am Dienst)
- * und die Schiffs-Kat. des Jobs muss gefahren werden dürfen. Ist in der
- * 4er-Gruppe niemand geeignet, rücken die nächsten Lotsen der Reihenfolge
- * einzeln nach — der erste Geeignete bekommt den Job. Bei gleichem
- * Törnstand gewinnt die frühere Listenposition.
+ * Die Gruppe besteht aus den ersten 4 Lotsen (ab dem jeweiligen
+ * Zählstart), die den Job auch wirklich übernehmen KÖNNEN: Schiffs-Kat.
+ * fahren dürfen (Schiff<>Lotsen-Kat.-Regel), Kat. >= 4 (darfJobTyp) und
+ * Törnstand > 0 in der passenden Spalte (0 = keine Teilnahme am Dienst).
+ * Wer eine Bedingung nicht erfüllt, wird übersprungen und zählt nicht zur
+ * Gruppe — gesucht wird so lange, bis 4 Lotsen gefunden sind (notfalls
+ * bleibt die Gruppe kleiner). Der geringste Törnstand gewinnt; bei
+ * Gleichstand die frühere Listenposition.
  */
 import {
   darfFahren,
@@ -169,17 +171,21 @@ export function planeListenvergabe(
     reihe = kandidaten.slice(gebunden);
   }
 
-  const gruppe = reihe.slice(0, VERGABE_GRUPPE);
-  const geeignete = gruppe.filter((l) => istGeeignet(job, l, typ));
-
-  let gewinner: LotsenEintrag | undefined;
-  if (geeignete.length > 0) {
-    // geringster Törnstand; bei Gleichstand die frühere Listenposition
-    gewinner = geeignete.reduce((best, l) => (toernStand(l, typ) < toernStand(best, typ) ? l : best));
-  } else {
-    // niemand in der 4er-Gruppe geeignet: die nächsten rücken einzeln nach
-    gewinner = reihe.slice(VERGABE_GRUPPE).find((l) => istGeeignet(job, l, typ));
+  // Gruppe: die ersten 4 GEEIGNETEN Lotsen ab dem Zählstart — wer das
+  // Schiff nicht fahren darf oder nicht am Dienst teilnimmt, wird
+  // übersprungen; gesucht wird durch die ganze Liste, bis 4 gefunden sind.
+  const gruppe: LotsenEintrag[] = [];
+  for (const lotse of reihe) {
+    if (gruppe.length >= VERGABE_GRUPPE) break;
+    if (istGeeignet(job, lotse, typ)) gruppe.push(lotse);
   }
+
+  // geringster Törnstand gewinnt; bei Gleichstand die frühere Listenposition
+  // (reduce ersetzt nur bei echt kleinerem Törn).
+  const gewinner =
+    gruppe.length > 0
+      ? gruppe.reduce((best, l) => (toernStand(l, typ) < toernStand(best, typ) ? l : best))
+      : undefined;
 
   return { typ, gruppe, gewinner };
 }
