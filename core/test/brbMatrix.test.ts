@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   ABTEILUNG_VOR_ANKUNFT_MIN,
   berechneBrbPrognose,
+  berechneSeePrognose,
   minutenVorNaechstemHw,
+  SEE_ABFAHRT_OFFSET_MIN,
   type HwBrb,
 } from "../src/brbMatrix";
 import { BRB_MATRIX } from "../src/brbMatrixDaten";
@@ -45,14 +47,14 @@ describe("berechneBrbPrognose", () => {
     const p = berechneBrbPrognose(hhJob({ fkwTickerAbgang: um("11:30") }), hwBrb)!;
     expect(p.basis).toBe("fkw");
     expect(p.offsetVorHwMin).toBe(30);
-    expect(p.fahrzeitMin).toBe(BRB_MATRIX.halo[30].normal.brb);
+    expect(p.fahrzeitMin).toBe(BRB_MATRIX.halo[30].normal);
     expect(p.ankunftBrb.getTime()).toBe(um("11:30").getTime() + p.fahrzeitMin * 60_000);
   });
 
   it("interpoliert linear zwischen zwei Stützstellen", () => {
     // 37,5 min vor HW → Mittelwert der Zeilen 30 und 45
     const p = berechneBrbPrognose(hhJob({ fkwTickerAbgang: new Date(um("11:22").getTime() - 30_000) }), hwBrb)!;
-    const erwartet = (BRB_MATRIX.halo[30].normal.brb + BRB_MATRIX.halo[45].normal.brb) / 2;
+    const erwartet = (BRB_MATRIX.halo[30].normal + BRB_MATRIX.halo[45].normal) / 2;
     expect(p.fahrzeitMin).toBe(Math.round(erwartet));
   });
 
@@ -62,7 +64,7 @@ describe("berechneBrbPrognose", () => {
       hwBrb
     )!;
     expect(p.basis).toBe("stade");
-    expect(p.fahrzeitMin).toBe(BRB_MATRIX.dow[30].schnell.brb);
+    expect(p.fahrzeitMin).toBe(BRB_MATRIX.stade[30].schnell);
   });
 
   it("unterscheidet die Geschwindigkeitsklassen", () => {
@@ -79,6 +81,33 @@ describe("berechneBrbPrognose", () => {
   it("liefert undefined für Nicht-HH-Jobs und ohne Meldepunkt", () => {
     expect(berechneBrbPrognose({ jobNr: 1, routentyp: "NOK", fkwTickerAbgang: um("11:30") }, hwBrb)).toBeUndefined();
     expect(berechneBrbPrognose(hhJob({ hhHoltenau: um("10:00") }), hwBrb)).toBeUndefined();
+  });
+});
+
+describe("berechneSeePrognose", () => {
+  it("addiert den Herkunfts-Offset bis zur Abfahrt Tn_59", () => {
+    for (const herkunft of ["HH", "NOK", "VNR"] as const) {
+      const p = berechneSeePrognose(um("11:00"), herkunft, "normal", hwBrb);
+      expect(p.abfahrtTn59.getTime()).toBe(
+        um("11:00").getTime() + SEE_ABFAHRT_OFFSET_MIN[herkunft] * 60_000
+      );
+    }
+  });
+
+  it("liest exakte Stützstellen aus der See-Tabelle (Offset zur Abfahrt Tn_59)", () => {
+    // Abteilung 11:15 + 15 min (HH) = Abfahrt 11:30 = 30 min vor HW
+    const p = berechneSeePrognose(um("11:15"), "HH", "normal", hwBrb);
+    expect(p.offsetVorHwMin).toBe(30);
+    expect(p.fahrzeitMin).toBe(BRB_MATRIX.see[30].normal);
+    expect(p.ankunftSee.getTime()).toBe(p.abfahrtTn59.getTime() + p.fahrzeitMin * 60_000);
+  });
+
+  it("unterscheidet die Geschwindigkeitsklassen und defaultet auf normal", () => {
+    const langsam = berechneSeePrognose(um("11:15"), "HH", "langsam", hwBrb);
+    const schnell = berechneSeePrognose(um("11:15"), "HH", "schnell", hwBrb);
+    const standard = berechneSeePrognose(um("11:15"), "HH", undefined, hwBrb);
+    expect(langsam.fahrzeitMin).toBeGreaterThan(schnell.fahrzeitMin);
+    expect(standard.fahrzeitMin).toBe(BRB_MATRIX.see[30].normal);
   });
 });
 

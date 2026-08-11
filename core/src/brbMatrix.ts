@@ -63,8 +63,8 @@ function interpoliere(
 
   const unten = Math.floor(geklemmt / MATRIX_SCHRITT_MIN) * MATRIX_SCHRITT_MIN;
   const oben = Math.min(unten + MATRIX_SCHRITT_MIN, maxOffset);
-  const a = tabelle[unten][klasse].brb;
-  const b = tabelle[oben][klasse].brb;
+  const a = tabelle[unten][klasse];
+  const b = tabelle[oben][klasse];
   if (oben === unten) return a;
   const t = (geklemmt - unten) / (oben - unten);
   return a + (b - a) * t;
@@ -90,7 +90,7 @@ export function berechneBrbPrognose(job: Job, hwBrb: HwBrb): BrbPrognose | undef
   if (!basis) return undefined;
 
   const start = basis === "stade" ? job.stadeKuden! : job.fkwTickerAbgang!;
-  const tabelle = basis === "stade" ? BRB_MATRIX.dow : BRB_MATRIX.halo;
+  const tabelle = basis === "stade" ? BRB_MATRIX.stade : BRB_MATRIX.halo;
 
   const offsetVorHwMin = minutenVorNaechstemHw(hwBrb, start);
   const fahrzeitMin = interpoliere(tabelle, klasse, offsetVorHwMin);
@@ -102,6 +102,55 @@ export function berechneBrbPrognose(job: Job, hwBrb: HwBrb): BrbPrognose | undef
     abteilzeit,
     fahrzeitMin: Math.round(fahrzeitMin),
     basis,
+    offsetVorHwMin: Math.round(offsetVorHwMin),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Brb >> SEE: Anreise eines abgeteilten Lotsen zur Seestation
+
+/** Woher der abgeteilte Lotse kommt — bestimmt den Vorlauf von der
+ *  Abteilung bis zur Abfahrt an der Brücke (Tonne_59). "VNR" = andere Jobs
+ *  mit V-Nr. (EHF, BHF); Tender-AG bleibt bewusst außen vor (pauschal). */
+export type SeeHerkunft = "HH" | "NOK" | "VNR";
+
+/** Abteilung → Abfahrt Tonne_59 in Minuten, je Herkunft. */
+export const SEE_ABFAHRT_OFFSET_MIN: Record<SeeHerkunft, number> = {
+  HH: 15,
+  NOK: 20,
+  VNR: 40,
+};
+
+export interface SeePrognose {
+  /** Abfahrt an der Brücke Brb (Tonne_59) = Abteilzeit + Herkunfts-Offset */
+  abfahrtTn59: Date;
+  /** voraussichtliche Ankunft Seestation (Tonne_5) */
+  ankunftSee: Date;
+  /** reine Fahrzeit Tonne_59 → Tonne_5 in Minuten */
+  fahrzeitMin: number;
+  /** verwendeter Abfahrts-Offset: Minuten vor dem nächsten HW Brb */
+  offsetVorHwMin: number;
+}
+
+/**
+ * Matrixbasierte ETA Seestation für einen abgeteilten Lotsen:
+ * Abfahrt Tn_59 = Abteilzeit + Offset (HH 15 / NOK 20 / V-Nr-Jobs 40 min),
+ * dann Fahrzeit Tn_59 → Tonne_5 aus der See-Tabelle.
+ */
+export function berechneSeePrognose(
+  abteilZeit: Date,
+  herkunft: SeeHerkunft,
+  klasse: Geschwindigkeitsklasse | undefined,
+  hwBrb: HwBrb
+): SeePrognose {
+  const abfahrtTn59 = new Date(abteilZeit.getTime() + SEE_ABFAHRT_OFFSET_MIN[herkunft] * 60_000);
+  const offsetVorHwMin = minutenVorNaechstemHw(hwBrb, abfahrtTn59);
+  const fahrzeitMin = interpoliere(BRB_MATRIX.see, klasse ?? "normal", offsetVorHwMin);
+  const ankunftSee = new Date(abfahrtTn59.getTime() + fahrzeitMin * 60_000);
+  return {
+    abfahrtTn59,
+    ankunftSee,
+    fahrzeitMin: Math.round(fahrzeitMin),
     offsetVorHwMin: Math.round(offsetVorHwMin),
   };
 }

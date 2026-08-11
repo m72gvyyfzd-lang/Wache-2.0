@@ -1,7 +1,7 @@
 /** Gemeinsame Bausteine der drei Job-Bearbeitungsformulare und des
  *  Lotsen-Formulars. */
 import { useState } from "react";
-import { SCHIFFS_KATEGORIEN } from "@wache/core";
+import { SCHIFFS_KATEGORIEN, type Geschwindigkeitsklasse } from "@wache/core";
 import { formatUhrzeit } from "../lib/format";
 import { toLocalDateInput } from "../lib/datetime";
 
@@ -20,6 +20,35 @@ export function SchiffKatSelect({ value, onChange, className }: SchiffKatSelectP
         {SCHIFFS_KATEGORIEN.map((kat) => (
           <option key={kat} value={kat}>
             {kat}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+interface SpeedSelectProps {
+  value: Geschwindigkeitsklasse;
+  onChange: (wert: Geschwindigkeitsklasse) => void;
+  className?: string;
+}
+
+/** Geschwindigkeitsklasse für die Tiden-Matrix (Brb-Abteilzeit + Brb>>SEE).
+ *  Kurzlabels ohne kn-Angabe — die Klassen stehen fest für 9 / 11,5 / 14 kn. */
+const SPEED_LABELS: Record<Geschwindigkeitsklasse, string> = {
+  langsam: "slow",
+  normal: "normal",
+  schnell: "fast",
+};
+
+export function SpeedSelect({ value, onChange, className }: SpeedSelectProps) {
+  return (
+    <label className={className}>
+      Speed
+      <select value={value} onChange={(e) => onChange(e.target.value as Geschwindigkeitsklasse)}>
+        {(Object.keys(SPEED_LABELS) as Geschwindigkeitsklasse[]).map((klasse) => (
+          <option key={klasse} value={klasse}>
+            {SPEED_LABELS[klasse]}
           </option>
         ))}
       </select>

@@ -241,7 +241,9 @@ export function Jobs() {
       />
 
       {dialog && (
-        <Modal title={DIALOG_TITEL[dialog.liste]} onClose={() => setDialog(null)}>
+        // etwas breiter als der 560px-Standard: Ebene 1 trägt seit dem
+        // Speed-Dropdown fünf Spalten (Name/Kat./Speed/Bütz bzw. Kalender)
+        <Modal title={DIALOG_TITEL[dialog.liste]} onClose={() => setDialog(null)} maxWidth="640px">
           {dialog.liste === "hamburg" && <JobFormHamburg {...formProps} />}
           {dialog.liste === "nok" && <JobFormNok {...formProps} />}
           {dialog.liste === "andere" && <JobFormAndere {...formProps} verknuepfbareJobs={verknuepfbar} />}

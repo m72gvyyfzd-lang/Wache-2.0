@@ -101,24 +101,14 @@
 .job-form__abtzeit-eingabe input {
   text-align: right;
 }
-
-/* Hinweiszeile unter der Abt.-Zeit, wenn die Tiden-Matrix greift. */
-.job-form__brb-prognose {
-  margin-left: auto;
-  font-size: 0.8rem;
-  color: var(--ink-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Gemeinsames Zeitraster (HH/NOK): Ebene 1 (Schiffsname/Kat./ggf. Bütz),
-   Ebene 2 (Zeiten) und Ebene 3 (Datum) teilen sich exakt dieselben vier
-   Spalten — so schließt Schiffsname bündig mit der 2. Zeitspalte ab, Kat.
-   erbt die Breite der 3. Zeitspalte, und die Datumsfelder sind automatisch
-   genauso breit wie ihre Zeitfelder darüber. Die 4. Spalte ist schmal und
-   fest (Bütz-Häkchen bzw. Kalender-Knopf bzw. in Ebene 3 leer). */
+/* Gemeinsames Zeitraster (HH/NOK): Ebene 1 (Schiffsname/Kat./Speed/ggf.
+   Bütz), Ebene 2 (Zeiten) und Ebene 3 (Datum) teilen sich exakt dieselben
+   fünf Spalten — Schiffsname über die ersten beiden, Kat. und Speed gleich
+   breit in Spalte 3/4, die Zeit-/Datumsfelder in Spalte 1–3. Die 5. Spalte
+   ist schmal und fest (Bütz-Häkchen bzw. Kalender-Knopf bzw. leer). */
 .job-form__zeitgitter {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 38px;
+  grid-template-columns: 1fr 1fr 1fr 1fr 38px;
   gap: 12px;
   align-items: end;
 }
@@ -131,8 +121,12 @@
   grid-column: 3;
 }
 
-.job-form__zg-extra {
+.job-form__zg-speed {
   grid-column: 4;
+}
+
+.job-form__zg-extra {
+  grid-column: 5;
 }
 
 /* "Alle Überschriften zentrieren" (HH/NOK): die Beschriftung über jedem

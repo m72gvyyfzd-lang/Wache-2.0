@@ -1,8 +1,10 @@
 /** Berechnungen rund um die Seestation. */
 import type { Abteilung, SeestationLotse } from "../data/types";
+import { etaSeestationMatrix } from "./coreJob";
 
-/** Anfahrtszeit von der Abteilung bis zur Seestation (wird später
- *  verfeinert) — auch Grundlage der AG-Fahrt-Vorschläge im Dashboard. */
+/** Pauschale Anfahrtszeit von der Abteilung bis zur Seestation — Fallback,
+ *  wenn die Brb>>SEE-Matrix nicht greift (kein HW-Paar, Tender-AG, alte
+ *  Datensätze) — auch Grundlage der AG-Fahrt-Vorschläge im Dashboard. */
 export const ANFAHRT_SEESTATION_MS = 3.5 * 3_600_000;
 
 /** Ein Lotse muss min. 1 Std. vor dem Schiffs-ETA auf der Seestation sein. */
@@ -19,10 +21,16 @@ export const VORLAUF_AUF_STATION_MS = 3_600_000;
  *  neutrales Modul ohne Rückimport vermeidet einen Zirkelbezug. */
 export const TENDER_VORLAUF_MS = 3 * 3_600_000;
 
-/** "Ankunft S-Stn"/"ETA Stn" eines Lotsen im Revier: Abteilzeit + Anfahrt;
- *  ein manueller Wert sticht die Berechnung aus. */
+/** "Ankunft S-Stn"/"ETA Stn" eines Lotsen im Revier: Brb>>SEE-Matrix
+ *  (Abfahrt Tn_59 = Abteilzeit + Herkunfts-Offset, dann Fahrzeit je
+ *  Tidenlage), sonst Abteilzeit + pauschale Anfahrt; ein manueller Wert
+ *  sticht beides aus. */
 export function etaSeestation(abteilung: Abteilung): Date {
-  return abteilung.etaStnManuell ?? new Date(abteilung.abteilZeit.getTime() + ANFAHRT_SEESTATION_MS);
+  return (
+    abteilung.etaStnManuell ??
+    etaSeestationMatrix(abteilung.abteilZeit, abteilung.seeHerkunft, abteilung.geschwindigkeitsklasse) ??
+    new Date(abteilung.abteilZeit.getTime() + ANFAHRT_SEESTATION_MS)
+  );
 }
 
 /** Einheitliche Zeile der Liste "Auf Seestation": Lotsen aus der

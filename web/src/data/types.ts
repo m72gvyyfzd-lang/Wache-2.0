@@ -1,4 +1,4 @@
-import type { AnmeldungsTyp, Geschwindigkeitsklasse } from "@wache/core";
+import type { AnmeldungsTyp, Geschwindigkeitsklasse, SeeHerkunft } from "@wache/core";
 
 /** Zu welcher der drei Job-Listen ein Eintrag fest gehört. Ein Job wird in
  *  der Liste bearbeitet, in der er angelegt wurde — kein Wechsel über eine
@@ -28,8 +28,9 @@ export interface JobEintrag {
   fkw?: Date;
   stade?: Date;
   geplAbgang?: Date;
-  /** Geschwindigkeitsklasse für die matrixbasierte Brb-Prognose
-   *  (leer = "normal"). Nur für HH-Jobs relevant, siehe core::brbMatrix. */
+  /** Geschwindigkeitsklasse für die Tiden-Matrizen (leer = "normal"):
+   *  HH-Jobs → Brb-Abteilzeit + Brb>>SEE; NOK/EHF/BHF → nur Brb>>SEE.
+   *  Siehe core::brbMatrix. */
   geschwindigkeitsklasse?: Geschwindigkeitsklasse;
 
   // Liste NOK
@@ -142,8 +143,15 @@ export interface Abteilung {
   /** Zeitpunkt des Abteilens (Klickzeit) */
   abteilZeit: Date;
   /** manueller Override für "Ankunft S-Stn"/"ETA Stn" (Standard-Berechnung:
-   *  Abteilzeit + 3,5 Std.) */
+   *  Brb>>SEE-Matrix bzw. Abteilzeit + 3,5 Std. als Fallback) */
   etaStnManuell?: Date;
+  /** Herkunft für die Brb>>SEE-Matrix (HH +15 / NOK +20 / VNR +40 min bis
+   *  Abfahrt Tn_59), beim Abteilen eingefroren. undefined = pauschale
+   *  Anfahrt (z.B. Tender-AG, verwaiste AG, alte Datensätze). */
+  seeHerkunft?: SeeHerkunft;
+  /** Geschwindigkeitsklasse des Schiffs für die Brb>>SEE-Matrix, beim
+   *  Abteilen eingefroren (leer = "normal"). */
+  geschwindigkeitsklasse?: Geschwindigkeitsklasse;
   /** true, sobald der Lotse auf der Seestation angekommen ist ("Auf
    *  Station") — er verschwindet dann aus "Lotsen im Revier" und wird auf
    *  der Seestation fett dargestellt. */

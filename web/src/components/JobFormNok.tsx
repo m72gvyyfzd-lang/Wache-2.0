@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { getAbteilzeitSettings } from "@wache/core";
+import { getAbteilzeitSettings, type Geschwindigkeitsklasse } from "@wache/core";
 import type { JobEintrag } from "../data/types";
 import { abteilzeitVon } from "../lib/coreJob";
 import { ausDatumUndZeit, toLocalDateInput, toLocalTimeInput } from "../lib/datetime";
-import { AbtZeitAnzeige, DatumToggleButton, FormActions, handleZeitMitPrefill, SchiffKatSelect } from "./formShared";
+import { AbtZeitAnzeige, DatumToggleButton, FormActions, handleZeitMitPrefill, SchiffKatSelect, SpeedSelect } from "./formShared";
 import "./JobForm.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
@@ -18,6 +18,9 @@ interface JobFormNokProps {
 export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNokProps) {
   const [schiffsname, setSchiffsname] = useState(initial?.schiffsname ?? "");
   const [kategorie, setKategorie] = useState(initial?.kategorie ?? "");
+  const [geschwindigkeit, setGeschwindigkeit] = useState<Geschwindigkeitsklasse>(
+    initial?.geschwindigkeitsklasse ?? "normal",
+  );
   const [bemerkung, setBemerkung] = useState(initial?.bemerkung ?? "");
   const [holtDatum, setHoltDatum] = useState(toLocalDateInput(initial?.holt));
   const [holtZeit, setHoltZeit] = useState(toLocalTimeInput(initial?.holt));
@@ -42,6 +45,7 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
       ticker: ausDatumUndZeit(tickerDatum, tickerZeit),
       kuden: ausDatumUndZeit(kudenDatum, kudenZeit),
       abtZeitManuell: ausDatumUndZeit(manDatum, manZeit),
+      geschwindigkeitsklasse: geschwindigkeit === "normal" ? undefined : geschwindigkeit,
     };
   }
 
@@ -60,6 +64,7 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
           <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} />
         </label>
         <SchiffKatSelect value={kategorie} onChange={setKategorie} className="job-form__zg-kat" />
+        <SpeedSelect value={geschwindigkeit} onChange={setGeschwindigkeit} className="job-form__zg-speed" />
       </div>
 
       <div className="job-form__row job-form__zeitgitter">

@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { ANMELDUNGS_TYPEN, getAbteilzeitSettings } from "@wache/core";
-import type { AnmeldungsTyp } from "@wache/core";
+import type { AnmeldungsTyp, Geschwindigkeitsklasse } from "@wache/core";
 import type { JobEintrag } from "../data/types";
 import { abteilzeitVon } from "../lib/coreJob";
 import { ausDatumUndZeit, fromLocalInput, toLocalDateInput, toLocalInput, toLocalTimeInput } from "../lib/datetime";
-import { FormActions, handleZeitMitPrefill, SchiffKatSelect } from "./formShared";
+import { FormActions, handleZeitMitPrefill, SchiffKatSelect, SpeedSelect } from "./formShared";
 import "./JobForm.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
@@ -25,10 +25,20 @@ interface JobFormAndereProps {
   onCancel: () => void;
 }
 
+/** Typen mit V-Nr. und eigenem Schiff: die Lotsen fahren nach der Abteilung
+ *  mit dem eigenen Schiff zur Seestation → Speed-Auswahl für die
+ *  Brb>>SEE-Matrix. (AG erbt vom Trägerjob, Tender-AG bleibt pauschal.) */
+function mitSpeedAuswahl(typ: AnmeldungsTyp | ""): boolean {
+  return typ === "EHF" || typ === "BHF";
+}
+
 export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, onCancel }: JobFormAndereProps) {
   const [typ, setTyp] = useState<AnmeldungsTyp | "">(initial?.typ ?? "");
   const [schiffsname, setSchiffsname] = useState(initial?.schiffsname ?? "");
   const [kategorie, setKategorie] = useState(initial?.kategorie ?? "");
+  const [geschwindigkeit, setGeschwindigkeit] = useState<Geschwindigkeitsklasse>(
+    initial?.geschwindigkeitsklasse ?? "normal",
+  );
   const [bemerkung, setBemerkung] = useState(initial?.bemerkung ?? "");
   const [agJobId, setAgJobId] = useState(initial?.agJobId !== undefined ? String(initial.agJobId) : "");
   const [agLotsen, setAgLotsen] = useState(initial?.agLotsenAnzahl !== undefined ? String(initial.agLotsenAnzahl) : "");
@@ -121,6 +131,8 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
       ehfLotseBenoetigt: typ === "EHF" ? ehfLotse : undefined,
       bhfBesetzZeit: typ === "BHF" ? fromLocalInput(bhfBesetzZeit) : undefined,
       abtZeitManuell: ausDatumUndZeit(abtZeitDatum, abtZeitZeit),
+      geschwindigkeitsklasse:
+        mitSpeedAuswahl(typ) && geschwindigkeit !== "normal" ? geschwindigkeit : undefined,
     });
   }
 
@@ -148,6 +160,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
           <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} />
         </label>
         <SchiffKatSelect value={kategorie} onChange={setKategorie} />
+        {mitSpeedAuswahl(typ) && <SpeedSelect value={geschwindigkeit} onChange={setGeschwindigkeit} />}
       </div>
 
       <div className="job-form__row job-form__typfelder">

@@ -23,7 +23,7 @@
  */
 import type { AbteilzeitSettings } from "@wache/core";
 import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
-import { benoetigteLotsenAnzahl, istOhneVNrJob, sortiereEintraege } from "./coreJob";
+import { benoetigteLotsenAnzahl, etaSeestationMatrix, istOhneVNrJob, seeReiseInfoVon, sortiereEintraege } from "./coreJob";
 import { sortiereUndNummeriere } from "./lotsenOrdnung";
 import { planeEinsatzstation } from "./planungEinsatzstation";
 import { ANFAHRT_SEESTATION_MS, TENDER_VORLAUF_MS, type SeestationZeile } from "./seestation";
@@ -83,9 +83,13 @@ export function vorschauZeilen(
     if (!abteilzeit || istOhneVNrJob(job)) continue;
     // Überfällige Jobs (Abteilzeit schon vorbei) fahren frühestens jetzt ab
     // — sonst gälte der Lotse fälschlich als längst angekommen.
-    const abfahrt = Math.max(abteilzeit.getTime(), jetzt.getTime());
+    const abfahrt = new Date(Math.max(abteilzeit.getTime(), jetzt.getTime()));
+    const seeReise = seeReiseInfoVon(job, jobs);
+    const etaStn =
+      etaSeestationMatrix(abfahrt, seeReise?.herkunft, seeReise?.klasse) ??
+      new Date(abfahrt.getTime() + ANFAHRT_SEESTATION_MS);
     for (const lotse of zuweisungen.get(job.id) ?? []) {
-      verplante.push(zeile(lotse, new Date(abfahrt + ANFAHRT_SEESTATION_MS), "verplant"));
+      verplante.push(zeile(lotse, etaStn, "verplant"));
     }
   }
 

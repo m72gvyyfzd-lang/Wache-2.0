@@ -10,7 +10,14 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import type { JobEintrag } from "../data/types";
-import { benoetigteLotsenAnzahl, istAgJob, istOhneVNrJob, sortiereEintraege, vonTypeLabel } from "../lib/coreJob";
+import {
+  benoetigteLotsenAnzahl,
+  istAgJob,
+  istOhneVNrJob,
+  seeReiseInfoVon,
+  sortiereEintraege,
+  vonTypeLabel,
+} from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { FAHRT_ZEILE_KLASSE, formatAbrufzeit, sortiereUndNummeriere, type LotseMitOrdnung } from "../lib/lotsenOrdnung";
 import { abteilzeitProLotse, eignungsWarnung, geplanterAbruf, planeEinsatzstation } from "../lib/planungEinsatzstation";
@@ -149,6 +156,9 @@ export function Einsatzplanung() {
   function handleAbteilenJa() {
     if (!abteilenJob || abteilenLotsen.length === 0) return;
     const ohne = istOhneVNrJob(abteilenJob);
+    // Herkunft + Speed für die Brb>>SEE-Matrix im Moment des Abteilens
+    // einfrieren (klassische AG erbt hier vom Trägerjob).
+    const seeReise = seeReiseInfoVon(abteilenJob, jobs);
     abteilenLotsen.forEach((lotse, i) => {
       teileAb(
         {
@@ -160,6 +170,8 @@ export function Einsatzplanung() {
           lotsenKategorie: lotse.eintrag.kategorie,
           elbehafen: lotse.eintrag.elbehafen,
           abteilZeit: new Date(),
+          seeHerkunft: seeReise?.herkunft,
+          geschwindigkeitsklasse: seeReise?.klasse,
         },
         lotse.index,
       );

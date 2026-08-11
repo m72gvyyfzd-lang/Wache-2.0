@@ -1,7 +1,14 @@
 /** Übersetzt den UI-Datentyp JobEintrag in den Berechnungstyp Job aus
  *  @wache/core und bündelt die darauf aufbauenden Helfer. */
-import { berechneAbteilzeit, berechneBrbPrognose } from "@wache/core";
-import type { AbteilzeitSettings, BrbPrognose, HwBrb, Job } from "@wache/core";
+import { berechneAbteilzeit, berechneBrbPrognose, berechneSeePrognose } from "@wache/core";
+import type {
+  AbteilzeitSettings,
+  BrbPrognose,
+  Geschwindigkeitsklasse,
+  HwBrb,
+  Job,
+  SeeHerkunft,
+} from "@wache/core";
 import type { HwBrbEingabe, JobEintrag } from "../data/types";
 
 /** Aktuell gültiges HW-Paar Brunsbüttel für die matrixbasierte Brb-Prognose.
@@ -55,6 +62,40 @@ export function abteilzeitVon(eintrag: JobEintrag, settings: AbteilzeitSettings)
 export function brbPrognoseVon(eintrag: JobEintrag): BrbPrognose | undefined {
   if (!hwBrbAktuell) return undefined;
   return berechneBrbPrognose(zuCoreJob(eintrag), hwBrbAktuell);
+}
+
+export interface SeeReiseInfo {
+  herkunft: SeeHerkunft;
+  klasse?: Geschwindigkeitsklasse;
+}
+
+/**
+ * Woher/womit die Lotsen dieses Jobs nach der Abteilung zur Seestation
+ * fahren — Grundlage der Brb>>SEE-Matrix. undefined = pauschale Anfahrt:
+ * Tender-AG (fester 3,5-Std.-Wert bleibt), verwaiste AG und die
+ * Vergabe-Typen ohne V-Nr. (fahren gar nicht zur Seestation).
+ */
+export function seeReiseInfoVon(eintrag: JobEintrag, alleJobs: JobEintrag[]): SeeReiseInfo | undefined {
+  if (eintrag.liste === "hamburg") return { herkunft: "HH", klasse: eintrag.geschwindigkeitsklasse };
+  if (eintrag.liste === "nok") return { herkunft: "NOK", klasse: eintrag.geschwindigkeitsklasse };
+  // klassische AG: fährt mit dem Trägerschiff → dessen Herkunft + Speed
+  if (eintrag.typ === "AG") {
+    const traeger = alleJobs.find((j) => j.id === eintrag.agJobId);
+    return traeger ? seeReiseInfoVon(traeger, alleJobs) : undefined;
+  }
+  if (eintrag.typ === "AG (Tender)" || istOhneVNrJob(eintrag)) return undefined;
+  return { herkunft: "VNR", klasse: eintrag.geschwindigkeitsklasse };
+}
+
+/** Matrixbasierte ETA Seestation ab Abteilzeitpunkt; undefined ohne
+ *  HW-Paar oder ohne See-Reise-Info → Aufrufer nutzt die Pauschale. */
+export function etaSeestationMatrix(
+  abteilZeit: Date,
+  herkunft: SeeHerkunft | undefined,
+  klasse: Geschwindigkeitsklasse | undefined
+): Date | undefined {
+  if (!hwBrbAktuell || !herkunft) return undefined;
+  return berechneSeePrognose(abteilZeit, herkunft, klasse, hwBrbAktuell).ankunftSee;
 }
 
 /** Anzeige für die Spalte "Von / Type": Herkunftsliste bzw. Anmeldungs-Typ.
