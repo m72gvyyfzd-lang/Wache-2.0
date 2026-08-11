@@ -19,8 +19,9 @@ import type {
   SeeSchiff,
   SeestationLotse,
 } from "../data/types";
-import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "./coreJob";
+import { abteilzeitVon, benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "./coreJob";
 import { formatUhrzeit } from "./format";
+import { istListenvergabeJob } from "./listenvergabe";
 import { geplanterAbruf, planeEinsatzstation } from "./planungEinsatzstation";
 import { berechneSeestationsDefizite } from "./seestationBedarf";
 
@@ -86,6 +87,31 @@ function abrufMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitS
 
   for (const { eintrag: job, abteilzeit } of jobsSortiert) {
     if (!abteilzeit) continue;
+    // Listenvergaben haben keinen Abruf-Vorlauf — die Abteilung erfolgt
+    // direkt mit dem Anruf. Vorwarnung/Alarm hängen deshalb an der
+    // ABTEILZEIT selbst (und erlöschen mit dem Abteilen, weil der Job dann
+    // aus der Planung fällt).
+    if (istListenvergabeJob(job)) {
+      const gewinner = (zuweisungen.get(job.id) ?? [])[0];
+      const wer = gewinner ? `${gewinner.name} anrufen und abteilen` : "kein geeigneter Lotse in der Zählung";
+      const rest = abteilzeit.getTime() - jetzt.getTime();
+      if (rest <= 0) {
+        meldungen.push({
+          id: `vergabe-abteilung-alarm-${job.id}`,
+          stufe: "alarm",
+          zeit: abteilzeit,
+          text: `Listenvergabe ${job.typ} überfällig: Abteilung ${formatUhrzeit(abteilzeit)} — ${wer}`,
+        });
+      } else if (rest <= ABRUF_VORWARNUNG_MS) {
+        meldungen.push({
+          id: `vergabe-abteilung-warnung-${job.id}`,
+          stufe: "warnung",
+          zeit: abteilzeit,
+          text: `Listenvergabe ${job.typ} um ${formatUhrzeit(abteilzeit)} abteilen — ${wer}`,
+        });
+      }
+      continue;
+    }
     for (const lotse of zuweisungen.get(job.id) ?? []) {
       if (lotse.abgerufen) continue;
       const abruf = geplanterAbruf(abteilzeit, lotse.abrufStunden);
@@ -180,10 +206,56 @@ function namensMeldungen(daten: MeldungsDaten): Meldung[] {
   return meldungen;
 }
 
+/**
+ * Listenvergabe-Überwachung:
+ * - zwei Listenvergaben dürfen nicht zeitgleich abgeteilt werden (bei
+ *   mehreren Vergaben gilt 1 Minute Abstand: 12:01, 12:02, …)
+ * - WR wird nur um 06:01, 12:01 oder 18:01 abgeteilt.
+ */
+function listenvergabeMeldungen(daten: MeldungsDaten, settings: AbteilzeitSettings): Meldung[] {
+  const meldungen: Meldung[] = [];
+  const vergaben = daten.jobs
+    .map((job) => ({ job, abteilzeit: abteilzeitVon(job, settings) }))
+    .filter(({ job }) => istListenvergabeJob(job));
+
+  const proMinute = new Map<number, JobEintrag[]>();
+  for (const { job, abteilzeit } of vergaben) {
+    if (!abteilzeit) continue;
+    const minute = Math.floor(abteilzeit.getTime() / 60_000);
+    proMinute.set(minute, [...(proMinute.get(minute) ?? []), job]);
+  }
+  for (const [minute, jobs] of proMinute) {
+    if (jobs.length < 2) continue;
+    const zeit = new Date(minute * 60_000);
+    meldungen.push({
+      id: `vergabe-zeitgleich-${jobs.map((j) => j.id).join("-")}`,
+      stufe: "alarm",
+      text: `Listenvergaben ${jobs.map((j) => j.typ).join(" und ")} zeitgleich um ${formatUhrzeit(zeit)} — bitte im Minutenabstand abteilen (z.B. ${formatUhrzeit(zeit)}, ${formatUhrzeit(new Date(zeit.getTime() + 60_000))}, …)`,
+      zeit,
+    });
+  }
+
+  for (const { job, abteilzeit } of vergaben) {
+    if (job.typ !== "WR" || !abteilzeit) continue;
+    const stunden = abteilzeit.getHours();
+    const minuten = abteilzeit.getMinutes();
+    if ((stunden === 6 || stunden === 12 || stunden === 18) && minuten === 1) continue;
+    meldungen.push({
+      id: `vergabe-wr-zeit-${job.id}`,
+      stufe: "alarm",
+      text: `WR-Vergabe um ${formatUhrzeit(abteilzeit)} eingetragen — WR wird um 06:01, 12:01 oder 18:01 abgeteilt`,
+      zeit: abteilzeit,
+    });
+  }
+
+  return meldungen;
+}
+
 export function berechneMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitSettings): Meldung[] {
   return sortiereMeldungen([
     ...abrufMeldungen(daten, jetzt, settings),
     ...seestationsMeldungen(daten, jetzt, settings),
     ...namensMeldungen(daten),
+    ...listenvergabeMeldungen(daten, settings),
   ]);
 }

@@ -3,7 +3,16 @@ import { getAbteilzeitSettings, type Geschwindigkeitsklasse } from "@wache/core"
 import type { JobEintrag } from "../data/types";
 import { abteilzeitVon } from "../lib/coreJob";
 import { ausDatumUndZeit, toLocalDateInput, toLocalTimeInput } from "../lib/datetime";
-import { AbtZeitAnzeige, DatumToggleButton, FormActions, handleZeitMitPrefill, SchiffKatSelect, SpeedSelect } from "./formShared";
+import {
+  AbtZeitAnzeige,
+  DatumToggleButton,
+  FormActions,
+  handleZeitMitPrefill,
+  mitToken,
+  ohneToken,
+  SchiffKatSelect,
+  SpeedSelect,
+} from "./formShared";
 import "./JobForm.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
@@ -30,9 +39,15 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
   const [kudenZeit, setKudenZeit] = useState(toLocalTimeInput(initial?.kuden));
   const [manDatum, setManDatum] = useState(toLocalDateInput(initial?.abtZeitManuell));
   const [manZeit, setManZeit] = useState(toLocalTimeInput(initial?.abtZeitManuell));
+  const [bunkern, setBunkern] = useState(initial?.geplBunkern ?? false);
   // Ebene 3 (Datumsfelder): beim Öffnen immer zu — das Datum tritt erst bei
   // Bedarf per Kalender-Knopf hinzu.
   const [zeigeDatum, setZeigeDatum] = useState(false);
+
+  function toggleBunkern(gesetzt: boolean) {
+    setBunkern(gesetzt);
+    setBemerkung((b) => (gesetzt ? mitToken(b, "Bunkert") : ohneToken(b, "Bunkert")));
+  }
 
   function entwurf(): JobEintrag {
     return {
@@ -46,6 +61,7 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
       kuden: ausDatumUndZeit(kudenDatum, kudenZeit),
       abtZeitManuell: ausDatumUndZeit(manDatum, manZeit),
       geschwindigkeitsklasse: geschwindigkeit === "normal" ? undefined : geschwindigkeit,
+      geplBunkern: bunkern || undefined,
     };
   }
 
@@ -90,6 +106,15 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
             type="time"
             value={kudenZeit}
             onChange={(e) => handleZeitMitPrefill(e.target.value, kudenDatum, setKudenZeit, setKudenDatum)}
+          />
+        </label>
+        <label>
+          gepl. Bunkern
+          <input
+            type="checkbox"
+            className="job-form__checkbox-solo"
+            checked={bunkern}
+            onChange={(e) => toggleBunkern(e.target.checked)}
           />
         </label>
         <span className="job-form__zg-extra">

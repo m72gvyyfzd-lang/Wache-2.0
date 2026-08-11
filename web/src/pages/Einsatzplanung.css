@@ -54,6 +54,13 @@
   font-size: 0.75em;
 }
 
+/* "in der Zählung" einer Listenvergabe: Klammer mit Typ + Törnstand hinter
+   dem Lotsennamen — beim geplanten Gewinner fett statt dezent. */
+.vergabe-hinweis--gewinner {
+  color: var(--ink);
+  font-weight: 700;
+}
+
 /* Von/Type, Kat., Abt. Zeit, Lots. (Jobs-Seite) zentriert */
 .einsatz-table td.zentriert,
 .einsatz-table th.zentriert {

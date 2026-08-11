@@ -44,6 +44,7 @@ export const ANMELDUNGS_TYPEN = [
   "Nebelradar",
   "1+1",
   "2+2",
+  "HuLo",
   "EHF",
   "BHF",
   "WB",
@@ -51,6 +52,27 @@ export const ANMELDUNGS_TYPEN = [
 ] as const;
 
 export type AnmeldungsTyp = (typeof ANMELDUNGS_TYPEN)[number];
+
+/** Listenvergabe-Typen: werden NICHT nach dem FIFO-Grundsatz ("erster Lotse
+ *  bekommt ersten Job") zugeteilt, sondern nach eigenen Regeln über die
+ *  Törn-Zählung (siehe web::lib/listenvergabe.ts). */
+export const LISTENVERGABE_TYPEN = ["1+1", "2+2", "HuLo", "WB", "WR"] as const;
+
+export type ListenvergabeTyp = (typeof LISTENVERGABE_TYPEN)[number];
+
+export function istListenvergabeTyp(typ: string | undefined): typ is ListenvergabeTyp {
+  return typ !== undefined && (LISTENVERGABE_TYPEN as readonly string[]).includes(typ);
+}
+
+/** Welche Törn-Spalte der Einsatzstation zählt für welchen Listenvergabe-Typ:
+ *  1+1 und 2+2 teilen sich die 2+2-Spalte, der Rest hat je eine eigene. */
+export const TOERN_SPALTE: Record<ListenvergabeTyp, "2+2" | "WB" | "WR" | "HuLo"> = {
+  "1+1": "2+2",
+  "2+2": "2+2",
+  HuLo: "HuLo",
+  WB: "WB",
+  WR: "WR",
+};
 
 /** Rang eines Lotsen für den Vergleich mit der Schiffskategorie.
  *  Volllotse ("") = 8 (darf alles), "3+" zählt hier wie Kat. 3 —
@@ -113,12 +135,12 @@ export function darfZweiterLotse(
 
 /**
  * Mindest-Lotsenkategorie je Anmeldungs-Typ:
- * - 1+1, 2+2, WB, WR: wie ein Kat.-4-Schiff.
+ * - Listenvergaben (1+1, 2+2, HuLo, WB, WR): wie ein Kat.-4-Schiff.
  * - Sonderradar, Nebelradar: min. Kat. 3+.
  * - alle übrigen Typen (AG, EHF, BHF): keine Kategorie-Anforderung.
  */
 export function darfJobTyp(typ: AnmeldungsTyp | string, lotsenKat: LotsenKategorie | string | undefined): boolean {
-  if (typ === "1+1" || typ === "2+2" || typ === "WB" || typ === "WR") return lotsenRang(lotsenKat) >= 4;
+  if (istListenvergabeTyp(typ)) return lotsenRang(lotsenKat) >= 4;
   if (typ === "Sonderradar" || typ === "Nebelradar") return hatDreiPlus(lotsenKat);
   return true;
 }

@@ -3,7 +3,16 @@ import { getAbteilzeitSettings, type Geschwindigkeitsklasse } from "@wache/core"
 import type { JobEintrag } from "../data/types";
 import { abteilzeitVon } from "../lib/coreJob";
 import { ausDatumUndZeit, toLocalDateInput, toLocalTimeInput } from "../lib/datetime";
-import { AbtZeitAnzeige, DatumToggleButton, FormActions, handleZeitMitPrefill, SchiffKatSelect, SpeedSelect } from "./formShared";
+import {
+  AbtZeitAnzeige,
+  DatumToggleButton,
+  FormActions,
+  handleZeitMitPrefill,
+  mitToken,
+  ohneToken,
+  SchiffKatSelect,
+  SpeedSelect,
+} from "./formShared";
 import "./JobForm.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
@@ -15,18 +24,12 @@ interface JobFormHamburgProps {
   onCancel: () => void;
 }
 
-function ohneBuetzToken(text: string): string {
-  return text
-    .split(/\s+/)
-    .filter((token) => token !== "Bütz")
-    .join(" ");
-}
-
 export function JobFormHamburg({ initial, onSubmit, onDelete, onCancel }: JobFormHamburgProps) {
   const [schiffsname, setSchiffsname] = useState(initial?.schiffsname ?? "");
   const [kategorie, setKategorie] = useState(initial?.kategorie ?? "");
   const [bemerkung, setBemerkung] = useState(initial?.bemerkung ?? "");
   const [buetz, setBuetz] = useState(initial?.buetzfleth ?? false);
+  const [bunkern, setBunkern] = useState(initial?.geplBunkern ?? false);
   const [geschwindigkeit, setGeschwindigkeit] = useState<Geschwindigkeitsklasse>(
     initial?.geschwindigkeitsklasse ?? "normal",
   );
@@ -52,12 +55,19 @@ export function JobFormHamburg({ initial, onSubmit, onDelete, onCancel }: JobFor
       setHhZeit("");
       setFkwDatum("");
       setFkwZeit("");
-      setBemerkung((b) => (b.split(/\s+/).includes("Bütz") ? b : b ? `${b} Bütz` : "Bütz"));
+      setBemerkung((b) => mitToken(b, "Bütz"));
     } else {
       setGeplAbgangDatum("");
       setGeplAbgangZeit("");
-      setBemerkung((b) => ohneBuetzToken(b));
+      // Bunkern gibt es nur für Bütz — beim Abwählen mit zurücksetzen.
+      setBunkern(false);
+      setBemerkung((b) => ohneToken(ohneToken(b, "Bütz"), "Bunkert"));
     }
+  }
+
+  function toggleBunkern(gesetzt: boolean) {
+    setBunkern(gesetzt);
+    setBemerkung((b) => (gesetzt ? mitToken(b, "Bunkert") : ohneToken(b, "Bunkert")));
   }
 
   function entwurf(): JobEintrag {
@@ -75,6 +85,7 @@ export function JobFormHamburg({ initial, onSubmit, onDelete, onCancel }: JobFor
       abtZeitManuell: ausDatumUndZeit(manDatum, manZeit),
       // auch für Bütz relevant: die Brb>>SEE-Prognose nutzt die Klasse
       geschwindigkeitsklasse: geschwindigkeit === "normal" ? undefined : geschwindigkeit,
+      geplBunkern: buetz && bunkern ? true : undefined,
     };
   }
 
@@ -142,6 +153,17 @@ export function JobFormHamburg({ initial, onSubmit, onDelete, onCancel }: JobFor
             onChange={(e) => handleZeitMitPrefill(e.target.value, stadeDatum, setStadeZeit, setStadeDatum)}
           />
         </label>
+        {buetz && (
+          <label>
+            gepl. Bunkern
+            <input
+              type="checkbox"
+              className="job-form__checkbox-solo"
+              checked={bunkern}
+              onChange={(e) => toggleBunkern(e.target.checked)}
+            />
+          </label>
+        )}
         <span className="job-form__zg-extra">
           <DatumToggleButton offen={zeigeDatum} onClick={() => setZeigeDatum((v) => !v)} />
         </span>

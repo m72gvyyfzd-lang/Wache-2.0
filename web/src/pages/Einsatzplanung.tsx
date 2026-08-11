@@ -9,7 +9,7 @@ import { LotsenAnzahlModal } from "../components/LotsenAnzahlModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
-import type { JobEintrag } from "../data/types";
+import type { JobEintrag, LotsenEintrag } from "../data/types";
 import {
   benoetigteLotsenAnzahl,
   istAgJob,
@@ -20,7 +20,8 @@ import {
 } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { FAHRT_ZEILE_KLASSE, formatAbrufzeit, sortiereUndNummeriere, type LotseMitOrdnung } from "../lib/lotsenOrdnung";
-import { abteilzeitProLotse, eignungsWarnung, geplanterAbruf, planeEinsatzstation } from "../lib/planungEinsatzstation";
+import { abteilzeitProLotse, eignungsWarnung, geplanterAbruf, planeEinsatzstationMitVergaben } from "../lib/planungEinsatzstation";
+import { istListenvergabeJob, toernStand } from "../lib/listenvergabe";
 import { berechnePotentielleVNrn } from "../lib/vNrPlanung";
 import { useData } from "../state/DataContext";
 import "./Einsatzplanung.css";
@@ -75,8 +76,19 @@ export function Einsatzplanung() {
   const lotsenSortiert = sortiereUndNummeriere(lotsen, aktuelleFahrt);
   const zeilen = Math.max(jobsSortiert.length, lotsenSortiert.length);
   // "Planung Einsatzstation" — wird bei jeder Änderung neu berechnet
-  const zuweisungen = planeEinsatzstation(jobs, lotsen, aktuelleFahrt, settings, abgeteiltProJob);
+  const { zuweisungen, vergaben } = planeEinsatzstationMitVergaben(jobs, lotsen, aktuelleFahrt, settings, abgeteiltProJob);
   const zugewieseneLotsen = new Set(Array.from(zuweisungen.values()).flat());
+
+  // "in der Zählung": Lotse -> Listenvergabe-Gruppen, in denen er steht
+  // (Klammer hinter dem Namen; der geplante Gewinner wird fett).
+  const vergabeHinweise = new Map<LotsenEintrag, { typ: string; toern: number; gewinner: boolean }[]>();
+  for (const planung of vergaben.values()) {
+    for (const lotse of planung.gruppe) {
+      const liste = vergabeHinweise.get(lotse) ?? [];
+      liste.push({ typ: planung.typ, toern: toernStand(lotse, planung.typ), gewinner: planung.gewinner === lotse });
+      vergabeHinweise.set(lotse, liste);
+    }
+  }
 
   // Potentielle V-Nrn — gemeinsame Logik mit der Seestation-Vorschau,
   // siehe lib/vNrPlanung.ts.
@@ -129,8 +141,12 @@ export function Einsatzplanung() {
   // dadurch noch offen bleiben — reine Anzeige, das eigentliche Abteilen
   // erfolgt erst über den Abteilen-Button.
   const selektierteLotsen = new Set(abteilenLotsen.map((l) => l.eintrag));
+  // Listenvergaben haben keinen Abruf-Vorlauf: die Abteilung erfolgt direkt
+  // mit dem Anruf — der Lotse muss dafür NICHT abgerufen sein.
   const abteilenMoeglich =
-    abteilenLotsen.length === abteilenBenoetigt && abteilenLotsen.every((l) => l.eintrag.abgerufen);
+    abteilenLotsen.length === abteilenBenoetigt &&
+    ((abteilenJob !== null && istListenvergabeJob(abteilenJob)) ||
+      abteilenLotsen.every((l) => l.eintrag.abgerufen));
   // Warnung, wenn gewählte Lotsen die Anforderungen des Jobs nicht
   // erfüllen (Kat., Job-Typ, EH) — abteilen bleibt trotzdem möglich.
   const abteilenWarnungen = abteilenJob
@@ -405,6 +421,17 @@ export function Einsatzplanung() {
                           eh={lotse.eintrag.elbehafen}
                           abrufStunden={lotse.eintrag.abrufStunden}
                         />
+                        {(vergabeHinweise.get(lotse.eintrag) ?? []).map((h) => (
+                          <span
+                            key={h.typ}
+                            className={
+                              "planung-hinweis vergabe-hinweis" + (h.gewinner ? " vergabe-hinweis--gewinner" : "")
+                            }
+                          >
+                            {" "}
+                            ({h.typ}, Törn {h.toern})
+                          </span>
+                        ))}
                       </td>
                       {(() => {
                         const abruf = lotse.eintrag.abgerufen

@@ -129,7 +129,7 @@ export function benoetigteLotsenAnzahl(eintrag: JobEintrag): number {
 /** Anmeldungs-Typen, für die zugewiesene Lotsen keine V-Nr. bekommen — sie
  *  landen beim Abteilen auf der Vergabe-Liste und fahren NICHT zur
  *  Seestation. */
-export const OHNE_V_NR_TYPEN = new Set(["Sonderradar", "Nebelradar", "2+2", "1+1", "WB", "WR"]);
+export const OHNE_V_NR_TYPEN = new Set(["Sonderradar", "Nebelradar", "2+2", "1+1", "HuLo", "WB", "WR"]);
 
 export function istOhneVNrJob(job: JobEintrag): boolean {
   return job.liste === "andere" && job.typ !== undefined && OHNE_V_NR_TYPEN.has(job.typ);

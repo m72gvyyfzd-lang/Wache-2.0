@@ -12,6 +12,7 @@ import type {
   SeestationLotse,
 } from "../data/types";
 import { abteilzeitVon, setHwBrbAktuell } from "../lib/coreJob";
+import { toernFeldFuerTypLabel } from "../lib/listenvergabe";
 import { tauschePositionen, verschiebeHinter } from "../lib/lotsenOrdnung";
 import {
   ladeAbteilungen,
@@ -194,7 +195,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const id = prev.reduce((max, a) => Math.max(max, a.id), 0) + 1;
       return [...prev, { ...abteilung, id }];
     });
-    setLotsen((prev) => prev.map((l, i) => (i === lotsenIndex ? { ...l, abgeteilt: true } : l)));
+    // Listenvergabe: der passende Törn-Zähler des Lotsen zählt beim
+    // Abteilen automatisch +1 (Rückgängig zählt wieder runter).
+    const toernFeld = toernFeldFuerTypLabel(abteilung.typLabel);
+    setLotsen((prev) =>
+      prev.map((l, i) =>
+        i === lotsenIndex
+          ? { ...l, abgeteilt: true, ...(toernFeld ? { [toernFeld]: l[toernFeld] + 1 } : {}) }
+          : l,
+      ),
+    );
     // V-Nr. dauerhaft als verbraucht markieren — bleibt es auch, wenn die
     // Abteilung später rückgängig gemacht oder ihre vNr durch Verschieben
     // (Seestation) geändert wird.
@@ -211,9 +221,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (!abteilung) return;
       // Lotse über den Namen wiederfinden — Indizes können sich seit dem
       // Abteilen verschoben haben (z.B. durch Löschen anderer Lotsen).
+      // Listenvergabe: der beim Abteilen automatisch erhöhte Törn-Zähler
+      // zählt wieder herunter.
+      const toernFeld = toernFeldFuerTypLabel(abteilung.typLabel);
       setLotsen((prev) => {
         const index = prev.findIndex((l) => l.name === abteilung.lotsenName && l.abgeteilt);
-        return index === -1 ? prev : prev.map((l, i) => (i === index ? { ...l, abgeteilt: false } : l));
+        return index === -1
+          ? prev
+          : prev.map((l, i) =>
+              i === index
+                ? { ...l, abgeteilt: false, ...(toernFeld ? { [toernFeld]: Math.max(0, l[toernFeld] - 1) } : {}) }
+                : l,
+            );
       });
     },
     [abteilungen],

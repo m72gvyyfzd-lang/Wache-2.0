@@ -33,6 +33,11 @@ export interface JobEintrag {
    *  Siehe core::brbMatrix. */
   geschwindigkeitsklasse?: Geschwindigkeitsklasse;
 
+  /** Bütz: Schiff bunkert geplant in Bützfleth — zählt dann trotz
+   *  eingetragener Stade-Zeit nicht als "abgerufen" für Listenvergaben
+   *  (siehe lib/listenvergabe.ts). Auch für NOK-Jobs (neben Kuden). */
+  geplBunkern?: boolean;
+
   // Liste NOK
   holt?: Date;
   ticker?: Date;

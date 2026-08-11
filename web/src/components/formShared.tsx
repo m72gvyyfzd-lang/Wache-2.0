@@ -74,6 +74,19 @@ export function AbtZeitAnzeige({ wert, manuellAktiv }: AbtZeitAnzeigeProps) {
   );
 }
 
+/** Bemerkungs-Token (z.B. "Bütz", "Bunkert") idempotent entfernen. */
+export function ohneToken(text: string, token: string): string {
+  return text
+    .split(/\s+/)
+    .filter((t) => t !== token)
+    .join(" ");
+}
+
+/** Bemerkungs-Token idempotent anhängen. */
+export function mitToken(text: string, token: string): string {
+  return text.split(/\s+/).includes(token) ? text : text ? `${text} ${token}` : token;
+}
+
 /** Uhrzeit setzen und dabei automatisch das heutige Datum vorbelegen, sobald
  *  zum ersten Mal eine Uhrzeit ohne zugehöriges Datum eingetragen wird —
  *  verhindert eine "schwebende" Uhrzeit ohne Tagesbezug. Greift nur beim
