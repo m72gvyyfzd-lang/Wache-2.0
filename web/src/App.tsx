@@ -7,6 +7,7 @@ import { Seestation } from "./pages/Seestation";
 import { Settings } from "./pages/Settings";
 import { Versetzliste } from "./pages/Versetzliste";
 import { VersetzlisteSeestation } from "./pages/VersetzlisteSeestation";
+import { Wachbeginn } from "./pages/Wachbeginn";
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/seestation" element={<Seestation />} />
         <Route path="/versetzliste-seestation" element={<VersetzlisteSeestation />} />
         <Route path="/einsatzstation" element={<Einsatzstation />} />
+        <Route path="/wachbeginn" element={<Wachbeginn />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
     </Routes>

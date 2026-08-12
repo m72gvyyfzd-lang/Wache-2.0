@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: "/seestation", label: "Seestation" },
   { to: "/versetzliste-seestation", label: "Versetzliste Seestation" },
   { to: "/einsatzstation", label: "Einsatzstation" },
+  { to: "/wachbeginn", label: "Wachbeginn" },
   { to: "/settings", label: "Settings" },
 ];
 

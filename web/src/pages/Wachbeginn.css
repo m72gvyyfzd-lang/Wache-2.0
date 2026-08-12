@@ -1,0 +1,104 @@
+.wachbeginn__upload {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+/* Natives Datei-Feld bleibt unsichtbar — ausgelöst über den gestylten
+   Button daneben (einheitlicher Look, funktioniert auch auf dem iPad). */
+.wachbeginn__datei-input {
+  display: none;
+}
+
+.wachbeginn__status {
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+
+.wachbeginn__status--ok {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.wachbeginn__status--fehler {
+  color: #b5432f;
+  font-weight: 600;
+}
+
+.wachbeginn__vorschau {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wachbeginn__meta {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.wachbeginn__sektion summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
+  padding: 6px 0;
+  user-select: none;
+}
+
+.wachbeginn__anzahl {
+  margin-left: 8px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--ink-faint);
+}
+
+.wachbeginn__tabelle-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.wachbeginn__tabelle {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.wachbeginn__tabelle th {
+  text-align: left;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
+  background: var(--surface-2);
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.wachbeginn__tabelle td {
+  padding: 5px 10px;
+  border-top: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.wachbeginn__warnung {
+  border: 1px solid #c77d1e;
+  background: rgba(199, 125, 30, 0.1);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.wachbeginn__warnung ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
