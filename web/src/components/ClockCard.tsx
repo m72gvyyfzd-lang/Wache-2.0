@@ -33,7 +33,39 @@ function MondIcon() {
   );
 }
 
-export function ClockCard() {
+/** Lautsprecher mit Schallwellen (Ton an) bzw. mit Kreuz (Ton aus) — zeigt
+ *  den AKTUELLEN Zustand, ein Klick schaltet um. */
+function LautsprecherIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M1.4 6.2h2.1L6.8 3v10L3.5 9.8H1.4z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path
+        d="M9.8 5.4a4 4 0 0 1 0 5.2M11.7 3.5a7 7 0 0 1 0 9"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function LautsprecherAusIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M1.4 6.2h2.1L6.8 3v10L3.5 9.8H1.4z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M10.2 6.1 13.8 9.9M13.8 6.1l-3.6 3.8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+interface ClockCardProps {
+  /** Zustand + Umschalter für den Alarm-Ton — lebt gemeinsam mit
+   *  DashboardCard in TopBar, da beide Kacheln ihn brauchen. */
+  tonAn: boolean;
+  onTonToggle: () => void;
+}
+
+export function ClockCard({ tonAn, onTonToggle }: ClockCardProps) {
   const { hwBrb } = useData();
   const [now, setNow] = useState(() => new Date());
   // Ohne gespeicherte manuelle Wahl folgt der Schalter der Systemeinstellung
@@ -70,14 +102,24 @@ export function ClockCard() {
           <div className="clock-card__hw-label">HW Brb</div>
           <div className="clock-card__hw-wert">{hwBrbText}</div>
         </div>
-        <button
-          type="button"
-          className="clock-card__theme-schalter"
-          onClick={toggleTheme}
-          title={theme === "hell" ? "Nachtmodus aktivieren" : "Tagmodus aktivieren"}
-        >
-          {theme === "hell" ? <SonneIcon /> : <MondIcon />}
-        </button>
+        <div className="clock-card__schalter-reihe">
+          <button
+            type="button"
+            className="clock-card__theme-schalter"
+            onClick={toggleTheme}
+            title={theme === "hell" ? "Nachtmodus aktivieren" : "Tagmodus aktivieren"}
+          >
+            {theme === "hell" ? <SonneIcon /> : <MondIcon />}
+          </button>
+          <button
+            type="button"
+            className={"clock-card__theme-schalter" + (tonAn ? " clock-card__theme-schalter--aktiv" : "")}
+            onClick={onTonToggle}
+            title={tonAn ? "Alarm-Ton ausschalten" : "Alarm-Ton einschalten"}
+          >
+            {tonAn ? <LautsprecherIcon /> : <LautsprecherAusIcon />}
+          </button>
+        </div>
       </div>
     </div>
   );

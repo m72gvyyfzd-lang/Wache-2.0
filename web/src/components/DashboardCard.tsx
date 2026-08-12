@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
-import { spieleAlarmTon, tonEntsperren } from "../lib/alarmTon";
+import { spieleAlarmTon } from "../lib/alarmTon";
 import { berechneAgPlanung } from "../lib/agPlanung";
 import { benoetigteLotsenAnzahl } from "../lib/coreJob";
 import { berechneMeldungen, gruppiereMeldungen } from "../lib/meldungen";
-import { ladeAlarmTonAktiv, speichereAlarmTonAktiv } from "../state/storage";
 import { useData } from "../state/DataContext";
 import { AgPlanungTile } from "./AgPlanung";
 import { MeldungsTile } from "./Meldungen";
@@ -19,7 +18,13 @@ type OffenesPanel = { typ: "meldungen"; art: string } | { typ: "ag-planung" } | 
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
-export function DashboardCard() {
+interface DashboardCardProps {
+  /** Ob der Alarm-Ton aktiv ist — Schalter dafür sitzt jetzt in der
+   *  Uhrzeit-Kachel (ClockCard), der gemeinsame Zustand lebt in TopBar. */
+  tonAn: boolean;
+}
+
+export function DashboardCard({ tonAn }: DashboardCardProps) {
   const {
     jobs,
     lotsen,
@@ -87,30 +92,9 @@ export function DashboardCard() {
   }
   const meldungenAktiv = offenesPanel?.typ === "meldungen" ? offenesPanel.art : null;
 
-  // Alarm-Ton: einmaliger Ton pro NEUEM Alarm (stabile Meldungs-IDs).
-  // Browser erlauben Ton erst nach einer Nutzer-Interaktion — das
-  // Einschalten des Schalters entsperrt den AudioContext; war der Ton
-  // schon beim Laden aktiv, entsperrt die erste beliebige Berührung.
-  const [tonAn, setTonAn] = useState(() => ladeAlarmTonAktiv());
-  useEffect(() => {
-    if (!tonAn) return;
-    const entsperren = () => tonEntsperren();
-    document.addEventListener("pointerdown", entsperren, { once: true });
-    return () => document.removeEventListener("pointerdown", entsperren);
-  }, [tonAn]);
-
-  function handleTonToggle() {
-    setTonAn((an) => {
-      const neu = !an;
-      speichereAlarmTonAktiv(neu);
-      if (neu) {
-        tonEntsperren();
-        spieleAlarmTon();
-      }
-      return neu;
-    });
-  }
-
+  // Alarm-Ton: einmaliger Ton pro NEUEM Alarm (stabile Meldungs-IDs). Das
+  // Entsperren des AudioContext geschieht zentral in TopBar; hier nur noch
+  // das Abspielen bei neuen Alarmen.
   const alarmSchluessel = meldungen
     .filter((m) => m.stufe === "alarm")
     .map((m) => m.id)
@@ -152,16 +136,6 @@ export function DashboardCard() {
             containerRef={agPlanungRef}
           />
           <StatTile label="HH / NOK / Sonstige" value={`${anzahlHH} / ${anzahlNOK} / ${anzahlAnmeldungen}`} />
-          <span className="dashboard-card__spacer" />
-          <button
-            type="button"
-            className={"ton-tile" + (tonAn ? " ton-tile--an" : "")}
-            onClick={handleTonToggle}
-            title="Alarm-Ton ein-/ausschalten"
-          >
-            <div className="ton-tile__label">Alarm-Ton</div>
-            <div className="ton-tile__wert">{tonAn ? "an" : "aus"}</div>
-          </button>
         </div>
       </div>
     </div>

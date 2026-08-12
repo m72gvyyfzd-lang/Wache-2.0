@@ -6,7 +6,7 @@
   position: relative;
   flex: 1;
   min-width: 0;
-  height: var(--sidebar-width);
+  height: 168px;
   background: var(--bg);
 }
 
@@ -32,14 +32,9 @@
   width: 100%;
 }
 
-/* Schiebt den Alarm-Ton-Schalter an den rechten Rand der Leiste. */
-.dashboard-card__spacer {
-  flex: 1 1 0%;
-}
-
 @media (max-width: 720px) {
   .dashboard-card {
-    height: var(--sidebar-width-narrow);
+    height: 140px;
   }
 
   .dashboard-card__scroll {

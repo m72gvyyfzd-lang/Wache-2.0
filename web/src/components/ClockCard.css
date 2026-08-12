@@ -4,7 +4,7 @@
    Karte mit dezentem Schatten darin (moderner, weicher Look). */
 .clock-card {
   width: var(--sidebar-width);
-  height: var(--sidebar-width);
+  height: 168px;
   flex-shrink: 0;
   background: var(--bg);
   padding: 10px;
@@ -67,10 +67,16 @@
   color: var(--ink-faint);
 }
 
-/* Tag/Nacht-Umschalter: unten zentriert, dezentes Icon statt Textknopf. */
-.clock-card__theme-schalter {
+/* Tag/Nacht- und Ton-Umschalter: unten zentriert nebeneinander, dezente
+   Icons statt Textknöpfe. */
+.clock-card__schalter-reihe {
   margin-top: auto;
   align-self: center;
+  display: flex;
+  gap: 8px;
+}
+
+.clock-card__theme-schalter {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -89,10 +95,15 @@
   filter: brightness(0.97);
 }
 
+.clock-card__theme-schalter--aktiv {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
 @media (max-width: 720px) {
   .clock-card {
     width: var(--sidebar-width-narrow);
-    height: var(--sidebar-width-narrow);
+    height: 140px;
     padding: 6px;
   }
 
@@ -119,6 +130,10 @@
 
   .clock-card__hw-wert {
     font-size: 0.62rem;
+  }
+
+  .clock-card__schalter-reihe {
+    gap: 6px;
   }
 
   .clock-card__theme-schalter {
