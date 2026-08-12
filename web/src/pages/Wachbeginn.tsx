@@ -13,7 +13,7 @@ import type { PdfSeite } from "../lib/pdfExtrakt";
 import type { SeestationPdfErgebnis } from "../lib/seestationPdfParse";
 import type { TafelBrbErgebnis } from "../lib/tafelBrbParse";
 import type { ToernstaendeErgebnis } from "../lib/toernstaendeParse";
-import { baueWachImport } from "../lib/wachbeginnImport";
+import { baueWachImport, markerKandidaten } from "../lib/wachbeginnImport";
 import { useData } from "../state/DataContext";
 import "./Wachbeginn.css";
 
@@ -130,9 +130,14 @@ export function Wachbeginn() {
   const handleTafelDatei = handleDatei(setTafel, async (seiten) =>
     (await import("../lib/tafelBrbParse")).parseTafelBrb(seiten),
   );
-  const handleSeestationDatei = handleDatei(setSeestation, async (seiten) =>
-    (await import("../lib/seestationPdfParse")).parseSeestationPdf(seiten),
-  );
+  // Manuell gewählter Marker-Lotse (Fallback, wenn der Namensabgleich
+  // zwischen Tafel und Tendertafel nicht greift) — ein neues Seestation-PDF
+  // setzt die Wahl zurück.
+  const [markerManuell, setMarkerManuell] = useState<number | null>(null);
+  const handleSeestationDatei = handleDatei(setSeestation, async (seiten) => {
+    setMarkerManuell(null);
+    return (await import("../lib/seestationPdfParse")).parseSeestationPdf(seiten);
+  });
   const handleToernstaendeDatei = handleDatei(setToernstaende, async (seiten) =>
     (await import("../lib/toernstaendeParse")).parseToernstaende(seiten),
   );
@@ -146,8 +151,14 @@ export function Wachbeginn() {
       seestation.daten,
       toernstaende.status === "fertig" ? toernstaende.daten : null,
       new Date(),
+      markerManuell ?? undefined,
     );
-  }, [tafel, seestation, toernstaende]);
+  }, [tafel, seestation, toernstaende, markerManuell]);
+
+  const kandidaten = useMemo(
+    () => (seestation.status === "fertig" ? markerKandidaten(seestation.daten) : []),
+    [seestation],
+  );
 
   function handleUebernehmen() {
     if (!auswertung) return;
@@ -217,6 +228,23 @@ export function Wachbeginn() {
               </p>
             ) : (
               <div className="wachbeginn__vorschau" data-testid="auswertung">
+                {kandidaten.length > 0 && (
+                  <label className="wachbeginn__marker">
+                    Marker-Lotse (nächster Lotse der Einsatzstation in der Tendertafel)
+                    <select
+                      value={auswertung.markerIndex ?? ""}
+                      onChange={(e) => setMarkerManuell(e.target.value === "" ? null : Number(e.target.value))}
+                      data-testid="marker-auswahl"
+                    >
+                      <option value="">– bitte wählen –</option>
+                      {kandidaten.map((k) => (
+                        <option key={k.index} value={k.index}>
+                          {k.vNr} – {k.lotse}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <ul className="wachbeginn__meldungen">
                   {auswertung.meldungen.map((m, i) => (
                     <li key={i} className={`wachbeginn__meldung wachbeginn__meldung--${m.stufe}`}>

@@ -131,6 +131,17 @@
   color: var(--ink);
 }
 
+/* Marker-Auswahl (Fallback bei fehlgeschlagenem Namensabgleich) */
+.wachbeginn__marker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 420px;
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
 .wachbeginn__meldung--warnung {
   border: 1px solid #c77d1e;
   background: rgba(199, 125, 30, 0.1);

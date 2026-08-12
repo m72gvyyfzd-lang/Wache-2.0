@@ -49,6 +49,23 @@ export interface WachImport {
   seeSchiffe: Omit<SeeSchiff, "id">[];
   seestationLotsen: Omit<SeestationLotse, "id">[];
   meldungen: ImportMeldung[];
+  /** verwendeter Marker-Eintrag (Index in tender.eintraege) — automatisch
+   *  erkannt oder manuell gewählt; undefined = kein Marker gefunden */
+  markerIndex?: number;
+}
+
+/** Auswählbare Marker-Kandidaten für den manuellen Fallback: alle
+ *  Tendertafel-Einträge mit Lotsenname und lesbarer V-Nr. */
+export interface MarkerKandidat {
+  index: number;
+  vNr: string;
+  lotse: string;
+}
+
+export function markerKandidaten(tender: SeestationPdfErgebnis): MarkerKandidat[] {
+  return tender.eintraege
+    .map((e, index) => ({ index, vNr: e.vNr, lotse: trenneNameUndKat(e.lotse).name }))
+    .filter((k) => k.lotse !== "" && /^\d+\s*[A-D]?$/i.test(k.vNr));
 }
 
 // ---------------------------------------------------------------- Helfer
@@ -119,9 +136,10 @@ function trenneNameUndKat(roh: string): { name: string; kategorie: string } {
 
 /** Namensschlüssel für den Abgleich zwischen den drei PDF-Formaten
  *  ("Behnke J.H." / "Behnke, Jan-Hinrich" / "Behnke, J" → "behnke|j"):
- *  Nachname + erster Buchstabe des Vornamens. */
+ *  Nachname + erster Buchstabe des Vornamens. Punkte und doppelte
+ *  Leerzeichen stören den Vergleich nicht. */
 export function nameSchluessel(roh: string): string {
-  const klein = roh.trim().toLowerCase();
+  const klein = roh.trim().toLowerCase().replace(/\./g, " ").replace(/\s+/g, " ").trim();
   const m = klein.match(/^([a-zäöüß-]+)[,\s]+([a-zäöüß])/);
   return m ? `${m[1]}|${m[2]}` : klein;
 }
@@ -363,6 +381,10 @@ export function baueWachImport(
   tender: SeestationPdfErgebnis,
   toerns: ToernstaendeErgebnis | null,
   jetzt: Date,
+  /** manuell gewählter Marker (Index in tender.eintraege) — Fallback, wenn
+   *  der automatische Namensabgleich nicht greift oder korrigiert werden
+   *  soll */
+  markerManuell?: number,
 ): WachImport {
   const meldungen: ImportMeldung[] = [];
   const importDaten: WachImport = {
@@ -440,32 +462,46 @@ export function baueWachImport(
   });
 
   // --- Marker-Abgleich: letzte V-Nr. + "Auf Seestation" -----------------
+  // Automatisch: der erste Einsatzstations-Lotse wird per Namensabgleich
+  // in der Tendertafel gesucht. Fallback: der User wählt den Marker in der
+  // Auswertung manuell aus (markerManuell überstimmt den Abgleich).
   const ersterLotse = importDaten.lotsen[0];
-  if (!ersterLotse) {
+  let markerIndex = markerManuell ?? -1;
+  if (markerIndex >= 0) {
+    meldungen.push({
+      stufe: "info",
+      text: `Marker manuell gewählt: ${trenneNameUndKat(tender.eintraege[markerIndex]?.lotse ?? "").name}`,
+    });
+  } else if (!ersterLotse) {
     meldungen.push({ stufe: "warnung", text: "Keine Einsatzstations-Lotsen — Marker-Abgleich nicht möglich" });
   } else {
     const markerSchluessel = nameSchluessel(ersterLotse.name);
-    const markerIndex = tender.eintraege.findIndex(
+    markerIndex = tender.eintraege.findIndex(
       (e) => e.lotse !== "" && nameSchluessel(trenneNameUndKat(e.lotse).name) === markerSchluessel,
     );
     if (markerIndex === -1) {
       meldungen.push({
         stufe: "warnung",
-        text: `Marker-Lotse "${ersterLotse.name}" nicht in der Tendertafel gefunden — letzte V-Nr. und "Auf Seestation" konnten nicht abgeleitet werden`,
+        text: `Marker-Lotse "${ersterLotse.name}" nicht in der Tendertafel gefunden — bitte den Marker unten manuell auswählen`,
       });
-    } else {
+    }
+  }
+  {
+    if (markerIndex !== -1) {
+      importDaten.markerIndex = markerIndex;
       const markerEintrag = tender.eintraege[markerIndex];
+      const markerName = trenneNameUndKat(markerEintrag.lotse).name;
       const markerVNr = parseVNr(markerEintrag.vNr);
       if (!markerVNr) {
         meldungen.push({
           stufe: "warnung",
-          text: `Marker-Lotse "${ersterLotse.name}" hat keine lesbare V-Nr. ("${markerEintrag.vNr}")`,
+          text: `Marker-Lotse "${markerName}" hat keine lesbare V-Nr. ("${markerEintrag.vNr}")`,
         });
       } else {
         importDaten.letzteVNr = markerVNr.vNr - 1;
         meldungen.push({
           stufe: "info",
-          text: `Marker: ${ersterLotse.name} → V-Nr. ${markerVNr.vNr} — letzte V-Nr. wird ${importDaten.letzteVNr}`,
+          text: `Marker: ${markerName} → V-Nr. ${markerVNr.vNr} — letzte V-Nr. wird ${importDaten.letzteVNr}`,
         });
       }
       for (let i = 0; i < markerIndex; i++) {
