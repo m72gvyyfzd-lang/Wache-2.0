@@ -101,6 +101,7 @@ async function liesDatei(datei: File): Promise<PdfSeite[]> {
 export function Wachbeginn() {
   const [tafel, setTafel] = useState<UploadZustand<TafelBrbErgebnis>>({ status: "leer" });
   const [seestation, setSeestation] = useState<UploadZustand<PdfSeite[]>>({ status: "leer" });
+  const [toernstaende, setToernstaende] = useState<UploadZustand<PdfSeite[]>>({ status: "leer" });
 
   async function handleTafelDatei(datei: File) {
     setTafel({ status: "laedt", dateiname: datei.name });
@@ -117,17 +118,19 @@ export function Wachbeginn() {
     }
   }
 
-  async function handleSeestationDatei(datei: File) {
-    setSeestation({ status: "laedt", dateiname: datei.name });
-    try {
-      setSeestation({ status: "fertig", dateiname: datei.name, daten: await liesDatei(datei) });
-    } catch (fehler) {
-      setSeestation({
-        status: "fehler",
-        dateiname: datei.name,
-        meldung: fehler instanceof Error ? fehler.message : "PDF konnte nicht gelesen werden",
-      });
-    }
+  function handleRohDatei(setzen: (z: UploadZustand<PdfSeite[]>) => void) {
+    return async (datei: File) => {
+      setzen({ status: "laedt", dateiname: datei.name });
+      try {
+        setzen({ status: "fertig", dateiname: datei.name, daten: await liesDatei(datei) });
+      } catch (fehler) {
+        setzen({
+          status: "fehler",
+          dateiname: datei.name,
+          meldung: fehler instanceof Error ? fehler.message : "PDF konnte nicht gelesen werden",
+        });
+      }
+    };
   }
 
   return (
@@ -144,8 +147,13 @@ export function Wachbeginn() {
       </Panel>
 
       <Panel title="Seestation" description="PDF-Export der Seestation">
-        <UploadKopf zustand={seestation} onDatei={handleSeestationDatei} inputTestId="seestation-datei" />
-        {seestation.status === "fertig" && <SeestationRohVorschau seiten={seestation.daten} />}
+        <UploadKopf zustand={seestation} onDatei={handleRohDatei(setSeestation)} inputTestId="seestation-datei" />
+        {seestation.status === "fertig" && <RohVorschau seiten={seestation.daten} testId="seestation-vorschau" />}
+      </Panel>
+
+      <Panel title="Törnstände" description="PDF-Export der Törnstände für die Listenvergaben">
+        <UploadKopf zustand={toernstaende} onDatei={handleRohDatei(setToernstaende)} inputTestId="toernstaende-datei" />
+        {toernstaende.status === "fertig" && <RohVorschau seiten={toernstaende.daten} testId="toernstaende-vorschau" />}
       </Panel>
     </div>
   );
@@ -194,12 +202,12 @@ function TafelVorschau({ ergebnis }: { ergebnis: TafelBrbErgebnis }) {
   );
 }
 
-/** Solange das Seestation-Format nicht hinterlegt ist, zeigt die Vorschau
- *  die extrahierten Roh-Zeilen — damit lässt sich am echten Export klären,
- *  wie der Parser aufgebaut werden muss. */
-function SeestationRohVorschau({ seiten }: { seiten: PdfSeite[] }) {
+/** Solange für ein PDF noch kein Auswertungsschema hinterlegt ist, zeigt
+ *  die Vorschau die extrahierten Roh-Zeilen — damit lässt sich am echten
+ *  Export klären, wie der Parser aufgebaut werden muss. */
+function RohVorschau({ seiten, testId }: { seiten: PdfSeite[]; testId: string }) {
   return (
-    <div className="wachbeginn__vorschau" data-testid="seestation-vorschau">
+    <div className="wachbeginn__vorschau" data-testid={testId}>
       <Warnung>
         Für das Seestation-PDF ist noch kein Auswertungsschema hinterlegt — unten die Roh-Ansicht aller
         erkannten Zeilen zur Prüfung des Formats.
