@@ -9,6 +9,13 @@ const base = process.env.GITHUB_PAGES ? '/Wache-2.0/' : '/'
 // https://vite.dev/config/
 export default defineConfig({
   base,
+  // Sichtbarer Build-Zeitstempel (z.B. Wachbeginn-Seite): macht auf dem
+  // iPad sofort erkennbar, ob noch eine alte PWA-Cache-Version läuft.
+  define: {
+    __BUILD_STAND__: JSON.stringify(
+      new Date().toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Berlin' }),
+    ),
+  },
   plugins: [
     react(),
     VitePWA({

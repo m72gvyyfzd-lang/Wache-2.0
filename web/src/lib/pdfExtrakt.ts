@@ -28,19 +28,20 @@ const ZELLEN_LUECKE = 4;
 /** y-Toleranz, innerhalb derer Textstücke als eine Zeile gelten. */
 const ZEILEN_TOLERANZ = 3;
 
-/* Legacy-Build statt Standard-Build: der moderne pdf.js-Build setzt
-   JS-Funktionen voraus, die ältere Safari-Versionen (iPad!) nicht kennen —
-   dort schlug das Parsen mit "undefined is not a function" fehl. Der
-   Legacy-Build ist auf ältere Browser übersetzt. */
-type PdfjsModul = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
+/* pdf.js in Version 3 (Legacy-Build) statt der aktuellen 6er: die neueren
+   Builds (auch deren "legacy"-Variante) setzen JS-Funktionen voraus, die
+   ältere Safari-Versionen (iPad!) nicht kennen — dort schlug das Parsen
+   mit "undefined is not a function" fehl. Der 3er-Legacy-Build ist weit
+   zurück kompatibel und nutzt einen klassischen (nicht-Modul-)Worker. */
+type PdfjsModul = typeof import("pdfjs-dist/legacy/build/pdf");
 
 let pdfjsPromise: Promise<PdfjsModul> | null = null;
 
 function ladePdfjs(): Promise<PdfjsModul> {
   pdfjsPromise ??= (async () => {
     const [pdfjs, worker] = await Promise.all([
-      import("pdfjs-dist/legacy/build/pdf.mjs"),
-      import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url"),
+      import("pdfjs-dist/legacy/build/pdf"),
+      import("pdfjs-dist/legacy/build/pdf.worker.min.js?url"),
     ]);
     pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
     return pdfjs;

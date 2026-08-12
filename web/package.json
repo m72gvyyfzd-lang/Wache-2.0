@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@wache/core": "^0.1.0",
-    "pdfjs-dist": "^6.2.108",
+    "pdfjs-dist": "^3.11.174",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2"

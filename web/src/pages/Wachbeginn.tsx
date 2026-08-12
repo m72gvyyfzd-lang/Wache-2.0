@@ -135,7 +135,7 @@ export function Wachbeginn() {
       <PageHeader
         title="Wachbeginn"
         centered
-        description="PDF-Exporte hochladen und prüfen — die Analyse läuft vollständig auf diesem Gerät. Der Import in die App folgt in einem späteren Schritt."
+        description={`PDF-Exporte hochladen und prüfen — die Analyse läuft vollständig auf diesem Gerät. Der Import in die App folgt in einem späteren Schritt. (App-Stand: ${__BUILD_STAND__})`}
       />
 
       <Panel title="Tafel Brb" description="PDF-Export der BZ2 Tafel (elbe-pilot.de)">
