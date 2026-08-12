@@ -95,13 +95,20 @@ interface AktiveSektion {
   anker: number[];
   /** y-Position der zuletzt übernommenen Datenzeile */
   letzteY: number | null;
-  /** Zwischengeparkte Umbruch-Fragmente (Zeilen ohne Wert in Spalte 1):
-   *  ob sie zur VORIGEN oder zur NÄCHSTEN Zeile gehören, entscheidet sich
-   *  erst über die y-Distanz, sobald die nächste echte Zeile bekannt ist —
-   *  je nach vertikaler Ausrichtung der Tabelle liegt der Überhang einer
-   *  mehrzeiligen Zelle über oder unter der Zeilenmitte. */
+  /** Zwischengeparkte Zeilen ohne Wert in Spalte 1: erst wenn die nächste
+   *  echte Zeile bekannt ist, entscheidet die y-Distanz, ob es der
+   *  Überhang einer umgebrochenen Zelle der VORIGEN/NÄCHSTEN Zeile ist
+   *  (dicht dran, je nach Zell-Ausrichtung darüber oder darunter) — oder
+   *  eine EIGENSTÄNDIGE Zeile mit leerer erster Spalte (normaler
+   *  Zeilenabstand; in der Lotsenliste hat die Mehrheit der Zeilen keine
+   *  Tafel-Position). */
   fragmente: { werte: string[]; y: number }[];
 }
+
+/** Maximaler y-Abstand (PDF-Einheiten), bis zu dem eine Zeile ohne
+ *  Spalte-1-Wert als Umbruch-Überhang ihrer Nachbarzeile gilt — knapp über
+ *  einer Textzeilenhöhe, deutlich unter dem Abstand zweier Tabellenzeilen. */
+const UMBRUCH_MAX_ABSTAND = 13;
 
 function fuegeAn(ziel: string[], werte: string[], voranstellen: boolean) {
   for (let i = 0; i < werte.length; i++) {
@@ -111,14 +118,21 @@ function fuegeAn(ziel: string[], werte: string[], voranstellen: boolean) {
   }
 }
 
-/** Offene Fragmente an die letzte Zeile der Sektion anhängen (Sektions-/
- *  Seitenwechsel oder Parse-Ende: keine Folgezeile mehr möglich). */
-function schliesseFragmente(aktiv: AktiveSektion | null, unparsed: string[][]) {
+/** Offene Fragmente auflösen, wenn keine Folgezeile mehr kommt (Sektions-/
+ *  Seitenwechsel, Parse-Ende): dicht an der Vorzeile → anhängen, sonst
+ *  eigenständige Zeile. */
+function schliesseFragmente(aktiv: AktiveSektion | null) {
   if (!aktiv) return;
-  const letzte = aktiv.sektion.zeilen[aktiv.sektion.zeilen.length - 1];
+  let ziel = aktiv.sektion.zeilen[aktiv.sektion.zeilen.length - 1];
+  let zielY = aktiv.letzteY;
   for (const frag of aktiv.fragmente) {
-    if (letzte) fuegeAn(letzte, frag.werte, false);
-    else unparsed.push(frag.werte.filter((w) => w !== ""));
+    if (ziel !== undefined && zielY !== null && Math.abs(frag.y - zielY) <= UMBRUCH_MAX_ABSTAND) {
+      fuegeAn(ziel, frag.werte, false);
+    } else {
+      aktiv.sektion.zeilen.push(frag.werte);
+      ziel = frag.werte;
+    }
+    zielY = frag.y;
   }
   aktiv.fragmente = [];
 }
@@ -178,7 +192,7 @@ export function parseTafelBrb(seiten: PdfSeite[]): TafelBrbErgebnis {
       // --- Sektions-Überschrift erkannt --------------------------------
       const neueSektionId = erkenneSektion(texte);
       if (neueSektionId) {
-        schliesseFragmente(aktiv, ergebnis.unparsed);
+        schliesseFragmente(aktiv);
         // Seitenumbrüche wiederholen die Überschrift: bestehende Sektion
         // fortsetzen (Anker auffrischen), statt sie zu duplizieren.
         const bestehend = sektionNachId.get(neueSektionId);
@@ -221,14 +235,23 @@ export function parseTafelBrb(seiten: PdfSeite[]): TafelBrbErgebnis {
           // bleiben eigenständig (Leer-Slots der Tabellen).
           aktiv.fragmente.push({ werte: zugeordnet, y: zeile.y });
         } else {
-          const letzte = aktiv.sektion.zeilen[aktiv.sektion.zeilen.length - 1];
+          let anhaengeZiel = aktiv.sektion.zeilen[aktiv.sektion.zeilen.length - 1];
+          let anhaengeY = aktiv.letzteY;
           for (const frag of aktiv.fragmente) {
-            const zurVorzeile =
-              letzte !== undefined &&
-              aktiv.letzteY !== null &&
-              Math.abs(frag.y - aktiv.letzteY) <= Math.abs(frag.y - zeile.y);
-            if (zurVorzeile) fuegeAn(letzte, frag.werte, false);
-            else fuegeAn(zugeordnet, frag.werte, true);
+            const abstandVor =
+              anhaengeZiel !== undefined && anhaengeY !== null ? Math.abs(frag.y - anhaengeY) : Infinity;
+            const abstandNach = Math.abs(frag.y - zeile.y);
+            if (abstandVor <= UMBRUCH_MAX_ABSTAND && abstandVor <= abstandNach) {
+              fuegeAn(anhaengeZiel!, frag.werte, false);
+            } else if (abstandNach <= UMBRUCH_MAX_ABSTAND) {
+              fuegeAn(zugeordnet, frag.werte, true);
+            } else {
+              // Normaler Zeilenabstand zu beiden Nachbarn: eigenständige
+              // Zeile mit leerer erster Spalte, in Originalreihenfolge.
+              aktiv.sektion.zeilen.push(frag.werte);
+              anhaengeZiel = frag.werte;
+            }
+            anhaengeY = frag.y;
           }
           aktiv.fragmente = [];
           aktiv.sektion.zeilen.push(zugeordnet);
@@ -242,10 +265,10 @@ export function parseTafelBrb(seiten: PdfSeite[]): TafelBrbErgebnis {
     // Seitenwechsel: offene Fragmente gehören noch zur alten Seite, und
     // y-Werte sind seitenlokal — Distanzvergleiche über die Grenze hinweg
     // wären bedeutungslos.
-    schliesseFragmente(aktiv, ergebnis.unparsed);
+    schliesseFragmente(aktiv);
     if (aktiv) aktiv.letzteY = null;
   }
-  schliesseFragmente(aktiv, ergebnis.unparsed);
+  schliesseFragmente(aktiv);
 
   return ergebnis;
 }
