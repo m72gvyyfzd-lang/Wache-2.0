@@ -24,6 +24,10 @@ export interface TenderEintrag {
   tender: boolean;
   vNr: string;
   lotse: string;
+  /** Schiffsname fett = Schiff ist angemeldet */
+  schiffFett: boolean;
+  /** Lotsenname fett = Lotse ist bereits auf der Seestation */
+  lotseFett: boolean;
 }
 
 export interface SeestationPdfErgebnis {
@@ -79,6 +83,8 @@ function parseBlock(block: Block): TenderEintrag {
     tender: false,
     vNr: "",
     lotse: "",
+    schiffFett: false,
+    lotseFett: false,
   };
   const anhaengen = (feld: "schiff" | "lotse" | "kat" | "best" | "vNr", text: string) => {
     eintrag[feld] = eintrag[feld] === "" ? text : `${eintrag[feld]} ${text}`;
@@ -95,6 +101,8 @@ function parseBlock(block: Block): TenderEintrag {
         else anhaengen("best", zelle.text);
       } else {
         anhaengen(feld, zelle.text);
+        if (feld === "schiff" && zelle.fett) eintrag.schiffFett = true;
+        if (feld === "lotse" && zelle.fett) eintrag.lotseFett = true;
       }
     }
   }

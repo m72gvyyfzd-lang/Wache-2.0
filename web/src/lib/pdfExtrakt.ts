@@ -14,6 +14,8 @@ export interface PdfZelle {
   x: number;
   /** rechte Kante */
   xEnde: number;
+  /** fett gesetzt (z.B. Tendertafel: angemeldetes Schiff, Lotse auf Station) */
+  fett: boolean;
 }
 
 export interface PdfZeile {
@@ -72,6 +74,7 @@ interface RohStueck {
   x: number;
   breite: number;
   y: number;
+  fett: boolean;
 }
 
 function zuZeilen(stuecke: RohStueck[]): PdfZeile[] {
@@ -94,8 +97,9 @@ function zuZeilen(stuecke: RohStueck[]): PdfZeile[] {
       if (letzte && s.x - letzte.xEnde <= ZELLEN_LUECKE) {
         letzte.text = `${letzte.text} ${s.text}`.replace(/\s+/g, " ").trim();
         letzte.xEnde = Math.max(letzte.xEnde, s.x + s.breite);
+        letzte.fett = letzte.fett || s.fett;
       } else {
-        zellen.push({ text: s.text.replace(/\s+/g, " ").trim(), x: s.x, xEnde: s.x + s.breite });
+        zellen.push({ text: s.text.replace(/\s+/g, " ").trim(), x: s.x, xEnde: s.x + s.breite, fett: s.fett });
       }
     }
     return { y: zeile.y, zellen: zellen.filter((z) => z.text !== "") };
@@ -111,7 +115,24 @@ export async function extrahierePdfZeilen(daten: ArrayBuffer): Promise<PdfSeite[
     const seiten: PdfSeite[] = [];
     for (let nr = 1; nr <= doc.numPages; nr++) {
       const seite = await doc.getPage(nr);
+      // Lädt die Fonts in commonObjs — erst danach lässt sich je Textstück
+      // erkennen, ob seine Schrift fett ist (Fontname enthält "Bold").
+      await seite.getOperatorList();
       const inhalt = await seite.getTextContent();
+      const fettProFont = new Map<string, boolean>();
+      const istFett = (fontName: string): boolean => {
+        if (!fettProFont.has(fontName)) {
+          let fett = false;
+          try {
+            const font = seite.commonObjs.get(fontName) as { name?: string } | null;
+            fett = /bold/i.test(font?.name ?? "");
+          } catch {
+            fett = false;
+          }
+          fettProFont.set(fontName, fett);
+        }
+        return fettProFont.get(fontName)!;
+      };
       const stuecke: RohStueck[] = [];
       for (const item of inhalt.items) {
         if (!("str" in item) || item.str.trim() === "") continue;
@@ -120,6 +141,7 @@ export async function extrahierePdfZeilen(daten: ArrayBuffer): Promise<PdfSeite[
           x: item.transform[4],
           y: item.transform[5],
           breite: item.width,
+          fett: istFett(item.fontName),
         });
       }
       seiten.push({ zeilen: zuZeilen(stuecke), hoehe: seite.getViewport({ scale: 1 }).height });

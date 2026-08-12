@@ -1,19 +1,20 @@
-/** Wachbeginn: PDF-Import-Werkzeuge (Stufe 1 — Upload + Vorschau).
- *
- *  Der Einsatzleiter exportiert zu Wachbeginn zwei PDFs (Tafel Brb und
- *  Seestation von elbe-pilot.de) und lädt sie hier hoch. Die Analyse läuft
- *  komplett im Browser — die Datei verlässt das Gerät nicht. In dieser
- *  Stufe wird nur eine Vorschau des Erkannten angezeigt (Validierung des
- *  Parsers gegen echte Exporte); der eigentliche Import in die App-Daten
- *  folgt als Stufe 2. */
-import { useRef, useState } from "react";
+/** Wachbeginn: "Neue Wache erstellen" — kompletter Ablauf aus Reset,
+ *  PDF-Upload (Tafel Brb + Seestation Pflicht, Törnstände optional),
+ *  Analyse mit Plausibilitäts-Meldungen und finaler Übernahme in die
+ *  App-Daten. Die Analyse läuft komplett im Browser — die Dateien
+ *  verlassen das Gerät nicht. */
+import { useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
+import { FrageModal } from "../components/FrageModal";
+import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import type { PdfSeite } from "../lib/pdfExtrakt";
 import type { SeestationPdfErgebnis } from "../lib/seestationPdfParse";
 import type { TafelBrbErgebnis } from "../lib/tafelBrbParse";
 import type { ToernstaendeErgebnis } from "../lib/toernstaendeParse";
+import { baueWachImport } from "../lib/wachbeginnImport";
+import { useData } from "../state/DataContext";
 import "./Wachbeginn.css";
 
 type UploadZustand<T> =
@@ -101,6 +102,9 @@ async function liesDatei(datei: File): Promise<PdfSeite[]> {
 }
 
 export function Wachbeginn() {
+  const { resetAlles, importiereWache } = useData();
+  const [phase, setPhase] = useState<"start" | "upload" | "fertig">("start");
+  const [frageOffen, setFrageOffen] = useState(false);
   const [tafel, setTafel] = useState<UploadZustand<TafelBrbErgebnis>>({ status: "leer" });
   const [seestation, setSeestation] = useState<UploadZustand<SeestationPdfErgebnis>>({ status: "leer" });
   const [toernstaende, setToernstaende] = useState<UploadZustand<ToernstaendeErgebnis>>({ status: "leer" });
@@ -133,28 +137,112 @@ export function Wachbeginn() {
     (await import("../lib/toernstaendeParse")).parseToernstaende(seiten),
   );
 
+  // Auswertung, sobald die beiden Pflicht-PDFs analysiert sind — liefert
+  // die Import-Daten samt Plausibilitäts-Meldungen für die Anzeige.
+  const auswertung = useMemo(() => {
+    if (tafel.status !== "fertig" || seestation.status !== "fertig") return null;
+    return baueWachImport(
+      tafel.daten,
+      seestation.daten,
+      toernstaende.status === "fertig" ? toernstaende.daten : null,
+      new Date(),
+    );
+  }, [tafel, seestation, toernstaende]);
+
+  function handleUebernehmen() {
+    if (!auswertung) return;
+    importiereWache(auswertung);
+    setPhase("fertig");
+  }
+
   return (
     <div>
       <PageHeader
         title="Wachbeginn"
         centered
-        description={`PDF-Exporte hochladen und prüfen — die Analyse läuft vollständig auf diesem Gerät. Der Import in die App folgt in einem späteren Schritt. (App-Stand: ${__BUILD_STAND__})`}
+        description={`Neue Wache aus den PDF-Exporten von elbe-pilot.de aufsetzen — die Analyse läuft vollständig auf diesem Gerät. (App-Stand: ${__BUILD_STAND__})`}
       />
 
-      <Panel title="Tafel Brb" description="PDF-Export der BZ2 Tafel (elbe-pilot.de)">
-        <UploadKopf zustand={tafel} onDatei={handleTafelDatei} inputTestId="tafel-datei" />
-        {tafel.status === "fertig" && <TafelVorschau ergebnis={tafel.daten} />}
-      </Panel>
+      {phase === "start" && (
+        <Panel title="Neue Wache">
+          <p className="wachbeginn__intro">
+            Startet den Wachbeginn-Ablauf: Alle bestehenden Daten werden gelöscht, danach werden die
+            PDF-Exporte (Tafel Brb und Seestation, optional Törnstände) hochgeladen, geprüft und als
+            Grundgerüst der neuen Wache übernommen.
+          </p>
+          <button type="button" className="btn btn--accent" onClick={() => setFrageOffen(true)} data-testid="neue-wache">
+            Neue Wache erstellen
+          </button>
+        </Panel>
+      )}
 
-      <Panel title="Seestation" description="PDF-Export der BZ2 Tendertafel (elbe-pilot.de)">
-        <UploadKopf zustand={seestation} onDatei={handleSeestationDatei} inputTestId="seestation-datei" />
-        {seestation.status === "fertig" && <SeestationVorschau ergebnis={seestation.daten} />}
-      </Panel>
+      {frageOffen && (
+        <Modal title="Neue Wache erstellen" onClose={() => setFrageOffen(false)} titelZentriert>
+          <FrageModal
+            zentriert
+            warnung="Alle bestehenden Daten werden gelöscht und die Wache neu initialisiert."
+            frage="Fortfahren?"
+            onJa={() => {
+              resetAlles();
+              setFrageOffen(false);
+              setPhase("upload");
+            }}
+            onNein={() => setFrageOffen(false)}
+          />
+        </Modal>
+      )}
 
-      <Panel title="Törnstände" description="PDF-Export der BZ2 Törnliste für die Listenvergaben (elbe-pilot.de)">
-        <UploadKopf zustand={toernstaende} onDatei={handleToernstaendeDatei} inputTestId="toernstaende-datei" />
-        {toernstaende.status === "fertig" && <ToernstaendeVorschau ergebnis={toernstaende.daten} />}
-      </Panel>
+      {phase === "upload" && (
+        <>
+          <Panel title="Tafel Brb" description="PDF-Export der BZ2 Tafel (Pflicht)">
+            <UploadKopf zustand={tafel} onDatei={handleTafelDatei} inputTestId="tafel-datei" />
+            {tafel.status === "fertig" && <TafelVorschau ergebnis={tafel.daten} />}
+          </Panel>
+
+          <Panel title="Seestation" description="PDF-Export der BZ2 Tendertafel (Pflicht)">
+            <UploadKopf zustand={seestation} onDatei={handleSeestationDatei} inputTestId="seestation-datei" />
+            {seestation.status === "fertig" && <SeestationVorschau ergebnis={seestation.daten} />}
+          </Panel>
+
+          <Panel title="Törnstände" description="PDF-Export der BZ2 Törnliste (optional — Törnstände lassen sich auch manuell nachtragen)">
+            <UploadKopf zustand={toernstaende} onDatei={handleToernstaendeDatei} inputTestId="toernstaende-datei" />
+            {toernstaende.status === "fertig" && <ToernstaendeVorschau ergebnis={toernstaende.daten} />}
+          </Panel>
+
+          <Panel title="Auswertung">
+            {!auswertung ? (
+              <p className="wachbeginn__intro">
+                Bitte Tafel Brb und Seestation hochladen — danach erscheinen hier die Auswertung und die
+                Übernahme.
+              </p>
+            ) : (
+              <div className="wachbeginn__vorschau" data-testid="auswertung">
+                <ul className="wachbeginn__meldungen">
+                  {auswertung.meldungen.map((m, i) => (
+                    <li key={i} className={`wachbeginn__meldung wachbeginn__meldung--${m.stufe}`}>
+                      {m.text}
+                    </li>
+                  ))}
+                </ul>
+                <div>
+                  <button type="button" className="btn btn--accent" onClick={handleUebernehmen} data-testid="uebernehmen">
+                    Wache übernehmen
+                  </button>
+                </div>
+              </div>
+            )}
+          </Panel>
+        </>
+      )}
+
+      {phase === "fertig" && (
+        <Panel title="Wache übernommen">
+          <p className="wachbeginn__intro" data-testid="fertig-text">
+            Die neue Wache ist eingerichtet. Bitte die Daten auf den Seiten Tafel Brb, Einsatzplanung,
+            Einsatzstation und Seestation prüfen und Schiffsnamen sowie fehlende Angaben nachtragen.
+          </p>
+        </Panel>
+      )}
     </div>
   );
 }

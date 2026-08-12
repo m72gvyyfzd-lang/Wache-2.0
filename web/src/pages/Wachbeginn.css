@@ -102,3 +102,38 @@
   font-family: var(--font-mono);
   font-size: 0.78rem;
 }
+
+.wachbeginn__intro {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+  max-width: 720px;
+}
+
+/* Auswertungs-Meldungen des Imports: Infos dezent, Warnungen auffällig. */
+.wachbeginn__meldungen {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wachbeginn__meldung {
+  font-size: 0.85rem;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.wachbeginn__meldung--info {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.wachbeginn__meldung--warnung {
+  border: 1px solid #c77d1e;
+  background: rgba(199, 125, 30, 0.1);
+  color: var(--ink);
+  font-weight: 600;
+}

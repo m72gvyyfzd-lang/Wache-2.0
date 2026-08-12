@@ -108,10 +108,25 @@ interface DataContextValue {
    *  "letzte V-Nr." + 1. Die Einstellungen selbst (letzte V-Nr., aktuelle
    *  Fahrt, Alarm-Ton) bleiben erhalten. */
   resetAlles: () => void;
+  /** Wachbeginn-Import (nach resetAlles): setzt Jobs, Lotsen, See-Schiffe,
+   *  Auf-Seestation-Lotsen sowie aktuelle Fahrt und letzte V-Nr. (inkl.
+   *  neuem vNrStart) in einem Schritt aus den PDF-Exporten. */
+  importiereWache: (daten: WachImportDaten) => void;
   /** HW-Paar Brunsbüttel (Settings) für die matrixbasierte Brb-Prognose der
    *  HH-Jobs. Ohne HW_1 rechnen alle HH-Jobs mit den festen Offsets. */
   hwBrb: HwBrbEingabe;
   setHwBrb: (hwBrb: HwBrbEingabe) => void;
+}
+
+/** Nutzdaten des Wachbeginn-Imports (siehe lib/wachbeginnImport.ts —
+ *  hier ohne die reine Analyse-Ausgabe `meldungen`). */
+export interface WachImportDaten {
+  aktuelleFahrt?: AktuelleFahrt;
+  letzteVNr?: number;
+  jobs: Omit<JobEintrag, "id">[];
+  lotsen: LotsenEintrag[];
+  seeSchiffe: Omit<SeeSchiff, "id">[];
+  seestationLotsen: Omit<SeestationLotse, "id">[];
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -340,6 +355,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
     speichereANrZaehler(1000);
   }, [letzteVNr]);
 
+  const importiereWache = useCallback((daten: WachImportDaten) => {
+    let jobId = naechsteJobId.current!;
+    setJobs(daten.jobs.map((j) => ({ ...j, id: jobId++ })));
+    naechsteJobId.current = jobId;
+    speichereJobIdZaehler(jobId);
+    setLotsen(daten.lotsen);
+    setSeeSchiffe(daten.seeSchiffe.map((s, i) => ({ ...s, id: i + 1 })));
+    setSeestationLotsen(daten.seestationLotsen.map((l, i) => ({ ...l, id: i + 1 })));
+    if (daten.aktuelleFahrt) {
+      setAktuelleFahrtState(daten.aktuelleFahrt);
+      speichereAktuelleFahrt(daten.aktuelleFahrt);
+    }
+    if (daten.letzteVNr !== undefined) {
+      setLetzteVNrState(daten.letzteVNr);
+      speichereLetzteVNr(daten.letzteVNr);
+      // Der Import ersetzt die Wache komplett — die V-Nr.-Zählung der
+      // Einsatzplanung startet direkt hinter der importierten letzten V-Nr.
+      setVNrStartState(daten.letzteVNr + 1);
+      speichereVNrStart(daten.letzteVNr + 1);
+    }
+  }, []);
+
   return (
     <DataContext.Provider
       value={{
@@ -377,6 +414,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         teileSeeAb,
         macheSeeAbteilungRueckgaengig,
         resetAlles,
+        importiereWache,
       }}
     >
       {children}

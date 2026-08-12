@@ -211,7 +211,9 @@ export interface SeeSchiff {
 export interface SeestationLotse {
   id: number;
   vNr: number;
-  zusatz: "A" | "B" | "C" | "D";
+  /** Buchstaben-Zusatz beim manuellen Einfügen zwischen bestehende Nummern;
+   *  per Wachbeginn-Import übernommene Lotsen haben meist keinen. */
+  zusatz?: "A" | "B" | "C" | "D";
   name: string;
   /** Lotsenkategorie (siehe core::LOTSEN_KATEGORIEN) */
   kategorie: string;

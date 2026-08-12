@@ -1,0 +1,559 @@
+/** Wachbeginn-Import (Stufe 2): übersetzt die geparsten PDF-Exporte
+ *  (Tafel Brb, Tendertafel/Seestation, optional Törnliste) in die
+ *  App-Datenstrukturen — das "Grundgerüst" der neuen Wache.
+ *
+ *  Regeln laut Einsatzleiter-Spezifikation:
+ *  - Tafel ausgehend HH/NOK → Hamburg-/NOK-Liste (Zeiten, Kat. bzw. Ticker
+ *    aus Bem.; Platzhalter-Schiffsnamen "HH-n"/"NOK-n", Rest arbeitet der
+ *    User nach). Leer-Slots (nur Nr.) werden übersprungen.
+ *  - Tafel Anmeldungen → Andere Jobs (Typ-Übersetzung, Datum/Zeit →
+ *    Abt.Zeit, Lotsenanzahl nur bei AG-Typen).
+ *  - Tafel Lotsenliste → Einsatzstation: Tafel-Nr. = aktuelle Fahrt,
+ *    BB-Nr. = Bereitschafts-Reihenfolge, BB "A" = abgerufen (+ Zeit aus
+ *    Bem. als "An Stn."), Abrufzeit "x,xh" aus Bem., Zahl hinter dem Namen
+ *    = Kat. CB-Lotsen und Lotsen ohne Tafel-/BB-Eintrag bleiben draußen.
+ *  - Tendertafel → ETA Seestation (Doppeldecker-Zusammenfassung, EH,
+ *    fett = angemeldet) und über den Marker-Abgleich mit dem ersten
+ *    Einsatzstations-Lotsen: "letzte V-Nr." + Liste "Auf Seestation"
+ *    (fett = bereits auf Station).
+ *  - Törnliste → Törnstände der Einsatzstations-Lotsen per Namensabgleich
+ *    ("1+1"→2+2, Weser Blau→WB, Weser Rot→WR, Hulo→HuLo).
+ *
+ *  Alles, was nicht eindeutig auswertbar ist, landet sichtbar in
+ *  Bemerkungen bzw. als Warnung in `meldungen` — nichts geht still
+ *  verloren. */
+
+import { SCHIFFS_KATEGORIEN } from "@wache/core";
+import type { AnmeldungsTyp } from "@wache/core";
+import type {
+  AktuelleFahrt,
+  JobEintrag,
+  LotsenEintrag,
+  SeeSchiff,
+  SeestationLotse,
+} from "../data/types";
+import type { SeestationPdfErgebnis } from "./seestationPdfParse";
+import type { TafelBrbErgebnis, TafelSektion } from "./tafelBrbParse";
+import type { ToernstaendeErgebnis } from "./toernstaendeParse";
+
+export interface ImportMeldung {
+  stufe: "info" | "warnung";
+  text: string;
+}
+
+export interface WachImport {
+  aktuelleFahrt?: AktuelleFahrt;
+  letzteVNr?: number;
+  jobs: Omit<JobEintrag, "id">[];
+  lotsen: LotsenEintrag[];
+  seeSchiffe: Omit<SeeSchiff, "id">[];
+  seestationLotsen: Omit<SeestationLotse, "id">[];
+  meldungen: ImportMeldung[];
+}
+
+// ---------------------------------------------------------------- Helfer
+
+/** "12:30", "1230" → Stunden/Minuten; sonst null. */
+function parseZeit(text: string): { h: number; m: number } | null {
+  const m = text.trim().match(/^([01]?\d|2[0-3]):?([0-5]\d)$/);
+  if (!m) return null;
+  return { h: Number(m[1]), m: Number(m[2]) };
+}
+
+/** Uhrzeit ohne Datum: nimmt den Kalendertag (gestern/heute/morgen), der
+ *  am dichtesten an "jetzt" liegt — eine 23:50-Zeit kurz nach Mitternacht
+ *  gehört z.B. zum Vortag. */
+function zeitAmNaechstenTag(h: number, m: number, jetzt: Date): Date {
+  let beste: Date | null = null;
+  for (const tagesOffset of [-1, 0, 1]) {
+    const kandidat = new Date(jetzt);
+    kandidat.setDate(kandidat.getDate() + tagesOffset);
+    kandidat.setHours(h, m, 0, 0);
+    if (!beste || Math.abs(kandidat.getTime() - jetzt.getTime()) < Math.abs(beste.getTime() - jetzt.getTime())) {
+      beste = kandidat;
+    }
+  }
+  return beste!;
+}
+
+function parseZeitMitTag(text: string, jetzt: Date): Date | undefined {
+  const zeit = parseZeit(text);
+  return zeit ? zeitAmNaechstenTag(zeit.h, zeit.m, jetzt) : undefined;
+}
+
+/** "12.08." + "22:30" → Datum; das Jahr wird so gewählt, dass das Ergebnis
+ *  in der Nähe von "jetzt" liegt (Jahreswechsel-sicher). */
+function parseDatumZeit(tagMonat: string, zeitText: string, jetzt: Date): Date | undefined {
+  const dm = tagMonat.trim().match(/^(\d{1,2})\.(\d{1,2})\.$/);
+  const zeit = parseZeit(zeitText) ?? { h: 0, m: 0 };
+  if (!dm) return undefined;
+  const ergebnis = new Date(jetzt.getFullYear(), Number(dm[2]) - 1, Number(dm[1]), zeit.h, zeit.m);
+  const halbesJahr = 182 * 24 * 3_600_000;
+  if (ergebnis.getTime() - jetzt.getTime() > halbesJahr) ergebnis.setFullYear(ergebnis.getFullYear() - 1);
+  else if (jetzt.getTime() - ergebnis.getTime() > halbesJahr) ergebnis.setFullYear(ergebnis.getFullYear() + 1);
+  return ergebnis;
+}
+
+/** Schiffskategorie-Text auf die App-Schreibweise normalisieren
+ *  ("Agf3+" → "AGF 3+", "AGF3/7" → "AGF 3/7"); unbekannte Texte bleiben
+ *  unverändert erhalten. */
+function normalisiereSchiffsKat(text: string): string {
+  const kompakt = text.replace(/\s+/g, "").toUpperCase();
+  for (const kat of SCHIFFS_KATEGORIEN) {
+    if (kat.replace(/\s+/g, "").toUpperCase() === kompakt) return kat;
+  }
+  return text.trim();
+}
+
+function istSchiffsKat(text: string): boolean {
+  const kompakt = text.replace(/\s+/g, "").toUpperCase();
+  return SCHIFFS_KATEGORIEN.some((kat) => kat.replace(/\s+/g, "").toUpperCase() === kompakt);
+}
+
+/** Zahl (bzw. "3+") hinter dem Namen = Lotsenkategorie. */
+function trenneNameUndKat(roh: string): { name: string; kategorie: string } {
+  const m = roh.trim().match(/^(.*?)\s+(3\+|[1-7])$/);
+  if (m) return { name: m[1].trim(), kategorie: m[2] };
+  return { name: roh.trim(), kategorie: "" };
+}
+
+/** Namensschlüssel für den Abgleich zwischen den drei PDF-Formaten
+ *  ("Behnke J.H." / "Behnke, Jan-Hinrich" / "Behnke, J" → "behnke|j"):
+ *  Nachname + erster Buchstabe des Vornamens. */
+export function nameSchluessel(roh: string): string {
+  const klein = roh.trim().toLowerCase();
+  const m = klein.match(/^([a-zäöüß-]+)[,\s]+([a-zäöüß])/);
+  return m ? `${m[1]}|${m[2]}` : klein;
+}
+
+function spaltenIndex(sektion: TafelSektion, name: string): number {
+  return sektion.spalten.findIndex((s) => s.toLowerCase().replace(/[^a-zäöü+]/g, "").startsWith(name));
+}
+
+const FAHRT_MAP: Record<string, AktuelleFahrt> = { mofa: "MoFa", mifa: "MiFa", afa: "AFA" };
+
+const TYP_MAP: Record<string, AnmeldungsTyp> = {
+  radar: "Sonderradar",
+  sonderradar: "Sonderradar",
+  sora: "Sonderradar",
+  nebelradar: "Nebelradar",
+  nera: "Nebelradar",
+  wblau: "WB",
+  weserblau: "WB",
+  wb: "WB",
+  wrot: "WR",
+  weserrot: "WR",
+  wr: "WR",
+  ehf: "EHF",
+  bhf: "BHF",
+  hulo: "HuLo",
+  "1+1": "1+1",
+  "2+2": "2+2",
+  ag: "AG",
+  agtender: "AG (Tender)",
+};
+
+// ------------------------------------------------------------ Tafel Brb
+
+function baueHamburgJobs(sektion: TafelSektion | undefined, jetzt: Date, jobs: Omit<JobEintrag, "id">[]) {
+  if (!sektion) return;
+  const iHh = spaltenIndex(sektion, "hh");
+  const iFkw = spaltenIndex(sektion, "fkw");
+  const iStade = spaltenIndex(sektion, "stade");
+  const iBem = spaltenIndex(sektion, "bem");
+  let lfd = 0;
+  for (const zeile of sektion.zeilen) {
+    const hh = zeile[iHh] ?? "";
+    const fkw = zeile[iFkw] ?? "";
+    const stade = zeile[iStade] ?? "";
+    const bem = zeile[iBem] ?? "";
+    if (hh === "" && fkw === "" && stade === "" && bem === "") continue; // Leer-Slot
+    lfd += 1;
+    const job: Omit<JobEintrag, "id"> = {
+      liste: "hamburg",
+      schiffsname: `HH-${lfd}`,
+      hh: parseZeitMitTag(hh, jetzt),
+      fkw: parseZeitMitTag(fkw, jetzt),
+      stade: parseZeitMitTag(stade, jetzt),
+    };
+    if (bem !== "") {
+      if (istSchiffsKat(bem)) job.kategorie = normalisiereSchiffsKat(bem);
+      else job.bemerkung = bem;
+    }
+    jobs.push(job);
+  }
+}
+
+function baueNokJobs(sektion: TafelSektion | undefined, jetzt: Date, jobs: Omit<JobEintrag, "id">[]) {
+  if (!sektion) return;
+  const iHolt = spaltenIndex(sektion, "holt");
+  const iKuden = spaltenIndex(sektion, "kuden");
+  const iKat = spaltenIndex(sektion, "kat");
+  const iBem = spaltenIndex(sektion, "bem");
+  let lfd = 0;
+  for (const zeile of sektion.zeilen) {
+    const holt = zeile[iHolt] ?? "";
+    const kuden = zeile[iKuden] ?? "";
+    const kat = zeile[iKat] ?? "";
+    const bem = zeile[iBem] ?? "";
+    if (holt === "" && kuden === "" && kat === "" && bem === "") continue; // Leer-Slot
+    lfd += 1;
+    const job: Omit<JobEintrag, "id"> = {
+      liste: "nok",
+      schiffsname: `NOK-${lfd}`,
+      holt: parseZeitMitTag(holt, jetzt),
+      kuden: parseZeitMitTag(kuden, jetzt),
+    };
+    if (kat !== "") job.kategorie = normalisiereSchiffsKat(kat);
+    if (bem !== "") {
+      const ticker = parseZeitMitTag(bem, jetzt);
+      if (ticker) job.ticker = ticker;
+      else job.bemerkung = bem;
+    }
+    jobs.push(job);
+  }
+}
+
+function baueAndereJobs(
+  sektion: TafelSektion | undefined,
+  jetzt: Date,
+  jobs: Omit<JobEintrag, "id">[],
+  meldungen: ImportMeldung[],
+) {
+  if (!sektion) return;
+  const iTyp = spaltenIndex(sektion, "typ");
+  const iKat = spaltenIndex(sektion, "kat");
+  const iLotse = spaltenIndex(sektion, "lotse");
+  const iDatum = spaltenIndex(sektion, "datum");
+  for (const zeile of sektion.zeilen) {
+    const typText = zeile[iTyp] ?? "";
+    const katText = zeile[iKat] ?? "";
+    const lotseText = zeile[iLotse] ?? "";
+    const datumZeitText = zeile[iDatum] ?? "";
+    if (typText === "" && katText === "" && datumZeitText === "") continue;
+
+    const typSchluessel = typText.toLowerCase().replace(/[^a-z0-9+]/g, "");
+    const typ = TYP_MAP[typSchluessel];
+    const job: Omit<JobEintrag, "id"> = { liste: "andere" };
+    if (typ) job.typ = typ;
+    else if (typText !== "") job.bemerkung = `Typ: ${typText}`;
+    if (katText !== "" && katText !== "-" && katText !== "–") job.kategorie = normalisiereSchiffsKat(katText);
+
+    // "02.08.2026 1659" bzw. "02.08. 16:59" → Abt.Zeit
+    const dz = datumZeitText.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})?\s+(\d{1,2}):?(\d{2})$/);
+    if (dz) {
+      const jahr = dz[3] ? (dz[3].length === 2 ? 2000 + Number(dz[3]) : Number(dz[3])) : jetzt.getFullYear();
+      job.abtZeitManuell = new Date(jahr, Number(dz[2]) - 1, Number(dz[1]), Number(dz[4]), Number(dz[5]));
+    } else if (datumZeitText !== "") {
+      const nurZeit = parseZeitMitTag(datumZeitText, jetzt);
+      if (nurZeit) job.abtZeitManuell = nurZeit;
+      else meldungen.push({ stufe: "warnung", text: `Anmeldung "${typText}": Zeit "${datumZeitText}" nicht lesbar` });
+    }
+
+    // Lotsenanzahl nur bei AG-Typen übernehmen (User-Regel)
+    if ((typ === "AG" || typ === "AG (Tender)") && /^\d+$/.test(lotseText)) {
+      job.agLotsenAnzahl = Number(lotseText);
+    }
+    jobs.push(job);
+  }
+}
+
+interface LotsenImportErgebnis {
+  lotsen: LotsenEintrag[];
+  uebersprungenCb: number;
+  uebersprungenOhne: number;
+}
+
+function baueLotsen(
+  sektion: TafelSektion | undefined,
+  aktuelleFahrt: AktuelleFahrt | undefined,
+  jetzt: Date,
+  meldungen: ImportMeldung[],
+): LotsenImportErgebnis {
+  const ergebnis: LotsenImportErgebnis = { lotsen: [], uebersprungenCb: 0, uebersprungenOhne: 0 };
+  if (!sektion) return ergebnis;
+  const iTafel = spaltenIndex(sektion, "tafel");
+  const iCb = spaltenIndex(sektion, "cb");
+  const iName = spaltenIndex(sektion, "name");
+  const iBb = spaltenIndex(sektion, "bb");
+  const iBem = spaltenIndex(sektion, "bem");
+  if (iName === -1 || iBb === -1) {
+    meldungen.push({ stufe: "warnung", text: "Lotsenliste: Spalten Name/BB nicht gefunden — keine Lotsen übernommen" });
+    return ergebnis;
+  }
+
+  const fahrtLotsen: { nr: number; lotse: LotsenEintrag }[] = [];
+  const abgerufene: LotsenEintrag[] = [];
+  const bereitschaft: { nr: number; lotse: LotsenEintrag }[] = [];
+
+  for (const zeile of sektion.zeilen) {
+    const tafelText = zeile[iTafel] ?? "";
+    const cbText = zeile[iCb] ?? "";
+    const nameText = zeile[iName] ?? "";
+    const bbText = (zeile[iBb] ?? "").trim();
+    const bemText = zeile[iBem] ?? "";
+    if (nameText === "") continue;
+    if (cbText !== "") {
+      ergebnis.uebersprungenCb += 1;
+      continue;
+    }
+    const tafelNr = /^\d+$/.test(tafelText) ? Number(tafelText) : undefined;
+    const istAbgerufen = /^a$/i.test(bbText);
+    const bbNr = /^\d+$/.test(bbText) ? Number(bbText) : undefined;
+    if (tafelNr === undefined && !istAbgerufen && bbNr === undefined) {
+      ergebnis.uebersprungenOhne += 1;
+      continue;
+    }
+
+    const { name, kategorie } = trenneNameUndKat(nameText);
+    const lotse: LotsenEintrag = {
+      name,
+      kategorie,
+      fahrt: tafelNr !== undefined && aktuelleFahrt ? aktuelleFahrt : "",
+      elbehafen: false,
+      toern2Plus2: 0,
+      toernWb: 0,
+      toernWr: 0,
+      toernHulo: 0,
+      bemerkung: "",
+    };
+
+    // Bem.: Abrufzeit ("1,5h"), bei "A" eine Zeit ("An Stn."), Rest wörtlich
+    let rest = bemText;
+    const abruf = rest.match(/(\d(?:[.,]\d)?)\s*(?:h|std)\b\.?/i);
+    if (abruf) {
+      lotse.abrufStunden = Number(abruf[1].replace(",", "."));
+      rest = rest.replace(abruf[0], " ");
+    }
+    if (istAbgerufen) {
+      lotse.abgerufen = true;
+      const zeitMatch = rest.match(/\b(\d{1,2}:\d{2})\b/);
+      if (zeitMatch) {
+        lotse.anStationZeit = parseZeitMitTag(zeitMatch[1], jetzt);
+        rest = rest.replace(zeitMatch[0], " ");
+      }
+    }
+    if (rest.trim() !== "") lotse.bemerkung = bemText;
+
+    if (tafelNr !== undefined) fahrtLotsen.push({ nr: tafelNr, lotse });
+    else if (istAbgerufen) abgerufene.push(lotse);
+    else bereitschaft.push({ nr: bbNr!, lotse });
+  }
+
+  fahrtLotsen.sort((a, b) => a.nr - b.nr);
+  bereitschaft.sort((a, b) => a.nr - b.nr);
+  // Reihenfolge: aktuelle Fahrt (Tafel-Nr.), dann abgerufene Bereitschafts-
+  // Lotsen (stehen als Nächste an), dann Bereitschaft nach BB-Nr.
+  ergebnis.lotsen = [...fahrtLotsen.map((f) => f.lotse), ...abgerufene, ...bereitschaft.map((b) => b.lotse)];
+  return ergebnis;
+}
+
+// ----------------------------------------------------------- Tendertafel
+
+function parseVNr(text: string): { vNr: number; zusatz?: SeestationLotse["zusatz"] } | null {
+  const m = text.trim().match(/^(\d+)\s*([A-D])?$/i);
+  if (!m) return null;
+  return { vNr: Number(m[1]), zusatz: m[2] ? (m[2].toUpperCase() as SeestationLotse["zusatz"]) : undefined };
+}
+
+// ------------------------------------------------------------ Hauptlauf
+
+export function baueWachImport(
+  tafel: TafelBrbErgebnis,
+  tender: SeestationPdfErgebnis,
+  toerns: ToernstaendeErgebnis | null,
+  jetzt: Date,
+): WachImport {
+  const meldungen: ImportMeldung[] = [];
+  const importDaten: WachImport = {
+    jobs: [],
+    lotsen: [],
+    seeSchiffe: [],
+    seestationLotsen: [],
+    meldungen,
+  };
+
+  // --- aktuelle Fahrt aus dem Tafel-Kopf --------------------------------
+  const fahrtTyp = tafel.meta.fahrt?.typ ?? "";
+  const aktuelleFahrt = FAHRT_MAP[fahrtTyp.toLowerCase()];
+  if (aktuelleFahrt) {
+    importDaten.aktuelleFahrt = aktuelleFahrt;
+    meldungen.push({ stufe: "info", text: `Aktuelle Fahrt: ${aktuelleFahrt} (aus Tafel-Kopf "${fahrtTyp}")` });
+  } else {
+    meldungen.push({
+      stufe: "warnung",
+      text: `Fahrt "${fahrtTyp}" aus dem Tafel-Kopf nicht zuordenbar — aktuelle Fahrt bleibt unverändert`,
+    });
+  }
+
+  // --- Jobs -------------------------------------------------------------
+  const sektion = (id: string) => tafel.sektionen.find((s) => s.id === id);
+  baueHamburgJobs(sektion("ausgehend_hamburg"), jetzt, importDaten.jobs);
+  baueNokJobs(sektion("ausgehend_nok"), jetzt, importDaten.jobs);
+  baueAndereJobs(sektion("anmeldungen"), jetzt, importDaten.jobs, meldungen);
+  const anzahlHh = importDaten.jobs.filter((j) => j.liste === "hamburg").length;
+  const anzahlNok = importDaten.jobs.filter((j) => j.liste === "nok").length;
+  const anzahlAndere = importDaten.jobs.filter((j) => j.liste === "andere").length;
+  meldungen.push({
+    stufe: "info",
+    text: `Jobs: ${anzahlHh} Hamburg, ${anzahlNok} NOK, ${anzahlAndere} Anmeldungen (Leer-Slots übersprungen)`,
+  });
+
+  // --- Lotsenliste → Einsatzstation ------------------------------------
+  const lotsenErgebnis = baueLotsen(sektion("lotsenliste"), aktuelleFahrt, jetzt, meldungen);
+  importDaten.lotsen = lotsenErgebnis.lotsen;
+  const anzahlFahrt = importDaten.lotsen.filter((l) => l.fahrt !== "").length;
+  meldungen.push({
+    stufe: "info",
+    text:
+      `Einsatzstation: ${importDaten.lotsen.length} Lotsen übernommen ` +
+      `(${anzahlFahrt} aktuelle Fahrt, ${importDaten.lotsen.length - anzahlFahrt} Bereitschaft; ` +
+      `übersprungen: ${lotsenErgebnis.uebersprungenCb} CB, ${lotsenErgebnis.uebersprungenOhne} ohne Tafel/BB)`,
+  });
+
+  // --- Tendertafel → ETA Seestation ------------------------------------
+  for (let i = 0; i < tender.eintraege.length; i++) {
+    const e = tender.eintraege[i];
+    const vorheriges = importDaten.seeSchiffe[importDaten.seeSchiffe.length - 1];
+    if (vorheriges && i > 0 && tender.eintraege[i - 1].schiff === e.schiff && e.schiff !== "") {
+      // doppelter Schiffsname = Doppeldecker (2 Lotsen, 1 Schiff)
+      vorheriges.doppeldecker = true;
+      continue;
+    }
+    const eta = parseDatumZeit(e.datum, e.zeit, jetzt);
+    if (!eta) {
+      meldungen.push({ stufe: "warnung", text: `Tendertafel: ETA von "${e.schiff}" nicht lesbar — übersprungen` });
+      continue;
+    }
+    importDaten.seeSchiffe.push({
+      schiffsname: e.schiff,
+      eta,
+      kategorie: e.kat !== "" ? normalisiereSchiffsKat(e.kat) : undefined,
+      angemeldet: e.schiffFett || undefined,
+      ehfLotseBenoetigt: e.best === "EH" || undefined,
+    });
+  }
+  const anzahlDoppel = importDaten.seeSchiffe.filter((s) => s.doppeldecker).length;
+  meldungen.push({
+    stufe: "info",
+    text: `ETA Seestation: ${importDaten.seeSchiffe.length} Schiffe (davon ${anzahlDoppel} Doppeldecker)`,
+  });
+
+  // --- Marker-Abgleich: letzte V-Nr. + "Auf Seestation" -----------------
+  const ersterLotse = importDaten.lotsen[0];
+  if (!ersterLotse) {
+    meldungen.push({ stufe: "warnung", text: "Keine Einsatzstations-Lotsen — Marker-Abgleich nicht möglich" });
+  } else {
+    const markerSchluessel = nameSchluessel(ersterLotse.name);
+    const markerIndex = tender.eintraege.findIndex(
+      (e) => e.lotse !== "" && nameSchluessel(trenneNameUndKat(e.lotse).name) === markerSchluessel,
+    );
+    if (markerIndex === -1) {
+      meldungen.push({
+        stufe: "warnung",
+        text: `Marker-Lotse "${ersterLotse.name}" nicht in der Tendertafel gefunden — letzte V-Nr. und "Auf Seestation" konnten nicht abgeleitet werden`,
+      });
+    } else {
+      const markerEintrag = tender.eintraege[markerIndex];
+      const markerVNr = parseVNr(markerEintrag.vNr);
+      if (!markerVNr) {
+        meldungen.push({
+          stufe: "warnung",
+          text: `Marker-Lotse "${ersterLotse.name}" hat keine lesbare V-Nr. ("${markerEintrag.vNr}")`,
+        });
+      } else {
+        importDaten.letzteVNr = markerVNr.vNr - 1;
+        meldungen.push({
+          stufe: "info",
+          text: `Marker: ${ersterLotse.name} → V-Nr. ${markerVNr.vNr} — letzte V-Nr. wird ${importDaten.letzteVNr}`,
+        });
+      }
+      for (let i = 0; i < markerIndex; i++) {
+        const e = tender.eintraege[i];
+        if (e.lotse === "") {
+          meldungen.push({
+            stufe: "warnung",
+            text: `Tendertafel: Eintrag "${e.schiff}" vor dem Marker ohne Lotsen — nicht auf "Auf Seestation" übernommen`,
+          });
+          continue;
+        }
+        const { name, kategorie } = trenneNameUndKat(e.lotse);
+        const vNr = parseVNr(e.vNr);
+        if (!vNr) {
+          meldungen.push({
+            stufe: "warnung",
+            text: `Tendertafel: Lotse "${name}" ohne lesbare V-Nr. ("${e.vNr}") — nicht übernommen`,
+          });
+          continue;
+        }
+        importDaten.seestationLotsen.push({
+          vNr: vNr.vNr,
+          zusatz: vNr.zusatz,
+          name,
+          kategorie,
+          elbehafen: false,
+          aufStation: e.lotseFett || undefined,
+        });
+      }
+      const aufStation = importDaten.seestationLotsen.filter((l) => l.aufStation).length;
+      meldungen.push({
+        stufe: "info",
+        text:
+          `Auf Seestation: ${importDaten.seestationLotsen.length} Lotsen übernommen ` +
+          `(${aufStation} bereits auf Station, ${importDaten.seestationLotsen.length - aufStation} auf dem Weg)`,
+      });
+    }
+  }
+
+  // --- Törnstände per Namensabgleich ------------------------------------
+  if (toerns && toerns.eintraege.length > 0) {
+    const iName = toerns.spalten.findIndex((s) => s.toLowerCase().startsWith("lotse"));
+    const i11 = toerns.spalten.findIndex((s) => s.replace(/\s+/g, "") === "1+1");
+    const iWb = toerns.spalten.findIndex((s) => s.toLowerCase().includes("blau"));
+    const iWr = toerns.spalten.findIndex((s) => s.toLowerCase().includes("rot"));
+    const iHulo = toerns.spalten.findIndex((s) => s.toLowerCase().includes("hulo"));
+    const proSchluessel = new Map<string, string[][]>();
+    for (const zeile of toerns.eintraege) {
+      const schluessel = nameSchluessel(zeile[iName] ?? "");
+      const liste = proSchluessel.get(schluessel) ?? [];
+      liste.push(zeile);
+      proSchluessel.set(schluessel, liste);
+    }
+    let gefunden = 0;
+    const ohneToern: string[] = [];
+    const mehrdeutig: string[] = [];
+    for (const lotse of importDaten.lotsen) {
+      const treffer = proSchluessel.get(nameSchluessel(lotse.name)) ?? [];
+      if (treffer.length === 1) {
+        const zeile = treffer[0];
+        const wert = (i: number) => (i >= 0 && /^\d+$/.test(zeile[i] ?? "") ? Number(zeile[i]) : 0);
+        lotse.toern2Plus2 = wert(i11);
+        lotse.toernWb = wert(iWb);
+        lotse.toernWr = wert(iWr);
+        lotse.toernHulo = wert(iHulo);
+        gefunden += 1;
+      } else if (treffer.length === 0) {
+        ohneToern.push(lotse.name);
+      } else {
+        mehrdeutig.push(lotse.name);
+      }
+    }
+    meldungen.push({
+      stufe: "info",
+      text: `Törnstände: ${gefunden} von ${importDaten.lotsen.length} Lotsen zugeordnet`,
+    });
+    if (ohneToern.length > 0) {
+      meldungen.push({ stufe: "warnung", text: `Kein Törn-Eintrag gefunden für: ${ohneToern.join(", ")}` });
+    }
+    if (mehrdeutig.length > 0) {
+      meldungen.push({
+        stufe: "warnung",
+        text: `Törn-Zuordnung mehrdeutig (Name mehrfach in der Törnliste, nicht übernommen): ${mehrdeutig.join(", ")}`,
+      });
+    }
+  } else {
+    meldungen.push({ stufe: "info", text: "Keine Törnliste hochgeladen — Törnstände bleiben leer (manuell nachtragen)" });
+  }
+
+  return importDaten;
+}
