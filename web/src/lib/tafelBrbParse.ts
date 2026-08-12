@@ -14,6 +14,7 @@
  *  Datenzelle wird der nächstgelegenen Überschrift zugeordnet — damit
  *  verrutschen Werte auch bei leeren Zellen nicht. */
 
+import { istDruckzeile } from "./pdfExtrakt";
 import type { PdfSeite, PdfZeile } from "./pdfExtrakt";
 
 export type TafelSektionId =
@@ -46,13 +47,6 @@ export interface TafelBrbErgebnis {
   unparsed: string[][];
 }
 
-/** Safari/Chrome setzen beim PDF-Export Kopf-/Fußzeilen auf jede Seite:
- *  URL, "Seite X von Y", Titel und Zeitstempel ("12.8.26, 22:39"). */
-const FOOTER_RE = /:\/\/|^tps:|Seite \d+ von|^\d{1,2}\.\d{1,2}\.\d{2,4}, \d{1,2}:\d{2}$/i;
-
-/** Randbereich oben/unten (PDF-Einheiten), in dem nur Druck-Kopf-/Fußzeilen
- *  liegen — Inhalt beginnt bei Browser-Exporten deutlich weiter innen. */
-const SEITENRAND = 30;
 
 const SEKTIONS_TITEL: Record<TafelSektionId, string> = {
   ft_zurueck: "FT zurück",
@@ -166,12 +160,10 @@ export function parseTafelBrb(seiten: PdfSeite[]): TafelBrbErgebnis {
 
   for (const seite of seiten) {
     for (const zeile of seite.zeilen) {
-      // Druck-Kopf-/Fußzeilen: am Blattrand positioniert oder an typischen
-      // Mustern (URL, Seitenzahl, Zeitstempel) erkennbar — überspringen,
-      // bevor sie in einer Sektion oder in `unparsed` landen.
-      if (zeile.y <= SEITENRAND || zeile.y >= seite.hoehe - SEITENRAND) continue;
+      // Druck-Kopf-/Fußzeilen überspringen, bevor sie in einer Sektion
+      // oder in `unparsed` landen.
+      if (istDruckzeile(zeile, seite.hoehe)) continue;
       const texte = zeile.zellen.map((z) => z.text);
-      if (texte.some((t) => FOOTER_RE.test(t))) continue;
 
       // --- Meta-Zeilen -------------------------------------------------
       if (texte[0] === "Wache") {

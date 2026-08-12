@@ -11,7 +11,9 @@ import type { ChangeEvent, ReactNode } from "react";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import type { PdfSeite } from "../lib/pdfExtrakt";
+import type { SeestationPdfErgebnis } from "../lib/seestationPdfParse";
 import type { TafelBrbErgebnis } from "../lib/tafelBrbParse";
+import type { ToernstaendeErgebnis } from "../lib/toernstaendeParse";
 import "./Wachbeginn.css";
 
 type UploadZustand<T> =
@@ -100,29 +102,17 @@ async function liesDatei(datei: File): Promise<PdfSeite[]> {
 
 export function Wachbeginn() {
   const [tafel, setTafel] = useState<UploadZustand<TafelBrbErgebnis>>({ status: "leer" });
-  const [seestation, setSeestation] = useState<UploadZustand<PdfSeite[]>>({ status: "leer" });
-  const [toernstaende, setToernstaende] = useState<UploadZustand<PdfSeite[]>>({ status: "leer" });
+  const [seestation, setSeestation] = useState<UploadZustand<SeestationPdfErgebnis>>({ status: "leer" });
+  const [toernstaende, setToernstaende] = useState<UploadZustand<ToernstaendeErgebnis>>({ status: "leer" });
 
-  async function handleTafelDatei(datei: File) {
-    setTafel({ status: "laedt", dateiname: datei.name });
-    try {
-      const seiten = await liesDatei(datei);
-      const { parseTafelBrb } = await import("../lib/tafelBrbParse");
-      setTafel({ status: "fertig", dateiname: datei.name, daten: parseTafelBrb(seiten) });
-    } catch (fehler) {
-      setTafel({
-        status: "fehler",
-        dateiname: datei.name,
-        meldung: fehler instanceof Error ? fehler.message : "PDF konnte nicht gelesen werden",
-      });
-    }
-  }
-
-  function handleRohDatei(setzen: (z: UploadZustand<PdfSeite[]>) => void) {
+  function handleDatei<T>(
+    setzen: (z: UploadZustand<T>) => void,
+    parse: (seiten: PdfSeite[]) => Promise<T>,
+  ) {
     return async (datei: File) => {
       setzen({ status: "laedt", dateiname: datei.name });
       try {
-        setzen({ status: "fertig", dateiname: datei.name, daten: await liesDatei(datei) });
+        setzen({ status: "fertig", dateiname: datei.name, daten: await parse(await liesDatei(datei)) });
       } catch (fehler) {
         setzen({
           status: "fehler",
@@ -132,6 +122,16 @@ export function Wachbeginn() {
       }
     };
   }
+
+  const handleTafelDatei = handleDatei(setTafel, async (seiten) =>
+    (await import("../lib/tafelBrbParse")).parseTafelBrb(seiten),
+  );
+  const handleSeestationDatei = handleDatei(setSeestation, async (seiten) =>
+    (await import("../lib/seestationPdfParse")).parseSeestationPdf(seiten),
+  );
+  const handleToernstaendeDatei = handleDatei(setToernstaende, async (seiten) =>
+    (await import("../lib/toernstaendeParse")).parseToernstaende(seiten),
+  );
 
   return (
     <div>
@@ -146,14 +146,14 @@ export function Wachbeginn() {
         {tafel.status === "fertig" && <TafelVorschau ergebnis={tafel.daten} />}
       </Panel>
 
-      <Panel title="Seestation" description="PDF-Export der Seestation">
-        <UploadKopf zustand={seestation} onDatei={handleRohDatei(setSeestation)} inputTestId="seestation-datei" />
-        {seestation.status === "fertig" && <RohVorschau seiten={seestation.daten} testId="seestation-vorschau" />}
+      <Panel title="Seestation" description="PDF-Export der BZ2 Tendertafel (elbe-pilot.de)">
+        <UploadKopf zustand={seestation} onDatei={handleSeestationDatei} inputTestId="seestation-datei" />
+        {seestation.status === "fertig" && <SeestationVorschau ergebnis={seestation.daten} />}
       </Panel>
 
-      <Panel title="Törnstände" description="PDF-Export der Törnstände für die Listenvergaben">
-        <UploadKopf zustand={toernstaende} onDatei={handleRohDatei(setToernstaende)} inputTestId="toernstaende-datei" />
-        {toernstaende.status === "fertig" && <RohVorschau seiten={toernstaende.daten} testId="toernstaende-vorschau" />}
+      <Panel title="Törnstände" description="PDF-Export der BZ2 Törnliste für die Listenvergaben (elbe-pilot.de)">
+        <UploadKopf zustand={toernstaende} onDatei={handleToernstaendeDatei} inputTestId="toernstaende-datei" />
+        {toernstaende.status === "fertig" && <ToernstaendeVorschau ergebnis={toernstaende.daten} />}
       </Panel>
     </div>
   );
@@ -202,29 +202,29 @@ function TafelVorschau({ ergebnis }: { ergebnis: TafelBrbErgebnis }) {
   );
 }
 
-/** Solange für ein PDF noch kein Auswertungsschema hinterlegt ist, zeigt
- *  die Vorschau die extrahierten Roh-Zeilen — damit lässt sich am echten
- *  Export klären, wie der Parser aufgebaut werden muss. */
-function RohVorschau({ seiten, testId }: { seiten: PdfSeite[]; testId: string }) {
+function SeestationVorschau({ ergebnis }: { ergebnis: SeestationPdfErgebnis }) {
   return (
-    <div className="wachbeginn__vorschau" data-testid={testId}>
-      <Warnung>
-        Für das Seestation-PDF ist noch kein Auswertungsschema hinterlegt — unten die Roh-Ansicht aller
-        erkannten Zeilen zur Prüfung des Formats.
-      </Warnung>
-      {seiten.map((seite, i) => (
-        <details key={i} className="wachbeginn__sektion" open>
+    <div className="wachbeginn__vorschau" data-testid="seestation-vorschau">
+      {ergebnis.eintraege.length === 0 && (
+        <Warnung>
+          Keine Schiffseinträge erkannt — ist das wirklich ein Tendertafel-Export? Falls ja, hat sich
+          vermutlich das Seiten-Template geändert.
+        </Warnung>
+      )}
+
+      {ergebnis.kopfdaten.length > 0 && (
+        <details className="wachbeginn__sektion">
           <summary>
-            Seite {i + 1}
-            <span className="wachbeginn__anzahl">{seite.zeilen.length} Zeilen</span>
+            Kopfdaten
+            <span className="wachbeginn__anzahl">{ergebnis.kopfdaten.length} Zeilen</span>
           </summary>
           <div className="wachbeginn__tabelle-wrap">
             <table className="wachbeginn__tabelle">
               <tbody>
-                {seite.zeilen.map((zeile, j) => (
-                  <tr key={j}>
-                    {zeile.zellen.map((zelle, k) => (
-                      <td key={k}>{zelle.text}</td>
+                {ergebnis.kopfdaten.map((zeile, i) => (
+                  <tr key={i}>
+                    {zeile.map((zelle, j) => (
+                      <td key={j}>{zelle}</td>
                     ))}
                   </tr>
                 ))}
@@ -232,7 +232,63 @@ function RohVorschau({ seiten, testId }: { seiten: PdfSeite[]; testId: string })
             </table>
           </div>
         </details>
-      ))}
+      )}
+
+      <details className="wachbeginn__sektion" open data-testid="sektion-tender">
+        <summary>
+          Schiffe
+          <span className="wachbeginn__anzahl">{ergebnis.eintraege.length} Zeilen</span>
+        </summary>
+        <VorschauTabelle
+          spalten={["Datum", "Zeit", "Schiff", "Kat.", "Best.", "T", "V-Nr.", "Lotse"]}
+          zeilen={ergebnis.eintraege.map((e) => [
+            e.datum,
+            e.zeit,
+            e.schiff,
+            e.kat,
+            e.best,
+            e.tender ? "T" : "",
+            e.vNr,
+            e.lotse,
+          ])}
+        />
+      </details>
+    </div>
+  );
+}
+
+function ToernstaendeVorschau({ ergebnis }: { ergebnis: ToernstaendeErgebnis }) {
+  return (
+    <div className="wachbeginn__vorschau" data-testid="toernstaende-vorschau">
+      {ergebnis.eintraege.length === 0 && (
+        <Warnung>
+          Keine Törn-Zeilen erkannt — ist das wirklich ein Törnlisten-Export? Falls ja, hat sich
+          vermutlich das Seiten-Template geändert.
+        </Warnung>
+      )}
+
+      {ergebnis.stand && <div className="wachbeginn__meta">Stand: {ergebnis.stand}</div>}
+
+      {ergebnis.eintraege.length > 0 && (
+        <details className="wachbeginn__sektion" open data-testid="sektion-toerns">
+          <summary>
+            Törnstände
+            <span className="wachbeginn__anzahl">{ergebnis.eintraege.length} Zeilen</span>
+          </summary>
+          <VorschauTabelle spalten={ergebnis.spalten} zeilen={ergebnis.eintraege} />
+        </details>
+      )}
+
+      {ergebnis.unparsed.length > 0 && (
+        <Warnung>
+          {ergebnis.unparsed.length} Zeile(n) konnten nicht zugeordnet werden:
+          <ul>
+            {ergebnis.unparsed.map((zeile, i) => (
+              <li key={i}>{zeile.join(" | ")}</li>
+            ))}
+          </ul>
+        </Warnung>
+      )}
     </div>
   );
 }

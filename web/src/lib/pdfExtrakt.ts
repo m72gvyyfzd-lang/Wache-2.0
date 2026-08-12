@@ -28,6 +28,17 @@ export interface PdfSeite {
   hoehe: number;
 }
 
+/** Safari/Chrome setzen beim PDF-Export Druck-Kopf-/Fußzeilen auf jede
+ *  Seite: URL, "Seite X von Y", Titel und Zeitstempel. Erkennung doppelt:
+ *  über die Position am Blattrand und über typische Muster. */
+const DRUCKZEILEN_RE = /:\/\/|^tps:|Seite \d+ von|^\d{1,2}\.\d{1,2}\.\d{2,4}, \d{1,2} ?: ?\d{2}$/i;
+const SEITENRAND = 30;
+
+export function istDruckzeile(zeile: PdfZeile, seitenHoehe: number): boolean {
+  if (zeile.y <= SEITENRAND || zeile.y >= seitenHoehe - SEITENRAND) return true;
+  return zeile.zellen.some((z) => DRUCKZEILEN_RE.test(z.text));
+}
+
 /** Zwei Textstücke, deren Lücke kleiner ist, gehören zur selben Zelle
  *  (pdf.js zerlegt zusammenhängenden Text oft in mehrere Stücke). */
 const ZELLEN_LUECKE = 4;
