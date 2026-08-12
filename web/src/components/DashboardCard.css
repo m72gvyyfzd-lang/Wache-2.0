@@ -2,11 +2,15 @@
    Uhr-Kachel und der App-Inhalt darunter — die einzelnen Kacheln (Meldungen,
    AG-Planung, Stat, Ton) tragen jetzt selbst den abgerundeten/beschatteten
    Karten-Look (siehe Meldungen.css/StatTile.css) und "schweben" darauf. */
+/* Höhe = Tile-Höhe (168px) + oberes Padding von .dashboard-card__scroll
+   (16px) + 0 unten — sonst ragt die Meldungs-/AG-Planungs-Kachel (feste
+   168px-Höhe) über die eigene Zelle hinaus (overflow:visible verdeckt das
+   nicht, sondern lässt sie sichtbar tiefer als die Uhrzeit-Kachel enden). */
 .dashboard-card {
   position: relative;
   flex: 1;
   min-width: 0;
-  height: 168px;
+  height: 184px;
   background: var(--bg);
 }
 
@@ -34,7 +38,7 @@
 
 @media (max-width: 720px) {
   .dashboard-card {
-    height: 140px;
+    height: 148px;
   }
 
   .dashboard-card__scroll {

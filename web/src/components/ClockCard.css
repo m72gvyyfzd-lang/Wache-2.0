@@ -2,12 +2,16 @@
    bündig neben Navi/Dashboard ein), zeigt aber jetzt nur noch die
    Seitenfarbe — die eigentliche Uhr sitzt als "schwebende", abgerundete
    Karte mit dezentem Schatten darin (moderner, weicher Look). */
+/* Höhe + oberes Padding sind bewusst an dashboard-card/-scroll angeglichen
+   (16px oben, 0 unten): nur so bekommt die "karte" darin exakt dieselbe
+   Höhe (168px) wie die Meldungs-/AG-Planungs-Kacheln, und beide floatenden
+   Karten beginnen/enden auf derselben Höhe. */
 .clock-card {
   width: var(--sidebar-width);
-  height: 168px;
+  height: 184px;
   flex-shrink: 0;
   background: var(--bg);
-  padding: 10px;
+  padding: 16px 10px 0;
   padding-left: max(10px, env(safe-area-inset-left));
   box-sizing: border-box;
   display: flex;
@@ -103,8 +107,8 @@
 @media (max-width: 720px) {
   .clock-card {
     width: var(--sidebar-width-narrow);
-    height: 140px;
-    padding: 6px;
+    height: 148px;
+    padding: 8px 6px 0;
   }
 
   .clock-card__karte {
