@@ -21,6 +21,13 @@ export interface PdfZeile {
   y: number;
 }
 
+export interface PdfSeite {
+  zeilen: PdfZeile[];
+  /** Seitenhöhe in PDF-Einheiten — erlaubt den Parsern, Druck-Kopf-/
+   *  Fußzeilen (Safari-PDF-Export) über ihre Randposition auszusortieren. */
+  hoehe: number;
+}
+
 /** Zwei Textstücke, deren Lücke kleiner ist, gehören zur selben Zelle
  *  (pdf.js zerlegt zusammenhängenden Text oft in mehrere Stücke). */
 const ZELLEN_LUECKE = 4;
@@ -85,12 +92,12 @@ function zuZeilen(stuecke: RohStueck[]): PdfZeile[] {
 }
 
 /** Liest alle Seiten des PDFs und liefert pro Seite die Zeilenstruktur. */
-export async function extrahierePdfZeilen(daten: ArrayBuffer): Promise<PdfZeile[][]> {
+export async function extrahierePdfZeilen(daten: ArrayBuffer): Promise<PdfSeite[]> {
   const pdfjs = await ladePdfjs();
   const ladeTask = pdfjs.getDocument({ data: daten });
   try {
     const doc = await ladeTask.promise;
-    const seiten: PdfZeile[][] = [];
+    const seiten: PdfSeite[] = [];
     for (let nr = 1; nr <= doc.numPages; nr++) {
       const seite = await doc.getPage(nr);
       const inhalt = await seite.getTextContent();
@@ -104,7 +111,7 @@ export async function extrahierePdfZeilen(daten: ArrayBuffer): Promise<PdfZeile[
           breite: item.width,
         });
       }
-      seiten.push(zuZeilen(stuecke));
+      seiten.push({ zeilen: zuZeilen(stuecke), hoehe: seite.getViewport({ scale: 1 }).height });
     }
     return seiten;
   } finally {

@@ -10,7 +10,7 @@ import { useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
-import type { PdfZeile } from "../lib/pdfExtrakt";
+import type { PdfSeite } from "../lib/pdfExtrakt";
 import type { TafelBrbErgebnis } from "../lib/tafelBrbParse";
 import "./Wachbeginn.css";
 
@@ -92,7 +92,7 @@ function Warnung({ children }: { children: ReactNode }) {
   return <div className="wachbeginn__warnung">{children}</div>;
 }
 
-async function liesDatei(datei: File): Promise<PdfZeile[][]> {
+async function liesDatei(datei: File): Promise<PdfSeite[]> {
   const puffer = await datei.arrayBuffer();
   const { extrahierePdfZeilen } = await import("../lib/pdfExtrakt");
   return extrahierePdfZeilen(puffer);
@@ -100,7 +100,7 @@ async function liesDatei(datei: File): Promise<PdfZeile[][]> {
 
 export function Wachbeginn() {
   const [tafel, setTafel] = useState<UploadZustand<TafelBrbErgebnis>>({ status: "leer" });
-  const [seestation, setSeestation] = useState<UploadZustand<PdfZeile[][]>>({ status: "leer" });
+  const [seestation, setSeestation] = useState<UploadZustand<PdfSeite[]>>({ status: "leer" });
 
   async function handleTafelDatei(datei: File) {
     setTafel({ status: "laedt", dateiname: datei.name });
@@ -197,23 +197,23 @@ function TafelVorschau({ ergebnis }: { ergebnis: TafelBrbErgebnis }) {
 /** Solange das Seestation-Format nicht hinterlegt ist, zeigt die Vorschau
  *  die extrahierten Roh-Zeilen — damit lässt sich am echten Export klären,
  *  wie der Parser aufgebaut werden muss. */
-function SeestationRohVorschau({ seiten }: { seiten: PdfZeile[][] }) {
+function SeestationRohVorschau({ seiten }: { seiten: PdfSeite[] }) {
   return (
     <div className="wachbeginn__vorschau" data-testid="seestation-vorschau">
       <Warnung>
         Für das Seestation-PDF ist noch kein Auswertungsschema hinterlegt — unten die Roh-Ansicht aller
         erkannten Zeilen zur Prüfung des Formats.
       </Warnung>
-      {seiten.map((zeilen, i) => (
+      {seiten.map((seite, i) => (
         <details key={i} className="wachbeginn__sektion" open>
           <summary>
             Seite {i + 1}
-            <span className="wachbeginn__anzahl">{zeilen.length} Zeilen</span>
+            <span className="wachbeginn__anzahl">{seite.zeilen.length} Zeilen</span>
           </summary>
           <div className="wachbeginn__tabelle-wrap">
             <table className="wachbeginn__tabelle">
               <tbody>
-                {zeilen.map((zeile, j) => (
+                {seite.zeilen.map((zeile, j) => (
                   <tr key={j}>
                     {zeile.zellen.map((zelle, k) => (
                       <td key={k}>{zelle.text}</td>

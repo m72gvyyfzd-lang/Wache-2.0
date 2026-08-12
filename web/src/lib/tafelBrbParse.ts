@@ -14,7 +14,7 @@
  *  Datenzelle wird der nächstgelegenen Überschrift zugeordnet — damit
  *  verrutschen Werte auch bei leeren Zellen nicht. */
 
-import type { PdfZeile } from "./pdfExtrakt";
+import type { PdfSeite, PdfZeile } from "./pdfExtrakt";
 
 export type TafelSektionId =
   | "ft_zurueck"
@@ -46,7 +46,13 @@ export interface TafelBrbErgebnis {
   unparsed: string[][];
 }
 
-const FOOTER_RE = /^tps:\/\/|Seite \d+ von/i;
+/** Safari/Chrome setzen beim PDF-Export Kopf-/Fußzeilen auf jede Seite:
+ *  URL, "Seite X von Y", Titel und Zeitstempel ("12.8.26, 22:39"). */
+const FOOTER_RE = /:\/\/|^tps:|Seite \d+ von|^\d{1,2}\.\d{1,2}\.\d{2,4}, \d{1,2}:\d{2}$/i;
+
+/** Randbereich oben/unten (PDF-Einheiten), in dem nur Druck-Kopf-/Fußzeilen
+ *  liegen — Inhalt beginnt bei Browser-Exporten deutlich weiter innen. */
+const SEITENRAND = 30;
 
 const SEKTIONS_TITEL: Record<TafelSektionId, string> = {
   ft_zurueck: "FT zurück",
@@ -87,6 +93,34 @@ interface AktiveSektion {
   sektion: TafelSektion;
   /** x-Mittelpunkte der Überschriften-Zellen (Spalten-Anker) */
   anker: number[];
+  /** y-Position der zuletzt übernommenen Datenzeile */
+  letzteY: number | null;
+  /** Zwischengeparkte Umbruch-Fragmente (Zeilen ohne Wert in Spalte 1):
+   *  ob sie zur VORIGEN oder zur NÄCHSTEN Zeile gehören, entscheidet sich
+   *  erst über die y-Distanz, sobald die nächste echte Zeile bekannt ist —
+   *  je nach vertikaler Ausrichtung der Tabelle liegt der Überhang einer
+   *  mehrzeiligen Zelle über oder unter der Zeilenmitte. */
+  fragmente: { werte: string[]; y: number }[];
+}
+
+function fuegeAn(ziel: string[], werte: string[], voranstellen: boolean) {
+  for (let i = 0; i < werte.length; i++) {
+    if (werte[i] === "") continue;
+    if (ziel[i] === "") ziel[i] = werte[i];
+    else ziel[i] = voranstellen ? `${werte[i]} ${ziel[i]}` : `${ziel[i]} ${werte[i]}`;
+  }
+}
+
+/** Offene Fragmente an die letzte Zeile der Sektion anhängen (Sektions-/
+ *  Seitenwechsel oder Parse-Ende: keine Folgezeile mehr möglich). */
+function schliesseFragmente(aktiv: AktiveSektion | null, unparsed: string[][]) {
+  if (!aktiv) return;
+  const letzte = aktiv.sektion.zeilen[aktiv.sektion.zeilen.length - 1];
+  for (const frag of aktiv.fragmente) {
+    if (letzte) fuegeAn(letzte, frag.werte, false);
+    else unparsed.push(frag.werte.filter((w) => w !== ""));
+  }
+  aktiv.fragmente = [];
 }
 
 function ordneZellenZu(zeile: PdfZeile, anker: number[]): string[] {
@@ -107,7 +141,7 @@ function ordneZellenZu(zeile: PdfZeile, anker: number[]): string[] {
   return ergebnis;
 }
 
-export function parseTafelBrb(seiten: PdfZeile[][]): TafelBrbErgebnis {
+export function parseTafelBrb(seiten: PdfSeite[]): TafelBrbErgebnis {
   const ergebnis: TafelBrbErgebnis = {
     meta: { tiden: {}, kopfdaten: [] },
     sektionen: [],
@@ -117,7 +151,11 @@ export function parseTafelBrb(seiten: PdfZeile[][]): TafelBrbErgebnis {
   let aktiv: AktiveSektion | null = null;
 
   for (const seite of seiten) {
-    for (const zeile of seite) {
+    for (const zeile of seite.zeilen) {
+      // Druck-Kopf-/Fußzeilen: am Blattrand positioniert oder an typischen
+      // Mustern (URL, Seitenzahl, Zeitstempel) erkennbar — überspringen,
+      // bevor sie in einer Sektion oder in `unparsed` landen.
+      if (zeile.y <= SEITENRAND || zeile.y >= seite.hoehe - SEITENRAND) continue;
       const texte = zeile.zellen.map((z) => z.text);
       if (texte.some((t) => FOOTER_RE.test(t))) continue;
 
@@ -140,12 +178,14 @@ export function parseTafelBrb(seiten: PdfZeile[][]): TafelBrbErgebnis {
       // --- Sektions-Überschrift erkannt --------------------------------
       const neueSektionId = erkenneSektion(texte);
       if (neueSektionId) {
+        schliesseFragmente(aktiv, ergebnis.unparsed);
         // Seitenumbrüche wiederholen die Überschrift: bestehende Sektion
         // fortsetzen (Anker auffrischen), statt sie zu duplizieren.
         const bestehend = sektionNachId.get(neueSektionId);
         const anker = zeile.zellen.map((z) => (z.x + z.xEnde) / 2);
         if (bestehend) {
           bestehend.anker = anker;
+          bestehend.letzteY = null;
           aktiv = bestehend;
         } else {
           const sektion: TafelSektion = {
@@ -154,7 +194,7 @@ export function parseTafelBrb(seiten: PdfZeile[][]): TafelBrbErgebnis {
             spalten: texte,
             zeilen: [],
           };
-          aktiv = { sektion, anker };
+          aktiv = { sektion, anker, letzteY: null, fragmente: [] };
           sektionNachId.set(neueSektionId, aktiv);
           ergebnis.sektionen.push(sektion);
         }
@@ -172,15 +212,40 @@ export function parseTafelBrb(seiten: PdfZeile[][]): TafelBrbErgebnis {
       }
 
       // --- Datenzeile der aktuellen Sektion ------------------------------
-      // Einzelne Streu-Zellen (z.B. Fußnoten) gehören zu keiner Tabelle —
-      // sichtbar in `unparsed` sammeln statt still einer Sektion zuzuordnen.
-      if (aktiv && texte.length >= 2) {
-        aktiv.sektion.zeilen.push(ordneZellenZu(zeile, aktiv.anker));
+      if (aktiv) {
+        const zugeordnet = ordneZellenZu(zeile, aktiv.anker);
+        if (zugeordnet[0] === "") {
+          // Fortsetzung einer umgebrochenen Zelle (kein Wert in der
+          // Nr-/Tafel-Spalte) — parken, bis die nächste echte Zeile die
+          // Zuordnung per y-Distanz entscheidet. Zeilen NUR mit Nr.
+          // bleiben eigenständig (Leer-Slots der Tabellen).
+          aktiv.fragmente.push({ werte: zugeordnet, y: zeile.y });
+        } else {
+          const letzte = aktiv.sektion.zeilen[aktiv.sektion.zeilen.length - 1];
+          for (const frag of aktiv.fragmente) {
+            const zurVorzeile =
+              letzte !== undefined &&
+              aktiv.letzteY !== null &&
+              Math.abs(frag.y - aktiv.letzteY) <= Math.abs(frag.y - zeile.y);
+            if (zurVorzeile) fuegeAn(letzte, frag.werte, false);
+            else fuegeAn(zugeordnet, frag.werte, true);
+          }
+          aktiv.fragmente = [];
+          aktiv.sektion.zeilen.push(zugeordnet);
+          aktiv.letzteY = zeile.y;
+        }
       } else {
         ergebnis.unparsed.push(texte);
       }
     }
+
+    // Seitenwechsel: offene Fragmente gehören noch zur alten Seite, und
+    // y-Werte sind seitenlokal — Distanzvergleiche über die Grenze hinweg
+    // wären bedeutungslos.
+    schliesseFragmente(aktiv, ergebnis.unparsed);
+    if (aktiv) aktiv.letzteY = null;
   }
+  schliesseFragmente(aktiv, ergebnis.unparsed);
 
   return ergebnis;
 }
