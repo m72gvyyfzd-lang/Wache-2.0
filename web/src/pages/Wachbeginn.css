@@ -131,6 +131,85 @@
   color: var(--ink);
 }
 
+/* Karteireiter der Upload-Kachel: Unterstrich-Reiter im Karten-Look,
+   inaktive Inhalte bleiben im DOM (State/Vorschau gehen nicht verloren). */
+.wachbeginn__tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+
+.wachbeginn__tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px 10px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.wachbeginn__tab:hover {
+  color: var(--ink);
+}
+
+.wachbeginn__tab--aktiv {
+  color: var(--accent-ink);
+  border-bottom-color: var(--accent);
+}
+
+.wachbeginn__tab-hinweis {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+}
+
+/* Status-Punkt je Reiter: grau = offen, pulsierend = analysiert gerade,
+   grün = fertig, rot = Fehler. */
+.wachbeginn__tab-status {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--line);
+  flex-shrink: 0;
+}
+
+.wachbeginn__tab-status--laedt {
+  background: #c77d1e;
+  animation: wachbeginn-pulsieren 1.2s ease-in-out infinite;
+}
+
+.wachbeginn__tab-status--fertig {
+  background: #3d8a4e;
+}
+
+.wachbeginn__tab-status--fehler {
+  background: #b5432f;
+}
+
+@keyframes wachbeginn-pulsieren {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.wachbeginn__tab-inhalt--versteckt {
+  display: none;
+}
+
 /* Marker-Auswahl (Fallback bei fehlgeschlagenem Namensabgleich) */
 .wachbeginn__marker {
   display: flex;

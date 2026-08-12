@@ -23,6 +23,40 @@ type UploadZustand<T> =
   | { status: "fertig"; dateiname: string; daten: T }
   | { status: "fehler"; dateiname: string; meldung: string };
 
+/** Karteireiter der Upload-Kachel — mit Status-Punkt je Reiter (grün =
+ *  analysiert, rot = Fehler), damit der Fortschritt ohne Umschalten
+ *  sichtbar bleibt. */
+function TabKnopf({
+  id,
+  label,
+  hinweis,
+  zustand,
+  aktiv,
+  onWahl,
+}: {
+  id: string;
+  label: string;
+  hinweis: string;
+  zustand: UploadZustand<unknown>;
+  aktiv: boolean;
+  onWahl: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={aktiv}
+      className={"wachbeginn__tab" + (aktiv ? " wachbeginn__tab--aktiv" : "")}
+      onClick={onWahl}
+      data-testid={`tab-${id}`}
+    >
+      <span className={`wachbeginn__tab-status wachbeginn__tab-status--${zustand.status}`} aria-hidden="true" />
+      {label}
+      <span className="wachbeginn__tab-hinweis">{hinweis}</span>
+    </button>
+  );
+}
+
 /** Datei-Auswahl + Statusanzeige — gemeinsames Gerüst beider Werkzeuge. */
 function UploadKopf<T>({
   zustand,
@@ -105,6 +139,7 @@ export function Wachbeginn() {
   const { resetAlles, importiereWache } = useData();
   const [phase, setPhase] = useState<"start" | "upload" | "fertig">("start");
   const [frageOffen, setFrageOffen] = useState(false);
+  const [tab, setTab] = useState<"tafel" | "seestation" | "toernstaende">("tafel");
   const [tafel, setTafel] = useState<UploadZustand<TafelBrbErgebnis>>({ status: "leer" });
   const [seestation, setSeestation] = useState<UploadZustand<SeestationPdfErgebnis>>({ status: "leer" });
   const [toernstaende, setToernstaende] = useState<UploadZustand<ToernstaendeErgebnis>>({ status: "leer" });
@@ -205,19 +240,32 @@ export function Wachbeginn() {
 
       {phase === "upload" && (
         <>
-          <Panel title="Tafel Brb" description="PDF-Export der BZ2 Tafel (Pflicht)">
-            <UploadKopf zustand={tafel} onDatei={handleTafelDatei} inputTestId="tafel-datei" />
-            {tafel.status === "fertig" && <TafelVorschau ergebnis={tafel.daten} />}
-          </Panel>
+          <Panel title="PDF-Exporte">
+            <div className="wachbeginn__tabs" role="tablist">
+              <TabKnopf id="tafel" label="Tafel Brb" hinweis="Pflicht" zustand={tafel} aktiv={tab === "tafel"} onWahl={() => setTab("tafel")} />
+              <TabKnopf id="seestation" label="Seestation" hinweis="Pflicht" zustand={seestation} aktiv={tab === "seestation"} onWahl={() => setTab("seestation")} />
+              <TabKnopf id="toernstaende" label="Törnstände" hinweis="optional" zustand={toernstaende} aktiv={tab === "toernstaende"} onWahl={() => setTab("toernstaende")} />
+            </div>
 
-          <Panel title="Seestation" description="PDF-Export der BZ2 Tendertafel (Pflicht)">
-            <UploadKopf zustand={seestation} onDatei={handleSeestationDatei} inputTestId="seestation-datei" />
-            {seestation.status === "fertig" && <SeestationVorschau ergebnis={seestation.daten} />}
-          </Panel>
+            <div className={tab === "tafel" ? undefined : "wachbeginn__tab-inhalt--versteckt"}>
+              <p className="wachbeginn__intro">PDF-Export der BZ2 Tafel (elbe-pilot.de)</p>
+              <UploadKopf zustand={tafel} onDatei={handleTafelDatei} inputTestId="tafel-datei" />
+              {tafel.status === "fertig" && <TafelVorschau ergebnis={tafel.daten} />}
+            </div>
 
-          <Panel title="Törnstände" description="PDF-Export der BZ2 Törnliste (optional — Törnstände lassen sich auch manuell nachtragen)">
-            <UploadKopf zustand={toernstaende} onDatei={handleToernstaendeDatei} inputTestId="toernstaende-datei" />
-            {toernstaende.status === "fertig" && <ToernstaendeVorschau ergebnis={toernstaende.daten} />}
+            <div className={tab === "seestation" ? undefined : "wachbeginn__tab-inhalt--versteckt"}>
+              <p className="wachbeginn__intro">PDF-Export der BZ2 Tendertafel (elbe-pilot.de)</p>
+              <UploadKopf zustand={seestation} onDatei={handleSeestationDatei} inputTestId="seestation-datei" />
+              {seestation.status === "fertig" && <SeestationVorschau ergebnis={seestation.daten} />}
+            </div>
+
+            <div className={tab === "toernstaende" ? undefined : "wachbeginn__tab-inhalt--versteckt"}>
+              <p className="wachbeginn__intro">
+                PDF-Export der BZ2 Törnliste — optional, Törnstände lassen sich auch manuell nachtragen.
+              </p>
+              <UploadKopf zustand={toernstaende} onDatei={handleToernstaendeDatei} inputTestId="toernstaende-datei" />
+              {toernstaende.status === "fertig" && <ToernstaendeVorschau ergebnis={toernstaende.daten} />}
+            </div>
           </Panel>
 
           <Panel title="Auswertung">
