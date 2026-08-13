@@ -23,17 +23,62 @@
   background: color-mix(in srgb, var(--accent) 16%, var(--surface)) !important;
 }
 
-/* Kopfzeile statt Seitenüberschrift: Rückgängig-Button rechtsbündig,
-   Abstand analog zum page-header der anderen Seiten */
-.versetz-kopf {
+/* Kopfzeile der Karte: Reiter links, Rückgängig-Knopf des sichtbaren
+   Reiters rechts. Der seitliche Abstand entspricht dem panel__head, da
+   .panel__body selbst keinen mitbringt. */
+.versetz-kopfzeile {
   display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-bottom: 18px;
-  min-height: 40px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 20px 0;
+  border-bottom: 1px solid var(--line);
 }
 
-.versetz-kopf .btn:disabled {
+/* Der Knopf steht auf derselben Linie wie die Reiter, aber über der
+   Trennlinie — die Reiter reichen mit ihrem Unterstrich bewusst hinein. */
+.versetz-kopfzeile > .btn {
+  margin-bottom: 8px;
+}
+
+.versetz-kopfzeile .btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.versetz-reiter {
+  display: flex;
+  gap: 4px;
+  align-self: flex-end;
+}
+
+.versetz-reiter__knopf {
+  padding: 8px 16px 10px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.versetz-reiter__knopf:hover {
+  color: var(--ink);
+}
+
+.versetz-reiter__knopf--aktiv {
+  color: var(--accent-ink);
+  border-bottom-color: var(--accent);
+}
+
+/* Abschnittstitel innerhalb der Karte — übernimmt die Rolle der früheren
+   panel__head-Überschriften der beiden getrennten Karten. */
+.versetz-abschnitt {
+  margin: 0;
+  padding: 16px 20px 8px;
+  font-size: 1.05rem;
 }

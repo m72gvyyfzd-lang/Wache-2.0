@@ -25,6 +25,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Volle Historie: die Build-Nummer der App ist die Commit-Anzahl.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
