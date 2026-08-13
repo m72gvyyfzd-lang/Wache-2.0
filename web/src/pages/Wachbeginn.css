@@ -1,3 +1,9 @@
+/* Innenabstand der Wachbeginn-Kachel — .panel__body bringt selbst keinen
+   seitlichen Rand mit, sonst kleben Buttons und Reiter am Kachelrand. */
+.wachbeginn__kachel {
+  padding: 8px 20px 14px;
+}
+
 /* 1. Ebene: "Neue Wache" links, "Wache übernehmen" rechts. */
 .wachbeginn__aktionen {
   display: flex;
@@ -125,6 +131,13 @@
   font-size: 0.9rem;
   color: var(--ink-muted);
   max-width: 720px;
+}
+
+/* Die alleinstehenden Erklärungen (Start und "Wache übernommen") sitzen
+   mittig in der Kachel — sie gehören zu keiner Spalte. */
+.wachbeginn__intro--zentriert {
+  margin: 6px auto 12px;
+  text-align: center;
 }
 
 /* Auswertungs-Meldungen des Imports: Infos dezent, Warnungen auffällig. */

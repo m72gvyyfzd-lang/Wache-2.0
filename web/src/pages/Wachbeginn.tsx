@@ -251,6 +251,7 @@ export function Wachbeginn() {
       />
 
       <Panel>
+        <div className="wachbeginn__kachel">
         <div className="wachbeginn__aktionen">
           <button type="button" className="btn btn--accent" onClick={handleNeueWache} data-testid="neue-wache">
             Neue Wache
@@ -269,7 +270,7 @@ export function Wachbeginn() {
         </div>
 
         {phase === "start" && (
-          <p className="wachbeginn__intro">
+          <p className="wachbeginn__intro wachbeginn__intro--zentriert">
             Startet den Wachbeginn-Ablauf: die PDF-Exporte (Tafel Brb und Seestation, optional
             Törnstände) hochladen und prüfen. Erst beim Übernehmen werden die bestehenden Daten
             gelöscht und durch das neue Grundgerüst ersetzt.
@@ -277,7 +278,7 @@ export function Wachbeginn() {
         )}
 
         {phase === "fertig" && (
-          <p className="wachbeginn__intro" data-testid="fertig-text">
+          <p className="wachbeginn__intro wachbeginn__intro--zentriert" data-testid="fertig-text">
             Die neue Wache ist eingerichtet. Bitte die Daten auf den Seiten Tafel Brb, Einsatzplanung,
             Einsatzstation und Seestation prüfen und Schiffsnamen sowie fehlende Angaben nachtragen.
           </p>
@@ -393,6 +394,7 @@ export function Wachbeginn() {
             </div>
           </>
         )}
+        </div>
       </Panel>
 
       {frageOffen && (
