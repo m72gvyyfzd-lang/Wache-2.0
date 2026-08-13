@@ -37,7 +37,7 @@ import type { TafelBrbErgebnis, TafelSektion } from "./tafelBrbParse";
 import type { ToernstaendeErgebnis } from "./toernstaendeParse";
 
 export interface ImportMeldung {
-  stufe: "info" | "warnung";
+  stufe: "info" | "warnung" | "alarm";
   text: string;
 }
 
@@ -387,6 +387,42 @@ function parseVNr(text: string): { vNr: number; zusatz?: SeestationLotse["zusatz
 
 // ------------------------------------------------------------ Hauptlauf
 
+/** Tendertafel-Einträge → ETA-Seestation-Schiffe. Gemeinsame Basis des
+ *  Wachbeginn-Imports und des ETA-Updates (lib/etaUpdate.ts) — beide müssen
+ *  identisch mappen (Doppeldecker-Erkennung über doppelte Schiffsnamen,
+ *  ETA-Parsing, Kategorie-Normalisierung, E3/St). */
+export function seeSchiffeAusTender(
+  tender: SeestationPdfErgebnis,
+  jetzt: Date,
+  meldungen: ImportMeldung[],
+): Omit<SeeSchiff, "id">[] {
+  const seeSchiffe: Omit<SeeSchiff, "id">[] = [];
+  for (let i = 0; i < tender.eintraege.length; i++) {
+    const e = tender.eintraege[i];
+    const vorheriges = seeSchiffe[seeSchiffe.length - 1];
+    if (vorheriges && i > 0 && tender.eintraege[i - 1].schiff === e.schiff && e.schiff !== "") {
+      // doppelter Schiffsname = Doppeldecker (2 Lotsen, 1 Schiff)
+      vorheriges.doppeldecker = true;
+      continue;
+    }
+    const eta = parseDatumZeit(e.datum, e.zeit, jetzt);
+    if (!eta) {
+      meldungen.push({ stufe: "warnung", text: `Tendertafel: ETA von "${e.schiff}" nicht lesbar — übersprungen` });
+      continue;
+    }
+    seeSchiffe.push({
+      schiffsname: e.schiff,
+      eta,
+      kategorie: e.kat !== "" ? normalisiereSchiffsKat(e.kat) : undefined,
+      angemeldet: e.schiffFett || undefined,
+      ehfLotseBenoetigt: e.best === "EH" || undefined,
+      // rot hinterlegte Datums-/Zeitzelle in der Tendertafel = E3/St
+      e3st: e.e3st || undefined,
+    });
+  }
+  return seeSchiffe;
+}
+
 export function baueWachImport(
   tafel: TafelBrbErgebnis,
   tender: SeestationPdfErgebnis,
@@ -445,29 +481,7 @@ export function baueWachImport(
   });
 
   // --- Tendertafel → ETA Seestation ------------------------------------
-  for (let i = 0; i < tender.eintraege.length; i++) {
-    const e = tender.eintraege[i];
-    const vorheriges = importDaten.seeSchiffe[importDaten.seeSchiffe.length - 1];
-    if (vorheriges && i > 0 && tender.eintraege[i - 1].schiff === e.schiff && e.schiff !== "") {
-      // doppelter Schiffsname = Doppeldecker (2 Lotsen, 1 Schiff)
-      vorheriges.doppeldecker = true;
-      continue;
-    }
-    const eta = parseDatumZeit(e.datum, e.zeit, jetzt);
-    if (!eta) {
-      meldungen.push({ stufe: "warnung", text: `Tendertafel: ETA von "${e.schiff}" nicht lesbar — übersprungen` });
-      continue;
-    }
-    importDaten.seeSchiffe.push({
-      schiffsname: e.schiff,
-      eta,
-      kategorie: e.kat !== "" ? normalisiereSchiffsKat(e.kat) : undefined,
-      angemeldet: e.schiffFett || undefined,
-      ehfLotseBenoetigt: e.best === "EH" || undefined,
-      // rot hinterlegte Datums-/Zeitzelle in der Tendertafel = E3/St
-      e3st: e.e3st || undefined,
-    });
-  }
+  importDaten.seeSchiffe = seeSchiffeAusTender(tender, jetzt, meldungen);
   const anzahlDoppel = importDaten.seeSchiffe.filter((s) => s.doppeldecker).length;
   const anzahlE3st = importDaten.seeSchiffe.filter((s) => s.e3st).length;
   meldungen.push({

@@ -84,6 +84,10 @@ interface DataContextValue {
   /** Seestation: Schiffe von See (Liste "ETAs Seestation") */
   seeSchiffe: SeeSchiff[];
   addSeeSchiff: (schiff: Omit<SeeSchiff, "id">) => void;
+  /** ETA-Update (Tendertafel-Re-Upload): ersetzt die komplette Schiffsliste
+   *  in einem Schritt — bestehende IDs bleiben erhalten, damit die
+   *  SeeAbteilungs-Verweise (seeSchiffId) gültig bleiben. */
+  ersetzeSeeSchiffe: (schiffe: SeeSchiff[]) => void;
   updateSeeSchiff: (id: number, schiff: SeeSchiff) => void;
   deleteSeeSchiff: (id: number) => void;
   /** Seestation: manuell hinzugefügte Lotsen (nur auf dieser Liste) */
@@ -279,6 +283,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setSeeSchiffe((prev) => prev.map((s) => (s.id === id ? { ...schiff, id } : s)));
   }, []);
   const deleteSeeSchiff = useCallback((id: number) => setSeeSchiffe((prev) => prev.filter((s) => s.id !== id)), []);
+  const ersetzeSeeSchiffe = useCallback((schiffe: SeeSchiff[]) => setSeeSchiffe(schiffe), []);
 
   const addSeestationLotse = useCallback((lotse: Omit<SeestationLotse, "id">) => {
     setSeestationLotsen((prev) => {
@@ -418,6 +423,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         verbrauchteVNrn,
         seeSchiffe,
         addSeeSchiff,
+        ersetzeSeeSchiffe,
         updateSeeSchiff,
         deleteSeeSchiff,
         seestationLotsen,

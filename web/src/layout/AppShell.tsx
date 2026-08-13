@@ -13,7 +13,10 @@ const NAV_ITEMS = [
 
 /** Unterpunkte von Settings: nur sichtbar, solange Settings selbst oder
  *  einer der Unterpunkte offen ist — die Navi bleibt sonst kürzer. */
-const UNTER_ITEMS = [{ to: "/wachbeginn", label: "Wachbeginn" }];
+const UNTER_ITEMS = [
+  { to: "/wachbeginn", label: "Wachbeginn" },
+  { to: "/eta-update", label: "ETA Update" },
+];
 
 export function AppShell() {
   const { pathname } = useLocation();

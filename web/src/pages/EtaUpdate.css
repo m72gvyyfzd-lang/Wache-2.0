@@ -1,0 +1,57 @@
+/* ETA-Update: ergänzt die Wachbeginn-Klassen um die Vergleichs-Vorschau. */
+.etaupdate__status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+
+.etaupdate__typ {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+/* Zeilen-Hervorhebung: neu = grünlich, aktualisiert = orange angehaucht,
+   bereits abgeteilt = rot (Alarm). Unverändert bleibt neutral. */
+.etaupdate__zeile--neu td {
+  background: rgba(61, 138, 78, 0.1);
+}
+
+.etaupdate__zeile--neu .etaupdate__typ {
+  color: #3d8a4e;
+}
+
+.etaupdate__zeile--geaendert td {
+  background: rgba(199, 125, 30, 0.08);
+}
+
+.etaupdate__zeile--geaendert .etaupdate__typ {
+  color: #c77d1e;
+}
+
+.etaupdate__zeile--abgeteilt td {
+  background: rgba(181, 67, 47, 0.12);
+}
+
+.etaupdate__zeile--abgeteilt .etaupdate__typ {
+  color: #b5432f;
+}
+
+.etaupdate__zeile--unveraendert td {
+  color: var(--ink-muted);
+}
+
+/* geänderte Zelle: alter Wert dezent durchgestrichen, neuer fett */
+.etaupdate__wert--neu {
+  font-weight: 700;
+  color: #c77d1e;
+}
+
+.etaupdate__wert--alt {
+  font-weight: 400;
+  color: var(--ink-faint);
+  text-decoration: line-through;
+}
