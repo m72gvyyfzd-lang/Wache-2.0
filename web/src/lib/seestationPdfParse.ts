@@ -1,14 +1,25 @@
 /** Parser für den PDF-Export der "BZ2 Tendertafel" (Seestation) von
  *  elbe-pilot.de.
  *
- *  Das PDF hat KEINE gedruckten Spaltenüberschriften — die Spalten sind
- *  nur über ihre (template-festen) x-Positionen erkennbar. Jeder
- *  Schiffseintrag ist ein Block aus bis zu drei dicht untereinander
+ *  Das PDF hat KEINE gedruckten Spaltenüberschriften, an denen sich die
+ *  Spalten ausrichten ließen (anders als Tafel Brb und Törnliste). Die
+ *  x-Positionen sind dabei NICHT template-fest: die Tabelle wächst mit
+ *  ihrem Inhalt, ein Export mit langen, ungebrochenen Schiffsnamen
+ *  verschiebt alle rechten Spalten um mehrere Punkte. Feste x-Bänder
+ *  würden dann reihenweise danebengreifen (V-Nr. landet beim Lotsen, das
+ *  Tender-"T" in der V-Nr.-Spalte).
+ *
+ *  Deshalb wird jede Zelle über ihren INHALT erkannt (Datum, Uhrzeit,
+ *  Bestimmung H/K/EH, Tender-"T", V-Nr., Kategorie) und nur die Trennung
+ *  zwischen Schiffs- und Lotsennamen — die beide beliebiger Text sind —
+ *  über eine Position entschieden, die aus dem Dokument selbst kalibriert
+ *  wird (Lücke zwischen der V-Nr.-Spalte und der Lotsen-Spalte).
+ *
+ *  Jeder Schiffseintrag ist ein Block aus bis zu drei dicht untereinander
  *  liegenden Textzeilen (Datum / Schiff+Kat+Best+V-Nr / Uhrzeit), lange
- *  Schiffs- und Lotsennamen laufen über mehrere dieser Zeilen. Blöcke
- *  werden über den vertikalen Abstand gruppiert (innerhalb ~8-9 Einheiten,
- *  zwischen Einträgen ~24) und die Zellen dann über x-Bänder den Feldern
- *  zugeordnet. */
+ *  Schiffs- und Lotsennamen laufen über mehrere dieser Zeilen; Blöcke
+ *  entstehen über den vertikalen Abstand (innerhalb ~8-9 Einheiten,
+ *  zwischen Einträgen ~24). */
 
 import { istDruckzeile } from "./pdfExtrakt";
 import type { PdfSeite, PdfZeile } from "./pdfExtrakt";
@@ -39,20 +50,42 @@ export interface SeestationPdfErgebnis {
 /** Zeilen, deren y-Abstand kleiner ist, gehören zum selben Schiffsblock. */
 const BLOCK_ABSTAND = 14;
 
-/** Spaltenbänder (x-Mittelpunkt), aus dem echten Template abgelesen —
- *  großzügige Grenzen, damit leichte Verschiebungen nicht kippen. */
-const BAND_GRENZEN = [118, 292, 346, 371, 388, 427];
-type Feld = "zeitraum" | "schiff" | "kat" | "best" | "tender" | "vNr" | "lotse";
-const BAND_FELDER: Feld[] = ["zeitraum", "schiff", "kat", "best", "tender", "vNr", "lotse"];
-
 const DATUM_RE = /^\d{1,2}\.\d{1,2}\.$/;
 const ZEIT_RE = /^\d{1,2}:\d{2}$/;
+/** V-Nrn sind zwei- bis dreistellig (mit optionalem Zusatz A–D). Einstellige
+ *  Zahlen bleiben bewusst außen vor — das sind die Kategorien. */
+const VNR_RE = /^\d{2,3}\s*[A-D]?$/i;
+const BEST_RE = /^(H|K|EH)$/i;
+/** Kategorie: einstellige Zahl oder AGF-Form ("AGF 3/7", "Agf3+"). */
+const KAT_RE = /^(\d|agf\s*\d(\s*\/\s*\d)?\+?)$/i;
 
-function feldFuer(x: number): Feld {
-  for (let i = 0; i < BAND_GRENZEN.length; i++) {
-    if (x < BAND_GRENZEN[i]) return BAND_FELDER[i];
+/** Fallback-Trenner Schiff|Lotse, falls im Dokument keine einzige V-Nr.
+ *  steht (dann lässt sich nichts kalibrieren) — der Wert des früheren
+ *  festen Rasters. */
+const TRENNER_FALLBACK = 427;
+
+/** Ermittelt aus dem Dokument, ab welcher x-Position (linke Zellkante) der
+ *  Lotsenname beginnt: mittig zwischen dem rechten Rand der V-Nr.-Spalte
+ *  und dem linken Rand der Lotsen-Spalte. Beide Ränder kommen aus den
+ *  erkannten V-Nr.-Zellen bzw. aus allem, was rechts davon steht — damit
+ *  wandert der Trenner automatisch mit, wenn die Tabelle breiter wird. */
+function kalibriereTrenner(zeilen: PdfZeile[]): number {
+  const vNrEnden: number[] = [];
+  for (const zeile of zeilen) {
+    for (const zelle of zeile.zellen) {
+      if (VNR_RE.test(zelle.text)) vNrEnden.push(zelle.xEnde);
+    }
   }
-  return BAND_FELDER[BAND_FELDER.length - 1];
+  if (vNrEnden.length === 0) return TRENNER_FALLBACK;
+  vNrEnden.sort((a, b) => a - b);
+  const vNrRechts = vNrEnden[Math.floor(vNrEnden.length / 2)]; // Median
+  let lotseLinks = Infinity;
+  for (const zeile of zeilen) {
+    for (const zelle of zeile.zellen) {
+      if (zelle.x > vNrRechts && zelle.x < lotseLinks) lotseLinks = zelle.x;
+    }
+  }
+  return lotseLinks === Infinity ? vNrRechts + 5 : (vNrRechts + lotseLinks) / 2;
 }
 
 interface Block {
@@ -73,7 +106,7 @@ function zuBloecke(zeilen: PdfZeile[]): Block[] {
   return bloecke;
 }
 
-function parseBlock(block: Block): TenderEintrag {
+function parseBlock(block: Block, trenner: number): TenderEintrag {
   const eintrag: TenderEintrag = {
     datum: "",
     zeit: "",
@@ -91,18 +124,31 @@ function parseBlock(block: Block): TenderEintrag {
   };
   for (const zeile of block.zeilen) {
     for (const zelle of zeile.zellen) {
-      const feld = feldFuer((zelle.x + zelle.xEnde) / 2);
-      if (feld === "zeitraum") {
-        if (DATUM_RE.test(zelle.text)) eintrag.datum = zelle.text;
-        else if (ZEIT_RE.test(zelle.text)) eintrag.zeit = zelle.text;
-        else anhaengen("schiff", zelle.text);
-      } else if (feld === "tender") {
-        if (zelle.text === "T") eintrag.tender = true;
-        else anhaengen("best", zelle.text);
+      const text = zelle.text;
+      // Rechts der V-Nr.-Spalte steht ausschließlich der Lotsenname —
+      // inklusive Fortsetzungszeilen und der angehängten Kat.-Ziffer, die
+      // sonst als Schiffskategorie missdeutet würde.
+      if (zelle.x >= trenner) {
+        anhaengen("lotse", text);
+        if (zelle.fett) eintrag.lotseFett = true;
+        continue;
+      }
+      if (DATUM_RE.test(text)) {
+        eintrag.datum = text;
+      } else if (ZEIT_RE.test(text)) {
+        eintrag.zeit = text;
+      } else if (text.toUpperCase() === "T") {
+        eintrag.tender = true;
+      } else if (BEST_RE.test(text)) {
+        anhaengen("best", text);
+      } else if (VNR_RE.test(text)) {
+        anhaengen("vNr", text);
+      } else if (KAT_RE.test(text)) {
+        anhaengen("kat", text);
       } else {
-        anhaengen(feld, zelle.text);
-        if (feld === "schiff" && zelle.fett) eintrag.schiffFett = true;
-        if (feld === "lotse" && zelle.fett) eintrag.lotseFett = true;
+        // Alles Übrige links des Trenners ist Schiffsname (auch mehrzeilig).
+        anhaengen("schiff", text);
+        if (zelle.fett) eintrag.schiffFett = true;
       }
     }
   }
@@ -112,18 +158,38 @@ function parseBlock(block: Block): TenderEintrag {
 export function parseSeestationPdf(seiten: PdfSeite[]): SeestationPdfErgebnis {
   const ergebnis: SeestationPdfErgebnis = { kopfdaten: [], eintraege: [] };
 
-  for (const seite of seiten) {
-    const inhalt = seite.zeilen.filter((z) => !istDruckzeile(z, seite.hoehe));
-    for (const block of zuBloecke(inhalt)) {
-      const istSchiff = block.zeilen.some((zeile) =>
-        zeile.zellen.some((zelle) => DATUM_RE.test(zelle.text) && zelle.x < BAND_GRENZEN[0]),
-      );
-      if (istSchiff) {
-        ergebnis.eintraege.push(parseBlock(block));
-      } else {
-        for (const zeile of block.zeilen) {
-          ergebnis.kopfdaten.push(zeile.zellen.map((z) => z.text));
-        }
+  // Erst kalibrieren (über ALLE Seiten), dann parsen: die Spaltenposition
+  // ist je Export unterschiedlich, innerhalb eines Exports aber konstant.
+  const inhaltProSeite = seiten.map((seite) => seite.zeilen.filter((z) => !istDruckzeile(z, seite.hoehe)));
+  const trenner = kalibriereTrenner(inhaltProSeite.flat());
+
+  const hatDatum = (block: Block) =>
+    block.zeilen.some((zeile) => zeile.zellen.some((zelle) => DATUM_RE.test(zelle.text) && zelle.x < trenner));
+
+  // Blöcke aller Seiten in EINER Liste: ein Schiffseintrag beginnt immer mit
+  // seiner Datumszeile, deshalb gehört ein Block ohne Datum am Seitenanfang
+  // zum letzten Block der Vorseite — Einträge dürfen über den Seitenumbruch
+  // laufen (Datum unten auf Seite 1, Rest oben auf Seite 2). Die y-Werte
+  // sind seitenlokal, ein Abstandsvergleich wäre über die Grenze hinweg
+  // bedeutungslos.
+  const bloecke: Block[] = [];
+  for (const inhalt of inhaltProSeite) {
+    zuBloecke(inhalt).forEach((block, i) => {
+      const letzter = bloecke[bloecke.length - 1];
+      if (i === 0 && !hatDatum(block) && letzter && hatDatum(letzter)) {
+        letzter.zeilen.push(...block.zeilen);
+        return;
+      }
+      bloecke.push(block);
+    });
+  }
+
+  for (const block of bloecke) {
+    if (hatDatum(block)) {
+      ergebnis.eintraege.push(parseBlock(block, trenner));
+    } else {
+      for (const zeile of block.zeilen) {
+        ergebnis.kopfdaten.push(zeile.zellen.map((z) => z.text));
       }
     }
   }
