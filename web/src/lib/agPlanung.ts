@@ -17,7 +17,9 @@
 import type { AbteilzeitSettings } from "@wache/core";
 import { formatUhrzeit } from "./format";
 import type { MeldungsDaten, MeldungsStufe } from "./meldungen";
-import { berechneSeestationsDefizite, traegerLabel } from "./seestationBedarf";
+import { ANFAHRT_SEESTATION_MS, TENDER_VORLAUF_MS } from "./seestation";
+import { MIN_TENDER_LOTSEN, berechneSeestationsDefizite, traegerLabel } from "./seestationBedarf";
+import type { SeestationDefizit } from "./seestationBedarf";
 
 export interface AgPlanungsGruppe {
   id: string;
@@ -66,40 +68,49 @@ export function berechneAgPlanung(daten: MeldungsDaten, jetzt: Date, settings: A
   }
 
   for (const d of defizite) {
-    if (d.tenderEmpfehlung) {
-      // Geplante Tender-AG (kein Träger passt oder Träger hieße > 6 Std.
-      // warten): Planungszeitpunkt + geplante Abfahrt (= Abteilzeit des
-      // Tender-AG-Jobs) direkt im Vorschlag benennen. Je Schiff eine
-      // eigene Gruppe, da die Zeiten je ETA verschieden sind.
-      eintragen(
-        `tender-${d.schiff.id}`,
-        `Tender (planen bis ${formatUhrzeit(d.tenderEmpfehlung.planenBis)}, Abfahrt/Abt. ${formatUhrzeit(d.tenderEmpfehlung.abfahrt)})`,
-        d.fehlt,
-        d.stufe,
-        d.schiff.schiffsname,
-        d.schiff.eta,
-        false,
-      );
-      continue;
-    }
-    if (d.zuteilungen.length === 0) {
-      eintragen(
-        "tender",
-        `Tender-AG bis ${formatUhrzeit(new Date(d.tenderFrist))}`,
-        d.fehlt,
-        d.stufe,
-        d.schiff.schiffsname,
-        d.schiff.eta,
-        false,
-      );
-      continue;
-    }
+    if (d.tenderEmpfehlung) continue; // Tender-Bedarfe werden unten zu Fahrten gebündelt
     for (const z of d.zuteilungen) {
       const key = `traeger-${z.traeger.eintrag.id}`;
       const empfehlung = `${traegerLabel(z.traeger)} (Abt. ${formatUhrzeit(z.traeger.abteilzeit)})`;
       eintragen(key, empfehlung, z.anzahl, d.stufe, d.schiff.schiffsname, d.schiff.eta, z.ueberWarteziel);
     }
   }
+
+  // --- Tender-Bedarfe zu FAHRTEN bündeln --------------------------------
+  // Der Tender ist kein beliebig verfügbares Mittel: bestellen (3 Std.
+  // Vorlauf), Lotsen aufnehmen, 3,5 Std. Anfahrt — die nächste Fahrt kann
+  // frühestens ab Ankunft der vorherigen geplant werden (Abfahrt also
+  // Ankunft + Vorlauf). Außerdem sollen mindestens 3 Lotsen pro Fahrt
+  // mitfahren. Deshalb: Bedarfe aufsteigend nach ETA durchgehen und an die
+  // laufende Fahrt hängen, solange sie noch zu klein ist ODER eine eigene
+  // Fahrt nicht mehr rechtzeitig möglich wäre — die Lotsen warten dann auf
+  // der Seestation. Die Abfahrt jeder Fahrt richtet sich nach ihrem
+  // frühesten Schiff (spätestmöglich, um rechtzeitig dort zu sein).
+  const tenderBedarf = defizite
+    .filter((d): d is SeestationDefizit & { tenderEmpfehlung: NonNullable<SeestationDefizit["tenderEmpfehlung"]> } =>
+      Boolean(d.tenderEmpfehlung),
+    )
+    .sort((a, b) => a.schiff.eta.getTime() - b.schiff.eta.getTime());
+  const fahrten: { abfahrt: Date; anzahl: number; mitglieder: typeof tenderBedarf }[] = [];
+  for (const d of tenderBedarf) {
+    const letzte = fahrten[fahrten.length - 1];
+    if (letzte) {
+      const fruehesteNeueAbfahrt = letzte.abfahrt.getTime() + ANFAHRT_SEESTATION_MS + TENDER_VORLAUF_MS;
+      if (letzte.anzahl < MIN_TENDER_LOTSEN || fruehesteNeueAbfahrt > d.tenderEmpfehlung.abfahrt.getTime()) {
+        letzte.mitglieder.push(d);
+        letzte.anzahl += d.fehlt;
+        continue;
+      }
+    }
+    fahrten.push({ abfahrt: d.tenderEmpfehlung.abfahrt, anzahl: d.fehlt, mitglieder: [d] });
+  }
+  fahrten.forEach((fahrt, i) => {
+    const planenBis = new Date(fahrt.abfahrt.getTime() - TENDER_VORLAUF_MS);
+    const empfehlung = `Tender (planen bis ${formatUhrzeit(planenBis)}, Abfahrt/Abt. ${formatUhrzeit(fahrt.abfahrt)})`;
+    for (const d of fahrt.mitglieder) {
+      eintragen(`tenderfahrt-${i}`, empfehlung, d.fehlt, d.stufe, d.schiff.schiffsname, d.schiff.eta, false);
+    }
+  });
 
   return [...gruppen.values()].sort((a, b) => a.fruehesteEta.getTime() - b.fruehesteEta.getTime());
 }

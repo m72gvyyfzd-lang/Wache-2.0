@@ -27,6 +27,11 @@ import { vorschauZeilen } from "./vorschau";
  *  Träger-Zuteilung mit Warnung stehen. */
 export const WARTE_MAX_AG_MS = 6 * 3_600_000;
 
+/** Eine Tender-AG-Fahrt soll sich lohnen: möglichst mindestens 3 Lotsen
+ *  pro Fahrt — kleinere Bedarfe werden mit der nächsten Fahrt gebündelt
+ *  (die Lotsen warten dann eben auf der Seestation). */
+export const MIN_TENDER_LOTSEN = 3;
+
 export interface AgZuteilung {
   traeger: { eintrag: JobEintrag; abteilzeit: Date };
   /** Anzahl der AG-Lotsen, die über diesen Träger fahren sollen */
