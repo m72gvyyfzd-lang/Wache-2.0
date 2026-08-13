@@ -226,9 +226,9 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
             breite="breit"
             spalten={[...zeitpunkte.map((t) => formatUhrzeit(new Date(t))), "ges."]}
             zeilen={[
-              { titel: "ETAs", werte: etaZeile },
-              { titel: "Lots. bedarf", werte: bedarfZeile },
-              { titel: "Lots. verf.", werte: verfuegbarZeile, zusaetze: projiziertZeile },
+              { titel: "ETAs", werte: etaZeile, rahmen: true },
+              { titel: "Lots. bedarf", werte: bedarfZeile, rahmen: true },
+              { titel: "Lots. verf.", werte: verfuegbarZeile, zusaetze: projiziertZeile, rahmen: true },
               { titel: "Bilanz", werte: bilanzZeile, bilanz: true },
             ]}
           />

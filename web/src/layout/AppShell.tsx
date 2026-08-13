@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { TopBar } from "./TopBar";
 import "./AppShell.css";
 
@@ -8,11 +8,17 @@ const NAV_ITEMS = [
   { to: "/versetzlisten", label: "Versetzlisten" },
   { to: "/seestation", label: "Seestation" },
   { to: "/einsatzstation", label: "Einsatzstation" },
-  { to: "/wachbeginn", label: "Wachbeginn" },
   { to: "/settings", label: "Settings" },
 ];
 
+/** Unterpunkte von Settings: nur sichtbar, solange Settings selbst oder
+ *  einer der Unterpunkte offen ist — die Navi bleibt sonst kürzer. */
+const UNTER_ITEMS = [{ to: "/wachbeginn", label: "Wachbeginn" }];
+
 export function AppShell() {
+  const { pathname } = useLocation();
+  const untermenueOffen = pathname === "/settings" || UNTER_ITEMS.some((u) => u.to === pathname);
+
   return (
     <div className="app-root">
       <TopBar />
@@ -38,6 +44,19 @@ export function AppShell() {
                   </NavLink>
                 </li>
               ))}
+              {untermenueOffen &&
+                UNTER_ITEMS.map((item) => (
+                  <li key={item.to} className="app-nav__unterpunkt">
+                    <NavLink
+                      to={item.to}
+                      className={({ isActive }) =>
+                        "app-nav__link app-nav__link--unter" + (isActive ? " app-nav__link--active" : "")
+                      }
+                    >
+                      {item.label}
+                    </NavLink>
+                  </li>
+                ))}
             </ul>
           </div>
         </nav>

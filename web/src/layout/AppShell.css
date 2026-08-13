@@ -116,6 +116,35 @@
   transform: translateY(1px);
 }
 
+/* Unterpunkt von Settings: schmaler und rechtsbündig unter dem
+   Settings-Knopf, davor eine dezente gewinkelte Verbindungslinie
+   (senkrecht herunter, dann waagerecht zum Knopf). */
+.app-nav__unterpunkt {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.app-nav__unterpunkt::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  /* bis in die Lücke zum Settings-Knopf hinauf (list-gap 6px) */
+  top: -6px;
+  bottom: 50%;
+  width: 12px;
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  border-bottom-left-radius: 8px;
+  pointer-events: none;
+}
+
+.app-nav__link--unter {
+  width: 84%;
+  min-height: 38px;
+  font-size: 0.88rem;
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="hell"]) .app-nav__list {
     --taste-licht: rgba(255, 255, 255, 0.06);
@@ -156,6 +185,18 @@
      (und mit ihm die Versionszeile) entfällt. */
   .app-nav__platzhalter {
     display: none;
+  }
+
+  /* In der Tab-Leiste reiht sich der Unterpunkt normal ein — eine
+     Einrückung mit Verbindungslinie ergibt nebeneinander keinen Sinn. */
+  .app-nav__unterpunkt::before {
+    display: none;
+  }
+
+  .app-nav__link--unter {
+    width: auto;
+    min-height: 48px;
+    font-size: 0.72rem;
   }
 
   .app-nav__karte {

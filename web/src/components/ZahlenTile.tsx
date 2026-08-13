@@ -3,7 +3,6 @@
  *  deren Klassen), zeigt darunter aber Zahlengruppen statt einer Liste.
  *  Ohne Gruppen bleibt nur der Rahmen stehen — als Platzhalter für noch
  *  nicht befüllte Kacheln. */
-import { Fragment } from "react";
 import "./Meldungen.css";
 import "./ZahlenTile.css";
 
@@ -39,8 +38,10 @@ export function ZahlenTile({
       </div>
       <div className="zahlen-tile__body">
         {gruppen.map((gruppe) => (
-          <div key={gruppe.titel} className="zahlen-tile__gruppe">
-            <div className="zahlen-tile__titel">{gruppe.titel}</div>
+          // fieldset/legend statt div: die Legende unterbricht die obere
+          // Rahmenlinie von selbst, der Titel wirkt nicht durchgestrichen.
+          <fieldset key={gruppe.titel} className="zahlen-tile__gruppe">
+            <legend className="zahlen-tile__titel">{gruppe.titel}</legend>
             <div className="zahlen-tile__werte">
               {gruppe.werte.map((w) => (
                 <div key={w.kuerzel} className="zahlen-tile__spalte">
@@ -49,7 +50,7 @@ export function ZahlenTile({
                 </div>
               ))}
             </div>
-          </div>
+          </fieldset>
         ))}
       </div>
     </div>
@@ -65,6 +66,8 @@ export interface MatrixZeile {
   zusaetze?: (number | null)[];
   /** Bilanz-Zeile: Überschuss grün, Fehlbestand rot mit Minuszeichen */
   bilanz?: boolean;
+  /** Zeile mit dezentem, abgerundetem Rahmen umfassen */
+  rahmen?: boolean;
 }
 
 /** Kennzahlen-Kachel als Matrix: Spaltenköpfe oben, je Zeile eine
@@ -83,21 +86,36 @@ export function MatrixTile({
   breite?: Kachelbreite;
   testId?: string;
 }) {
-  const raster = { gridTemplateColumns: `auto repeat(${spalten.length}, minmax(0, 1fr))` };
+  // Jede Zeile ist ein eigenes Raster mit identischen Spalten — nur so lässt
+  // sich eine ganze Zeile umrahmen und die Spalten fluchten trotzdem. Die
+  // Beschriftungsspalte hat einen festen Anteil (nicht "auto"), sonst wäre
+  // sie je Zeile unterschiedlich breit.
+  // Der Anteil der Beschriftungsspalte kommt aus einer CSS-Variablen: auf
+  // schmalen Breiten braucht sie mehr Platz, sonst schiebt sich die
+  // Beschriftung über die erste Zahl.
+  const raster = {
+    gridTemplateColumns: `minmax(0, var(--titel-spalte, 1.5fr)) repeat(${spalten.length}, minmax(0, 1fr))`,
+  };
   return (
     <div className={rahmenKlasse(breite)} data-testid={testId}>
       <div className="meldungs-tile__kopf">
         <span className="meldungs-tile__label">{label}</span>
       </div>
-      <div className="zahlen-tile__matrix" style={raster}>
-        <span />
-        {spalten.map((s) => (
-          <span key={s} className="zahlen-tile__kuerzel zahlen-tile__matrix-kopf">
-            {s}
-          </span>
-        ))}
+      <div className="zahlen-tile__matrix">
+        <div className="zahlen-tile__matrix-zeile" style={raster}>
+          <span />
+          {spalten.map((s) => (
+            <span key={s} className="zahlen-tile__kuerzel zahlen-tile__matrix-kopf">
+              {s}
+            </span>
+          ))}
+        </div>
         {zeilen.map((zeile) => (
-          <Fragment key={zeile.titel}>
+          <div
+            key={zeile.titel}
+            className={"zahlen-tile__matrix-zeile" + (zeile.rahmen ? " zahlen-tile__matrix-zeile--rahmen" : "")}
+            style={raster}
+          >
             <span className="zahlen-tile__titel zahlen-tile__matrix-titel">{zeile.titel}</span>
             {zeile.werte.map((wert, i) => {
               const zusatz = zeile.zusaetze?.[i] ?? 0;
@@ -114,7 +132,7 @@ export function MatrixTile({
                 </span>
               );
             })}
-          </Fragment>
+          </div>
         ))}
       </div>
     </div>

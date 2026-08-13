@@ -5,15 +5,37 @@
   cursor: default;
 }
 
+/* Kacheltitel zentriert (Einsatzstation/Seestation) — die Meldungs-Kacheln
+   behalten ihre linksbündige Kopfzeile mit Badge. */
+.zahlen-tile .meldungs-tile__kopf {
+  justify-content: center;
+}
+
 .zahlen-tile__body {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: space-evenly;
-  gap: 4px;
-  padding: 0 14px 10px;
+  gap: 6px;
+  padding: 0 12px 10px;
   overflow-y: auto;
+}
+
+/* Gruppe als fieldset: die Legende sitzt IN der oberen Rahmenlinie und
+   unterbricht sie, der Titel wird dadurch nicht durchgestrichen. */
+.zahlen-tile__gruppe {
+  margin: 0;
+  min-width: 0;
+  padding: 0 8px 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.zahlen-tile__gruppe legend {
+  /* zentriert die Legende im fieldset */
+  margin: 0 auto;
+  padding: 0 6px;
 }
 
 .zahlen-tile__titel {
@@ -31,7 +53,6 @@
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
   gap: 4px;
-  margin-top: 2px;
 }
 
 .zahlen-tile__spalte {
@@ -58,16 +79,33 @@
   color: var(--ink);
 }
 
-/* Matrix-Variante: Spaltenköpfe oben, links die Zeilenbeschriftung. */
+/* Matrix-Variante: Spaltenköpfe oben, links die Zeilenbeschriftung. Jede
+   Zeile ist ein eigenes Raster (siehe MatrixTile) — nur so lässt sie sich
+   umrahmen; der Zeilenabstand hält die Rahmen auseinander. */
 .zahlen-tile__matrix {
   flex: 1;
   min-height: 0;
-  display: grid;
-  align-content: space-evenly;
-  column-gap: 4px;
-  row-gap: 2px;
-  padding: 0 12px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 3px;
+  padding: 0 10px 8px;
   overflow: auto;
+}
+
+.zahlen-tile__matrix-zeile {
+  display: grid;
+  align-items: center;
+  column-gap: 4px;
+  /* gleicher Innenabstand wie der Rahmen, damit Kopf- und Datenzeilen
+     trotz fehlendem Rahmen bündig stehen */
+  padding: 1px 5px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.zahlen-tile__matrix-zeile--rahmen {
+  border-color: var(--line);
 }
 
 .zahlen-tile__matrix-kopf,
@@ -77,7 +115,7 @@
 
 .zahlen-tile__matrix-titel {
   padding-right: 6px;
-  align-self: center;
+  text-align: right;
   white-space: nowrap;
 }
 
@@ -114,6 +152,11 @@
     letter-spacing: 0.04em;
   }
 
+  .zahlen-tile__matrix-titel {
+    font-size: 0.5rem;
+    letter-spacing: 0;
+  }
+
   .zahlen-tile__kuerzel {
     font-size: 0.46rem;
     letter-spacing: 0;
@@ -124,12 +167,26 @@
   }
 
   .zahlen-tile__matrix {
-    padding: 0 6px 8px;
+    --titel-spalte: 3fr;
+    padding: 0 6px 6px;
+    gap: 2px;
+  }
+
+  .zahlen-tile__matrix-zeile {
     column-gap: 2px;
+    padding: 0 3px;
   }
 
   .zahlen-tile__matrix-titel {
     padding-right: 3px;
+  }
+
+  .zahlen-tile__gruppe {
+    padding: 0 2px 3px;
+  }
+
+  .zahlen-tile__gruppe legend {
+    padding: 0 3px;
   }
 
   .zahlen-tile__matrix-zahl {
