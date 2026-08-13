@@ -196,6 +196,11 @@
   background: #b5432f;
 }
 
+/* Auswertung mit Warnungen: statisch orange (kein Fehler, aber ansehen) */
+.wachbeginn__tab-status--warnung {
+  background: #c77d1e;
+}
+
 @keyframes wachbeginn-pulsieren {
   0%,
   100% {

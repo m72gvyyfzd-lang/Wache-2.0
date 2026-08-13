@@ -30,14 +30,15 @@ function TabKnopf({
   id,
   label,
   hinweis,
-  zustand,
+  status,
   aktiv,
   onWahl,
 }: {
   id: string;
   label: string;
   hinweis: string;
-  zustand: UploadZustand<unknown>;
+  /** Farbe des Status-Punkts: leer/laedt/fertig/fehler/warnung */
+  status: string;
   aktiv: boolean;
   onWahl: () => void;
 }) {
@@ -50,9 +51,9 @@ function TabKnopf({
       onClick={onWahl}
       data-testid={`tab-${id}`}
     >
-      <span className={`wachbeginn__tab-status wachbeginn__tab-status--${zustand.status}`} aria-hidden="true" />
+      <span className={`wachbeginn__tab-status wachbeginn__tab-status--${status}`} aria-hidden="true" />
       {label}
-      <span className="wachbeginn__tab-hinweis">{hinweis}</span>
+      {hinweis !== "" && <span className="wachbeginn__tab-hinweis">{hinweis}</span>}
     </button>
   );
 }
@@ -139,7 +140,7 @@ export function Wachbeginn() {
   const { resetAlles, importiereWache } = useData();
   const [phase, setPhase] = useState<"start" | "upload" | "fertig">("start");
   const [frageOffen, setFrageOffen] = useState(false);
-  const [tab, setTab] = useState<"tafel" | "seestation" | "toernstaende">("tafel");
+  const [tab, setTab] = useState<"tafel" | "seestation" | "toernstaende" | "auswertung">("tafel");
   const [tafel, setTafel] = useState<UploadZustand<TafelBrbErgebnis>>({ status: "leer" });
   const [seestation, setSeestation] = useState<UploadZustand<SeestationPdfErgebnis>>({ status: "leer" });
   const [toernstaende, setToernstaende] = useState<UploadZustand<ToernstaendeErgebnis>>({ status: "leer" });
@@ -240,11 +241,21 @@ export function Wachbeginn() {
 
       {phase === "upload" && (
         <>
-          <Panel title="PDF-Exporte">
+          <Panel>
             <div className="wachbeginn__tabs" role="tablist">
-              <TabKnopf id="tafel" label="Tafel Brb" hinweis="Pflicht" zustand={tafel} aktiv={tab === "tafel"} onWahl={() => setTab("tafel")} />
-              <TabKnopf id="seestation" label="Seestation" hinweis="Pflicht" zustand={seestation} aktiv={tab === "seestation"} onWahl={() => setTab("seestation")} />
-              <TabKnopf id="toernstaende" label="Törnstände" hinweis="optional" zustand={toernstaende} aktiv={tab === "toernstaende"} onWahl={() => setTab("toernstaende")} />
+              <TabKnopf id="tafel" label="Tafel Brb" hinweis="Pflicht" status={tafel.status} aktiv={tab === "tafel"} onWahl={() => setTab("tafel")} />
+              <TabKnopf id="seestation" label="Seestation" hinweis="Pflicht" status={seestation.status} aktiv={tab === "seestation"} onWahl={() => setTab("seestation")} />
+              <TabKnopf id="toernstaende" label="Törnstände" hinweis="optional" status={toernstaende.status} aktiv={tab === "toernstaende"} onWahl={() => setTab("toernstaende")} />
+              <TabKnopf
+                id="auswertung"
+                label="Auswertung"
+                hinweis=""
+                status={
+                  !auswertung ? "leer" : auswertung.meldungen.some((m) => m.stufe === "warnung") ? "warnung" : "fertig"
+                }
+                aktiv={tab === "auswertung"}
+                onWahl={() => setTab("auswertung")}
+              />
             </div>
 
             <div className={tab === "tafel" ? undefined : "wachbeginn__tab-inhalt--versteckt"}>
@@ -266,9 +277,8 @@ export function Wachbeginn() {
               <UploadKopf zustand={toernstaende} onDatei={handleToernstaendeDatei} inputTestId="toernstaende-datei" />
               {toernstaende.status === "fertig" && <ToernstaendeVorschau ergebnis={toernstaende.daten} />}
             </div>
-          </Panel>
 
-          <Panel title="Auswertung">
+            <div className={tab === "auswertung" ? undefined : "wachbeginn__tab-inhalt--versteckt"}>
             {!auswertung ? (
               <p className="wachbeginn__intro">
                 Bitte Tafel Brb und Seestation hochladen — danach erscheinen hier die Auswertung und die
@@ -307,6 +317,7 @@ export function Wachbeginn() {
                 </div>
               </div>
             )}
+            </div>
           </Panel>
         </>
       )}
