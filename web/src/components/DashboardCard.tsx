@@ -126,14 +126,16 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
   // Lotsen-Kennzahlen der Einsatzstation:
   // Abger. — abgerufene Lotsen, die noch an der Station stehen (abgeteilte
   //   sind aus der Einsatzstations-Liste verschwunden, siehe lotsenOrdnung).
-  // Fahrw. — Lotsen im Revier (Versetzliste), ohne die ankernden.
-  // SeeStn — Lotsen, die auf der Seestation angekommen sind (beide Quellen
-  //   der Liste "Auf Seestation").
+  // Fahrw. — unterwegs zur Seestation, ohne die ankernden.
+  // SeeStn — bereits auf der Seestation angekommen.
+  // Fahrw. und SeeStn teilen dieselbe Quelle (die Liste "Auf Seestation",
+  // gespeist aus Versetzliste UND manuell/importiert angelegten Lotsen) und
+  // unterscheiden sich nur darin, ob der Lotse schon da ist. Der Import
+  // legt die Lotsen vor dem Marker genau so an: fett = auf Station, sonst
+  // noch auf dem Weg.
   const anzahlAbgerufen = lotsen.filter((l) => !l.abgeteilt && l.abgerufen).length;
-  const anzahlFahrwasser = abteilungen.filter(
-    (a) => a.vNr !== undefined && !a.aufSeestation && !a.ankert,
-  ).length;
   const seeZeilen = [...zeilenAusAbteilungen(abteilungen), ...zeilenAusSeestationLotsen(seestationLotsen)];
+  const anzahlFahrwasser = seeZeilen.filter((z) => !z.aufStation).length;
   const anzahlAufSeestation = seeZeilen.filter((z) => z.aufStation).length;
 
   // Seestations-Kachel: die Lage zu drei Zeitpunkten (in 3, 6 und 12 Std.)

@@ -17,6 +17,11 @@ export const VORLAUF_AUF_STATION_MS = 15 * 60_000;
  *  Warnung (kein Alarm) und die Ankunftszeit wird orange hervorgehoben. */
 export const VORLAUF_WARNUNG_MS = 3_600_000;
 
+/** Anmeldung eines See-Schiffs: ab 30 Min. vor dem ETA wird gewarnt, ab
+ *  15 Min. NACH dem ETA gilt sie als überfällig (Alarm). */
+export const ANMELDUNG_VORWARNUNG_MS = 30 * 60_000;
+export const ANMELDUNG_ESKALATION_MS = 15 * 60_000;
+
 /** Tender-AG: braucht min. 3 Std. Vorlauf, bis der Tender an der
  *  Einsatzstation abfahren kann — die Anfahrt zur Seestation (siehe
  *  ANFAHRT_SEESTATION_MS) kommt danach noch obendrauf.

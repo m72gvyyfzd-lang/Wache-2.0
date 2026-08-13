@@ -23,7 +23,7 @@ import { abteilzeitVon, benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel 
 import { formatUhrzeit } from "./format";
 import { istListenvergabeJob, VERGABE_GRUPPE } from "./listenvergabe";
 import { geplanterAbruf, planeEinsatzstation, planeEinsatzstationMitVergaben } from "./planungEinsatzstation";
-import { etaSeestation } from "./seestation";
+import { ANMELDUNG_ESKALATION_MS, ANMELDUNG_VORWARNUNG_MS, etaSeestation } from "./seestation";
 import { seeLotsenAnzahl } from "./seestationAbteilen";
 import { berechneSeestationsDefizite, knappeVorlaeufe } from "./seestationBedarf";
 
@@ -201,8 +201,6 @@ function seestationAnkunftMeldungen(daten: MeldungsDaten, jetzt: Date): Meldung[
  *  seestationSchiffMeldungen): Warnung ab 30 Min. vor ETA, Alarm ab 15 Min.
  *  danach — bewusst andere Schwellen als ABRUF_VORWARNUNG_MS, da es hier
  *  nicht um einen Handlungszeitpunkt, sondern eine reine Registrierung geht. */
-export const ANMELDUNG_VORWARNUNG_MS = 30 * 60_000;
-export const ANMELDUNG_ESKALATION_MS = 15 * 60_000;
 
 /**
  * Zwei Meldungen je See-Schiff (Liste "ETA Seestation"):
@@ -267,8 +265,8 @@ function seestationSchiffMeldungen(daten: MeldungsDaten, jetzt: Date): Meldung[]
  * Stunde — wird die unterschritten, meldet sich das hier als WARNUNG
  * (bewusst kein Alarm: der Lotse ist zugeteilt, es wird nur eng).
  */
-function vorlaufMeldungen(daten: MeldungsDaten): Meldung[] {
-  return knappeVorlaeufe(daten).map((k) => ({
+function vorlaufMeldungen(daten: MeldungsDaten, jetzt: Date): Meldung[] {
+  return knappeVorlaeufe(daten, jetzt).map((k) => ({
     id: `seestation-vorlauf-${k.schiff.id}-${k.lotsenKey}`,
     stufe: "warnung" as const,
     art: "Vorlauf Seestation knapp",
@@ -415,7 +413,7 @@ export function berechneMeldungen(daten: MeldungsDaten, jetzt: Date, settings: A
     ...seestationAnkunftMeldungen(daten, jetzt),
     ...seestationSchiffMeldungen(daten, jetzt),
     ...seestationsMeldungen(daten, jetzt, settings),
-    ...vorlaufMeldungen(daten),
+    ...vorlaufMeldungen(daten, jetzt),
     ...namensMeldungen(daten),
     ...listenvergabeMeldungen(daten, settings),
   ]);

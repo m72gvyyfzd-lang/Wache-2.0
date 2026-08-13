@@ -123,7 +123,7 @@ export function berechneSeestationsDefizite(
     ...zeilenAusSeestationLotsen(daten.seestationLotsen),
     ...verplante,
   ]);
-  const schiffe = schiffePriorisiert(daten.seeSchiffe, abgeteiltProSchiff);
+  const schiffe = schiffePriorisiert(daten.seeSchiffe, abgeteiltProSchiff, jetzt);
   const projektion = planeSeestation(schiffe, pool, abgeteiltProSchiff, VORLAUF_AUF_STATION_MS);
 
   // AG-Trägerjobs: künftige Hamburg/NOK-Abfahrten, an die eine AG-Fahrt
@@ -229,7 +229,7 @@ export interface KnapperVorlauf {
  * Gerechnet wird bewusst nur mit ECHTEN Lotsen (ohne Vorschau-Projektion):
  * die Warnung beschreibt die aktuelle Lage, nicht eine mögliche.
  */
-export function knappeVorlaeufe(daten: MeldungsDaten): KnapperVorlauf[] {
+export function knappeVorlaeufe(daten: MeldungsDaten, jetzt: Date): KnapperVorlauf[] {
   const abgeteiltProSchiff = new Map<number, number>();
   for (const sa of daten.seeAbteilungen)
     abgeteiltProSchiff.set(sa.seeSchiffId, (abgeteiltProSchiff.get(sa.seeSchiffId) ?? 0) + 1);
@@ -237,7 +237,7 @@ export function knappeVorlaeufe(daten: MeldungsDaten): KnapperVorlauf[] {
     ...zeilenAusAbteilungen(daten.abteilungen),
     ...zeilenAusSeestationLotsen(daten.seestationLotsen),
   ]);
-  const schiffe = schiffePriorisiert(daten.seeSchiffe, abgeteiltProSchiff);
+  const schiffe = schiffePriorisiert(daten.seeSchiffe, abgeteiltProSchiff, jetzt);
   const zuteilung = planeSeestation(schiffe, pool, abgeteiltProSchiff, VORLAUF_AUF_STATION_MS);
 
   const knapp: KnapperVorlauf[] = [];

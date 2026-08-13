@@ -56,6 +56,16 @@ export function abteilzeitVon(eintrag: JobEintrag, settings: AbteilzeitSettings)
   return berechneAbteilzeit(zuCoreJob(eintrag), settings, hwBrbAktuell);
 }
 
+/** Abteilzeit eines AG-Jobs aus seinem Trägerschiff: dieselbe Zeit plus eine
+ *  Sekunde. Ein Träger muss zwingend VOR seiner AG abgeteilt werden — bei
+ *  exakt gleicher Zeit wäre die Reihenfolge in der Einsatzplanung dagegen
+ *  zufällig (siehe sortiereEintraege). Die Sekunde ist in der
+ *  Minuten-Anzeige unsichtbar und hält die Sortierung eindeutig. */
+export function agAbteilzeitVon(traeger: JobEintrag, settings: AbteilzeitSettings): Date | undefined {
+  const abteilzeit = abteilzeitVon(traeger, settings);
+  return abteilzeit ? new Date(abteilzeit.getTime() + 1000) : undefined;
+}
+
 /** Matrixbasierte Brb-Prognose (Ankunft Brücke + Fahrzeit) für die Anzeige;
  *  undefined, solange kein HW-Paar eingegeben ist oder der Eintrag kein
  *  HH-Job mit FkW-/Stade-Meldung ist. */

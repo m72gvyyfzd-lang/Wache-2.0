@@ -11,7 +11,7 @@ import type {
   SeeSchiff,
   SeestationLotse,
 } from "../data/types";
-import { abteilzeitVon, setHwBrbAktuell } from "../lib/coreJob";
+import { agAbteilzeitVon, setHwBrbAktuell } from "../lib/coreJob";
 import { toernFeldFuerTypLabel } from "../lib/listenvergabe";
 import { tauschePositionen, verschiebeHinter } from "../lib/lotsenOrdnung";
 import {
@@ -194,7 +194,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       // (neu berechnete) Abteilzeit — Hamburg/NOK-Jobs können selbst nicht
       // AG-verknüpft sein, daher keine Rekursionsgefahr.
       if (job.liste === "andere") return aktualisiert;
-      const neueAbteilzeit = abteilzeitVon({ ...job, id }, settings);
+      const neueAbteilzeit = agAbteilzeitVon({ ...job, id }, settings);
       return aktualisiert.map((j) =>
         j.liste === "andere" && j.typ === "AG" && j.agJobId === id ? { ...j, abtZeitManuell: neueAbteilzeit } : j,
       );

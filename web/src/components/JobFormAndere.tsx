@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { ANMELDUNGS_TYPEN, getAbteilzeitSettings } from "@wache/core";
 import type { AnmeldungsTyp, Geschwindigkeitsklasse } from "@wache/core";
 import type { JobEintrag } from "../data/types";
-import { abteilzeitVon } from "../lib/coreJob";
+import { agAbteilzeitVon } from "../lib/coreJob";
 import { ausDatumUndZeit, fromLocalInput, toLocalDateInput, toLocalInput, toLocalTimeInput } from "../lib/datetime";
 import { FormActions, handleZeitMitPrefill, SchiffKatSelect, SpeedSelect } from "./formShared";
 import { Switch } from "./SeestationModals";
@@ -92,7 +92,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
       return;
     }
     const job = verknuepfbareJobs.find((j) => String(j.id) === wert);
-    if (job) setzeAbtZeit(abteilzeitVon(job, settings));
+    if (job) setzeAbtZeit(agAbteilzeitVon(job, settings));
   }
 
   function handleAgLotsen(wert: string) {

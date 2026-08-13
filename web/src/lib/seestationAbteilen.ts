@@ -6,7 +6,7 @@
  */
 import { darfFahren, darfZweiterLotse, schiffsRang } from "@wache/core";
 import type { SeeSchiff } from "../data/types";
-import type { SeestationZeile } from "./seestation";
+import { ANMELDUNG_ESKALATION_MS, type SeestationZeile } from "./seestation";
 
 /** Anzahl benötigter Lotsen eines See-Schiffs: Standard 1, Doppeldecker 2. */
 export function seeLotsenAnzahl(schiff: SeeSchiff): number {
@@ -42,13 +42,26 @@ export function eignungsWarnungSeestation(
  *  Geteilt zwischen der Seestation-Seite und der Dashboard-Bilanz
  *  (lib/meldungen.ts), damit beide bei knappen Lotsen exakt dieselbe
  *  Zuteilung errechnen. */
-export function schiffePriorisiert(seeSchiffe: SeeSchiff[], abgeteiltProSchiff: Map<number, number>): SeeSchiff[] {
+/** Ein Schiff verliert seinen Platz in der Zeitreihenfolge erst, wenn seine
+ *  Anmeldung überfällig ist (Alarm, siehe ANMELDUNG_ESKALATION_MS) — dann
+ *  rutscht es hinter alle übrigen. Der bloße Anmeldestatus zählt nicht: ein
+ *  noch nicht angemeldetes Schiff, dessen Frist läuft, bleibt an seiner
+ *  zeitlichen Position. */
+function anmeldungUeberfaellig(schiff: SeeSchiff, jetzt: Date): boolean {
+  return !schiff.angemeldet && schiff.eta.getTime() - jetzt.getTime() <= -ANMELDUNG_ESKALATION_MS;
+}
+
+export function schiffePriorisiert(
+  seeSchiffe: SeeSchiff[],
+  abgeteiltProSchiff: Map<number, number>,
+  jetzt: Date,
+): SeeSchiff[] {
   return [...seeSchiffe]
     .filter((s) => seeLotsenAnzahl(s) - (abgeteiltProSchiff.get(s.id) ?? 0) > 0)
     .sort((a, b) => {
-      const angemeldetA = a.angemeldet ? 0 : 1;
-      const angemeldetB = b.angemeldet ? 0 : 1;
-      if (angemeldetA !== angemeldetB) return angemeldetA - angemeldetB;
+      const rangA = anmeldungUeberfaellig(a, jetzt) ? 1 : 0;
+      const rangB = anmeldungUeberfaellig(b, jetzt) ? 1 : 0;
+      if (rangA !== rangB) return rangA - rangB;
       return (a.eta?.getTime() ?? 0) - (b.eta?.getTime() ?? 0);
     });
 }

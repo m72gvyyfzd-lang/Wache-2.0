@@ -13,8 +13,9 @@ import {
 } from "../components/SeestationModals";
 import type { SeeSchiff } from "../data/types";
 import { formatUhrzeit } from "../lib/format";
-import { ANMELDUNG_ESKALATION_MS, ANMELDUNG_VORWARNUNG_MS } from "../lib/meldungen";
 import {
+  ANMELDUNG_ESKALATION_MS,
+  ANMELDUNG_VORWARNUNG_MS,
   sortiereSeestation,
   VORLAUF_AUF_STATION_MS,
   VORLAUF_WARNUNG_MS,
@@ -126,9 +127,19 @@ export function Seestation() {
     return seeLotsenAnzahl(schiff) - (abgeteiltProSchiff.get(schiff.id) ?? 0);
   }
 
-  // Schiffe: angemeldete zuerst, danach nach ETA (früheste oben) — dieselbe
-  // Priorität gilt für die Lotsen-Zuteilung (siehe schiffePriorisiert).
-  const schiffeSortiert = schiffePriorisiert(seeSchiffe, abgeteiltProSchiff);
+  // Zeit-Tick wie im Dashboard: die Vorschau hängt an der Uhrzeit (früheste
+  // AG-Ankunft, überfällige Abteilzeiten) und läuft so auch ohne
+  // Datenänderung mit.
+  const [jetzt, setJetzt] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setJetzt(new Date()), 15_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Schiffe nach ETA (früheste oben); nur ein Schiff mit überfälliger
+  // Anmeldung rutscht ans Ende — dieselbe Reihenfolge gilt für die
+  // Lotsen-Zuteilung (siehe schiffePriorisiert).
+  const schiffeSortiert = schiffePriorisiert(seeSchiffe, abgeteiltProSchiff, jetzt);
   // Lotsen: Versetzliste ("Lotsen im Revier") + manuell hinzugefügte,
   // einsortiert nach V-Nr. mit Zusatz-Reihenfolge (101 → 101 (A) → 102)
   const lotsenZeilen = sortiereSeestation([
@@ -146,14 +157,6 @@ export function Seestation() {
   // derselben zweistufigen Zuteilung wie die Basis.
   // Der Vorschau-Schalter lebt im DataContext — die Seestations-Kachel des
   // Dashboards zeigt dieselbe Projektion.
-  // Zeit-Tick wie im Dashboard: die Vorschau hängt an der Uhrzeit (früheste
-  // AG-Ankunft, überfällige Abteilzeiten) und läuft so auch ohne
-  // Datenänderung mit.
-  const [jetzt, setJetzt] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setJetzt(new Date()), 15_000);
-    return () => clearInterval(id);
-  }, []);
   const { verplante, freie } = vorschau
     ? vorschauZeilen(jobs, lotsen, aktuelleFahrt, abteilungen, settings, vNrStart, verbrauchteVNrn, jetzt)
     : { verplante: [], freie: [] };
