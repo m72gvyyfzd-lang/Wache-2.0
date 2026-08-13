@@ -1,7 +1,50 @@
+/* Kachelreihe Allgemein/HW Brunsbüttel/Reset: vier gleich breite Spalten
+   im Grid — Allgemein und Reset nehmen je eine (Breite wie die Meldungs-
+   Kachel im Dashboard, dort ca. 1/4 der Zeile), HW Brunsbüttel die beiden
+   mittleren zusammen. align-items: stretch (Grid-Standard) hält alle drei
+   Karten gleich hoch. */
+.settings-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.settings-row .panel {
+  margin-bottom: 0;
+}
+
+/* Überschriften der Reihe zentrieren (kein action/count vorhanden, daher
+   reicht es, den Kopf selbst mittig auszurichten). */
+.settings-row .panel__head {
+  justify-content: center;
+}
+
+.settings-row__allgemein {
+  grid-column: 1;
+}
+
+.settings-row__hw {
+  grid-column: 2 / 4;
+}
+
+.settings-row__reset {
+  grid-column: 4;
+}
+
 .settings-feld-zeile {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+/* HW Brunsbüttel: HW 1 über HW 2 statt nebeneinander — dieselbe Zeile
+   (Zeit + Datum) bleibt pro Hochwasser erhalten. */
+.settings-feld-spalte {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   padding: 16px 20px;
 }
@@ -34,7 +77,21 @@
   width: 140px;
 }
 
-.settings-testdaten-meldung {
+.settings-meldung {
   font-size: 0.85rem;
   color: var(--ink-muted);
+}
+
+/* iPad im Hochformat: die Kachelreihe wird zu schmal für vier Spalten
+   nebeneinander — untereinander stapeln wie die übrigen Panels. */
+@media (max-width: 1024px) {
+  .settings-row {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-row__allgemein,
+  .settings-row__hw,
+  .settings-row__reset {
+    grid-column: 1;
+  }
 }

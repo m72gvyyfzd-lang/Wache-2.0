@@ -1,10 +1,11 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
 import { FrageModal } from "../components/FrageModal";
 import { SchiffKatSelect } from "../components/formShared";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
+import { QuickEditPopover } from "../components/QuickEditPopover";
 import {
   SeeSchiffEditModal,
   SeeSchiffNeuModal,
@@ -221,6 +222,12 @@ export function Seestation() {
   const [neuerLotseOffen, setNeuerLotseOffen] = useState(false);
   // "Abteilen": Rückfrage vor dem Verbinden von Schiff + Lotse
   const [abteilenFrage, setAbteilenFrage] = useState(false);
+  // EH-Quick-Edit (Doppelklick auf die EH-Spalte "Auf Seestation"): kleines
+  // Fenster wie in der Einsatzstation statt des sonstigen Aktionsfensters —
+  // ein per "neue Wache" importierter Lotse hat dort keinen Datensatz, EH
+  // wird hier direkt am Seestation-Eintrag gespeichert (siehe elbehafenAn).
+  const [ehQuickEdit, setEhQuickEdit] = useState<{ zeile: SeestationZeile; left: number } | null>(null);
+  const kopf = useRef<HTMLDivElement>(null);
 
   // Vorbelegung fürs Hinzufügen: letzte (höchste) V-Nr. der Revier-Lotsen
   const vNrProfil = zeilenAusAbteilungen(abteilungen).reduce((max, z) => Math.max(max, z.vNr), 0);
@@ -370,9 +377,24 @@ export function Seestation() {
     setAbschoepfenLotse(null);
   }
 
+  function elbehafenAendern(wert: boolean) {
+    if (!ehQuickEdit) return;
+    const { zeile } = ehQuickEdit;
+    if (zeile.quelle === "abteilung") {
+      updateAbteilung(zeile.id, { elbehafen: wert });
+    } else {
+      updateSeestationLotse(zeile.id, { elbehafen: wert });
+    }
+    setEhQuickEdit(null);
+  }
+
+  const ehQuickTop = (kopf.current?.getBoundingClientRect().bottom ?? 0) + 6;
+
   return (
     <div>
-      <PageHeader title="Seestation" centered />
+      <div ref={kopf}>
+        <PageHeader title="Seestation" centered />
+      </div>
       <Panel
         actionLeft={
           <div className="seestation-kopf-links">
@@ -515,6 +537,15 @@ export function Seestation() {
                       setAktionLotse(lotse);
                     }
                   : undefined;
+              // EH-Spalte hat einen eigenen Doppelklick (Quick-Edit) statt
+              // des sonstigen Aktionsfensters.
+              const lotseEhDoppelklick =
+                lotse && !lotse.projiziert
+                  ? (e: React.MouseEvent<HTMLTableCellElement>) => {
+                      setLotseAuswahl([lotse.key]);
+                      setEhQuickEdit({ zeile: lotse, left: e.currentTarget.getBoundingClientRect().left });
+                    }
+                  : undefined;
               return (
                 <tr key={i}>
                   {schiff ? (
@@ -564,7 +595,7 @@ export function Seestation() {
                       <td className={`${lotseKlasse} num zentriert`} onClick={lotseKlick} onDoubleClick={lotseDoppelklick}>
                         {lotse.kategorie}
                       </td>
-                      <td className={`${lotseKlasse} num zentriert`} onClick={lotseKlick} onDoubleClick={lotseDoppelklick}>
+                      <td className={`${lotseKlasse} num zentriert`} onClick={lotseKlick} onDoubleClick={lotseEhDoppelklick}>
                         {lotse.elbehafen ? "✓" : ""}
                       </td>
                       <td
@@ -696,6 +727,18 @@ export function Seestation() {
             onNein={() => setAbteilenFrage(false)}
           />
         </Modal>
+      )}
+
+      {ehQuickEdit && (
+        <QuickEditPopover titel="EH" top={ehQuickTop} left={ehQuickEdit.left} onClose={() => setEhQuickEdit(null)}>
+          <select
+            value={ehQuickEdit.zeile.elbehafen ? "ja" : "nein"}
+            onChange={(e) => elbehafenAendern(e.target.value === "ja")}
+          >
+            <option value="ja">✓ Elbehafen</option>
+            <option value="nein">– kein Elbehafen</option>
+          </select>
+        </QuickEditPopover>
       )}
     </div>
   );

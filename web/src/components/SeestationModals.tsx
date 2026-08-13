@@ -58,17 +58,17 @@ export function SeeSchiffNeuModal({ onEinfuegen, onAbbrechen }: SeeSchiffNeuModa
           Schiffsname
           <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} required />
         </label>
+        <SchiffKatSelect value={kategorie} onChange={setKategorie} className="job-form__kat-schmal" />
       </div>
       <div className="job-form__row">
-        <label>
+        <label className="job-form__eta-datum">
           ETA-Datum
           <input type="date" value={etaDatum} onChange={(e) => setEtaDatum(e.target.value)} required />
         </label>
-        <label>
+        <label className="job-form__eta-zeit">
           ETA-Zeit
           <input type="time" value={etaZeit} onChange={(e) => setEtaZeit(e.target.value)} required />
         </label>
-        <SchiffKatSelect value={kategorie} onChange={setKategorie} className="job-form__kat-schmal" />
         <Switch label="angemeldet" checked={angemeldet} onChange={setAngemeldet} />
       </div>
       <div className="job-form__row">

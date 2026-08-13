@@ -51,8 +51,20 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Schmales Kat.-Dropdown im Neues-Schiff-Formular, damit ETA-Datum,
-   ETA-Zeit, Kat. und der angemeldet-Schalter in einer Zeile bleiben. */
+/* Schmales Kat.-Dropdown im Neues-Schiff-Formular: steht neben dem
+   Schiffsnamen (Ebene 1), der dafür nicht mehr die volle Breite braucht. */
 .job-form__row > .job-form__kat-schmal {
   flex: 0 0 84px;
+}
+
+/* ETA-Datum/-Zeit im Neues-Schiff-Formular: feste Breiten statt gleicher
+   Flex-Anteile — sonst überlagern sich Text und natives Icon der beiden
+   Eingabetypen, wenn noch ein dritter Feldbereich (angemeldet-Schalter)
+   in derselben Zeile Platz braucht. */
+.job-form__row > .job-form__eta-datum {
+  flex: 0 0 150px;
+}
+
+.job-form__row > .job-form__eta-zeit {
+  flex: 0 0 100px;
 }

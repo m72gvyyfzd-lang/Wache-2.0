@@ -9,17 +9,20 @@ interface PanelProps {
   actionLeft?: ReactNode;
   /** Action-Element rechts (Standardposition, wie bisher) */
   action?: ReactNode;
+  /** Zusätzliche Klasse am Wurzelelement, z.B. für Breite/Position in
+   *  einer Kachelreihe (siehe Settings.tsx) */
+  className?: string;
   children: ReactNode;
 }
 
-export function Panel({ title, description, count, actionLeft, action, children }: PanelProps) {
+export function Panel({ title, description, count, actionLeft, action, className, children }: PanelProps) {
   // Ohne jeglichen Kopf-Inhalt entfällt die Kopfzeile komplett (z.B.
   // Einsatzstation). Ein leeres Fragment als action zählt als Inhalt —
   // so bleibt der Kopf als Platzhalter erhalten (z.B. Einsatzplanung,
   // deren Abteilen-Button erst bei einer Auswahl erscheint).
   const hatKopf = Boolean(title || description || count || actionLeft || action);
   return (
-    <section className="panel">
+    <section className={"panel" + (className ? ` ${className}` : "")}>
       {hatKopf && (
         <div className="panel__head">
           {actionLeft}
