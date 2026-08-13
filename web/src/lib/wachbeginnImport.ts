@@ -464,12 +464,17 @@ export function baueWachImport(
       kategorie: e.kat !== "" ? normalisiereSchiffsKat(e.kat) : undefined,
       angemeldet: e.schiffFett || undefined,
       ehfLotseBenoetigt: e.best === "EH" || undefined,
+      // rot hinterlegte Datums-/Zeitzelle in der Tendertafel = E3/St
+      e3st: e.e3st || undefined,
     });
   }
   const anzahlDoppel = importDaten.seeSchiffe.filter((s) => s.doppeldecker).length;
+  const anzahlE3st = importDaten.seeSchiffe.filter((s) => s.e3st).length;
   meldungen.push({
     stufe: "info",
-    text: `ETA Seestation: ${importDaten.seeSchiffe.length} Schiffe (davon ${anzahlDoppel} Doppeldecker)`,
+    text:
+      `ETA Seestation: ${importDaten.seeSchiffe.length} Schiffe ` +
+      `(${anzahlDoppel} Doppeldecker, ${anzahlE3st}× E3/St)`,
   });
 
   // --- Marker-Abgleich: letzte V-Nr. + "Auf Seestation" -----------------
@@ -494,12 +499,12 @@ export function baueWachImport(
     } else if (treffer.length > 1) {
       meldungen.push({
         stufe: "warnung",
-        text: `Marker-Lotse "${ersterLotse.name}" ist in der Tendertafel mehrdeutig (${treffer.length} Treffer) — bitte den Marker unten manuell auswählen`,
+        text: `Marker-Lotse "${ersterLotse.name}" ist in der Tendertafel mehrdeutig (${treffer.length} Treffer) — bitte den Marker oben in der Auswahlliste manuell wählen`,
       });
     } else {
       meldungen.push({
         stufe: "warnung",
-        text: `Marker-Lotse "${ersterLotse.name}" nicht in der Tendertafel gefunden — bitte den Marker unten manuell auswählen`,
+        text: `Marker-Lotse "${ersterLotse.name}" nicht in der Tendertafel gefunden — bitte den Marker oben in der Auswahlliste manuell wählen`,
       });
     }
   }

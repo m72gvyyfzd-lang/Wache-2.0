@@ -1,29 +1,46 @@
-.wachbeginn__upload {
+/* 1. Ebene: "Neue Wache" links, "Wache übernehmen" rechts. */
+.wachbeginn__aktionen {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+/* 2. Ebene: drei PDF-Buttons + Marker-Auswahl. Dasselbe Raster wie die
+   Reiter darunter, damit Buttons und Reiter exakt fluchten; `1fr` gibt
+   allen Spalten dieselbe Breite, mindestens so breit wie der breiteste
+   Button. */
+.wachbeginn__leiste,
+.wachbeginn__tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.wachbeginn__leiste {
+  margin-bottom: 16px;
+}
+
+/* iPad im Hochformat: vier Spalten passen nicht nebeneinander — Buttons
+   und Reiter brechen gemeinsam auf zwei Spalten um, damit sie weiter
+   fluchten (statt die Leiste quer scrollen zu lassen). */
+@media (max-width: 1000px) {
+  .wachbeginn__leiste,
+  .wachbeginn__tabs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.wachbeginn__pdf-knopf {
+  width: 100%;
+  white-space: nowrap;
 }
 
 /* Natives Datei-Feld bleibt unsichtbar — ausgelöst über den gestylten
    Button daneben (einheitlicher Look, funktioniert auch auf dem iPad). */
 .wachbeginn__datei-input {
   display: none;
-}
-
-.wachbeginn__status {
-  font-size: 0.85rem;
-  color: var(--ink-muted);
-}
-
-.wachbeginn__status--ok {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.wachbeginn__status--fehler {
-  color: #b5432f;
-  font-weight: 600;
 }
 
 .wachbeginn__vorschau {
@@ -131,20 +148,20 @@
   color: var(--ink);
 }
 
-/* Karteireiter der Upload-Kachel: Unterstrich-Reiter im Karten-Look,
-   inaktive Inhalte bleiben im DOM (State/Vorschau gehen nicht verloren). */
+/* 3. Ebene: Karteireiter im Raster der Buttons darüber, inaktive Inhalte
+   bleiben im DOM (State/Vorschau gehen nicht verloren). */
 .wachbeginn__tabs {
-  display: flex;
-  gap: 4px;
   border-bottom: 1px solid var(--line);
   margin-bottom: 16px;
 }
 
 .wachbeginn__tab {
   display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 16px 10px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 12px 9px;
   border: none;
   background: transparent;
   font: inherit;
@@ -154,6 +171,7 @@
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
+  text-align: left;
 }
 
 .wachbeginn__tab:hover {
@@ -165,16 +183,34 @@
   border-bottom-color: var(--accent);
 }
 
-.wachbeginn__tab-hinweis {
-  font-size: 0.68rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-faint);
+.wachbeginn__tab-kopf {
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 
-/* Status-Punkt je Reiter: grau = offen, pulsierend = analysiert gerade,
-   grün = fertig, rot = Fehler. */
+.wachbeginn__tab-hinweis,
+.wachbeginn__tab-datei {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wachbeginn__tab-hinweis {
+  text-transform: uppercase;
+}
+
+.wachbeginn__tab-datei {
+  letter-spacing: normal;
+}
+
+/* Ampel je Reiter: orange = noch keine Datei, pulsierend = analysiert
+   gerade, grün = brauchbar erkannt, rot = Alarm (falsche/unlesbare PDF). */
 .wachbeginn__tab-status {
   width: 9px;
   height: 9px;
@@ -183,22 +219,21 @@
   flex-shrink: 0;
 }
 
+.wachbeginn__tab-status--offen {
+  background: #c77d1e;
+}
+
 .wachbeginn__tab-status--laedt {
   background: #c77d1e;
   animation: wachbeginn-pulsieren 1.2s ease-in-out infinite;
 }
 
-.wachbeginn__tab-status--fertig {
+.wachbeginn__tab-status--ok {
   background: #3d8a4e;
 }
 
-.wachbeginn__tab-status--fehler {
+.wachbeginn__tab-status--alarm {
   background: #b5432f;
-}
-
-/* Auswertung mit Warnungen: statisch orange (kein Fehler, aber ansehen) */
-.wachbeginn__tab-status--warnung {
-  background: #c77d1e;
 }
 
 @keyframes wachbeginn-pulsieren {
@@ -215,15 +250,23 @@
   display: none;
 }
 
-/* Marker-Auswahl (Fallback bei fehlgeschlagenem Namensabgleich) */
+/* Marker-Auswahl (Fallback bei fehlgeschlagenem Namensabgleich) — sitzt in
+   der vierten Spalte der Button-Leiste, also rechts. */
 .wachbeginn__marker {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-width: 420px;
-  font-size: 0.78rem;
-  color: var(--ink-muted);
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.85rem;
   font-weight: 600;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0 10px;
+}
+
+.wachbeginn__marker:disabled {
+  color: var(--ink-faint);
 }
 
 .wachbeginn__meldung--warnung {

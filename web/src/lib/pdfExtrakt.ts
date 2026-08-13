@@ -23,11 +23,21 @@ export interface PdfZeile {
   y: number;
 }
 
+/** Rot hinterlegte Fläche (Zellhintergrund) in PDF-Koordinaten. */
+export interface PdfFlaeche {
+  x: number;
+  xEnde: number;
+  y: number;
+  yEnde: number;
+}
+
 export interface PdfSeite {
   zeilen: PdfZeile[];
   /** Seitenhöhe in PDF-Einheiten — erlaubt den Parsern, Druck-Kopf-/
    *  Fußzeilen (Safari-PDF-Export) über ihre Randposition auszusortieren. */
   hoehe: number;
+  /** Rot gefüllte Rechtecke der Seite (Tendertafel: markieren E3/St). */
+  roteFlaechen: PdfFlaeche[];
 }
 
 /** Safari/Chrome setzen beim PDF-Export Druck-Kopf-/Fußzeilen auf jede
@@ -77,6 +87,83 @@ interface RohStueck {
   fett: boolean;
 }
 
+/** 2x3-Matrizen multiplizieren bzw. anwenden (PDF-Transformationen). */
+type Matrix = number[];
+const IDENTITAET: Matrix = [1, 0, 0, 1, 0, 0];
+
+function malMatrix(a: Matrix, b: Matrix): Matrix {
+  return [
+    a[0] * b[0] + a[2] * b[1],
+    a[1] * b[0] + a[3] * b[1],
+    a[0] * b[2] + a[2] * b[3],
+    a[1] * b[2] + a[3] * b[3],
+    a[0] * b[4] + a[2] * b[5] + a[4],
+    a[1] * b[4] + a[3] * b[5] + a[5],
+  ];
+}
+
+function punkt(m: Matrix, x: number, y: number): [number, number] {
+  return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+}
+
+/** Liest n Zahlen aus einem array-ÄHNLICHEN Wert. Die Operator-Argumente
+ *  kommen aus dem pdf.js-Worker und überleben die Übergabe je nach Browser
+ *  als schlichtes Objekt {0:…,1:…} statt als echtes Array — `Array.isArray`
+ *  wäre hier also der falsche Test. */
+function zahlenAus(wert: unknown, n: number): number[] | null {
+  if (typeof wert !== "object" || wert === null) return null;
+  const werte: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const v = (wert as Record<number, unknown>)[i];
+    if (typeof v !== "number" || !Number.isFinite(v)) return null;
+    werte.push(v);
+  }
+  return werte;
+}
+
+/** Sammelt die rot gefüllten Rechtecke einer Seite aus der Operatorliste.
+ *  Der Transformations-Stack (save/restore/transform) wird mitgeführt,
+ *  damit die Koordinaten im selben System liegen wie die Textpositionen.
+ *  Rote TEXTfarbe zählt nicht mit — gewertet wird nur, was auch als Pfad
+ *  gefüllt wird. */
+function roteFlaechenAus(
+  opListe: { fnArray: number[]; argsArray: unknown[] },
+  OPS: Record<string, number>,
+): PdfFlaeche[] {
+  const flaechen: PdfFlaeche[] = [];
+  let rot = false;
+  let ctm: Matrix = IDENTITAET;
+  const stack: Matrix[] = [];
+  for (let i = 0; i < opListe.fnArray.length; i++) {
+    const fn = opListe.fnArray[i];
+    const args = opListe.argsArray[i];
+    if (fn === OPS.save) {
+      stack.push(ctm);
+    } else if (fn === OPS.restore) {
+      ctm = stack.pop() ?? IDENTITAET;
+    } else if (fn === OPS.transform) {
+      const m = zahlenAus(args, 6);
+      if (m) ctm = malMatrix(ctm, m);
+    } else if (fn === OPS.setFillRGBColor) {
+      const f = zahlenAus(args, 3);
+      rot = f !== null && f[0] > 200 && f[1] < 100 && f[2] < 100;
+    } else if (fn === OPS.constructPath && rot) {
+      // args[2] ist die Bounding-Box [minX, maxX, minY, maxY] des Pfades.
+      const mm = zahlenAus((args as Record<number, unknown>)[2], 4);
+      if (!mm) continue;
+      const [x1, y1] = punkt(ctm, mm[0], mm[2]);
+      const [x2, y2] = punkt(ctm, mm[1], mm[3]);
+      flaechen.push({
+        x: Math.min(x1, x2),
+        xEnde: Math.max(x1, x2),
+        y: Math.min(y1, y2),
+        yEnde: Math.max(y1, y2),
+      });
+    }
+  }
+  return flaechen;
+}
+
 function zuZeilen(stuecke: RohStueck[]): PdfZeile[] {
   const sortiert = [...stuecke].sort((a, b) => b.y - a.y || a.x - b.x);
   const zeilen: { y: number; stuecke: RohStueck[] }[] = [];
@@ -117,7 +204,9 @@ export async function extrahierePdfZeilen(daten: ArrayBuffer): Promise<PdfSeite[
       const seite = await doc.getPage(nr);
       // Lädt die Fonts in commonObjs — erst danach lässt sich je Textstück
       // erkennen, ob seine Schrift fett ist (Fontname enthält "Bold").
-      await seite.getOperatorList();
+      // Dieselbe Liste liefert die farbigen Zellhintergründe.
+      const opListe = await seite.getOperatorList();
+      const roteFlaechen = roteFlaechenAus(opListe, pdfjs.OPS as unknown as Record<string, number>);
       const inhalt = await seite.getTextContent();
       const fettProFont = new Map<string, boolean>();
       const istFett = (fontName: string): boolean => {
@@ -144,7 +233,11 @@ export async function extrahierePdfZeilen(daten: ArrayBuffer): Promise<PdfSeite[
           fett: istFett(item.fontName),
         });
       }
-      seiten.push({ zeilen: zuZeilen(stuecke), hoehe: seite.getViewport({ scale: 1 }).height });
+      seiten.push({
+        zeilen: zuZeilen(stuecke),
+        hoehe: seite.getViewport({ scale: 1 }).height,
+        roteFlaechen,
+      });
     }
     return seiten;
   } finally {

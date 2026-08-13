@@ -1,8 +1,9 @@
-/** Wachbeginn: "Neue Wache erstellen" — kompletter Ablauf aus Reset,
- *  PDF-Upload (Tafel Brb + Seestation Pflicht, Törnstände optional),
- *  Analyse mit Plausibilitäts-Meldungen und finaler Übernahme in die
- *  App-Daten. Die Analyse läuft komplett im Browser — die Dateien
- *  verlassen das Gerät nicht. */
+/** Wachbeginn: "Neue Wache erstellen" — kompletter Ablauf aus PDF-Upload
+ *  (Tafel Brb + Seestation Pflicht, Törnstände optional), Analyse mit
+ *  Plausibilitäts-Meldungen und finaler Übernahme in die App-Daten. Der
+ *  Reset der bestehenden Wache passiert bewusst erst bei der Übernahme —
+ *  bis dahin bleibt die laufende Wache unangetastet. Die Analyse läuft
+ *  komplett im Browser, die Dateien verlassen das Gerät nicht. */
 import { useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import { FrageModal } from "../components/FrageModal";
@@ -23,22 +24,38 @@ type UploadZustand<T> =
   | { status: "fertig"; dateiname: string; daten: T }
   | { status: "fehler"; dateiname: string; meldung: string };
 
-/** Karteireiter der Upload-Kachel — mit Status-Punkt je Reiter (grün =
- *  analysiert, rot = Fehler), damit der Fortschritt ohne Umschalten
- *  sichtbar bleibt. */
+/** Ampel eines Reiters: orange = noch keine Datei, grün = brauchbar
+ *  analysiert, rot = Alarm (unlesbar oder nichts erkannt — typischerweise
+ *  die falsche PDF). */
+type Ampel = "offen" | "laedt" | "ok" | "alarm";
+
+function ampelFuer<T>(zustand: UploadZustand<T>, brauchbar: (daten: T) => boolean): Ampel {
+  if (zustand.status === "leer") return "offen";
+  if (zustand.status === "laedt") return "laedt";
+  if (zustand.status === "fehler") return "alarm";
+  return brauchbar(zustand.daten) ? "ok" : "alarm";
+}
+
+function dateinameVon<T>(zustand: UploadZustand<T>): string | null {
+  return zustand.status === "leer" ? null : zustand.dateiname;
+}
+
+/** Karteireiter der Wachbeginn-Kachel — mit Ampelpunkt und, sobald eine
+ *  Datei gewählt ist, deren Namen anstelle des Pflicht-/Optional-Hinweises. */
 function TabKnopf({
   id,
   label,
   hinweis,
-  status,
+  dateiname,
+  ampel,
   aktiv,
   onWahl,
 }: {
   id: string;
   label: string;
   hinweis: string;
-  /** Farbe des Status-Punkts: leer/laedt/fertig/fehler/warnung */
-  status: string;
+  dateiname: string | null;
+  ampel: Ampel;
   aktiv: boolean;
   onWahl: () => void;
 }) {
@@ -51,20 +68,28 @@ function TabKnopf({
       onClick={onWahl}
       data-testid={`tab-${id}`}
     >
-      <span className={`wachbeginn__tab-status wachbeginn__tab-status--${status}`} aria-hidden="true" />
-      {label}
-      {hinweis !== "" && <span className="wachbeginn__tab-hinweis">{hinweis}</span>}
+      <span className="wachbeginn__tab-kopf">
+        <span className={`wachbeginn__tab-status wachbeginn__tab-status--${ampel}`} aria-hidden="true" />
+        {label}
+      </span>
+      {dateiname !== null ? (
+        <span className="wachbeginn__tab-datei" title={dateiname} data-testid={`tab-${id}-datei`}>
+          verwendete Datei: {dateiname}
+        </span>
+      ) : (
+        hinweis !== "" && <span className="wachbeginn__tab-hinweis">{hinweis}</span>
+      )}
     </button>
   );
 }
 
-/** Datei-Auswahl + Statusanzeige — gemeinsames Gerüst beider Werkzeuge. */
-function UploadKopf<T>({
-  zustand,
+/** Auswahl-Button für eine PDF — das native Datei-Feld bleibt versteckt. */
+function PdfKnopf({
+  label,
   onDatei,
   inputTestId,
 }: {
-  zustand: UploadZustand<T>;
+  label: string;
   onDatei: (datei: File) => void;
   inputTestId: string;
 }) {
@@ -78,7 +103,7 @@ function UploadKopf<T>({
   }
 
   return (
-    <div className="wachbeginn__upload">
+    <>
       <input
         ref={inputRef}
         type="file"
@@ -87,17 +112,10 @@ function UploadKopf<T>({
         data-testid={inputTestId}
         className="wachbeginn__datei-input"
       />
-      <button type="button" className="btn btn--accent" onClick={() => inputRef.current?.click()}>
-        PDF auswählen
+      <button type="button" className="btn btn--accent wachbeginn__pdf-knopf" onClick={() => inputRef.current?.click()}>
+        {label}
       </button>
-      {zustand.status === "laedt" && <span className="wachbeginn__status">Analysiere {zustand.dateiname} …</span>}
-      {zustand.status === "fertig" && <span className="wachbeginn__status wachbeginn__status--ok">{zustand.dateiname}</span>}
-      {zustand.status === "fehler" && (
-        <span className="wachbeginn__status wachbeginn__status--fehler">
-          {zustand.dateiname}: {zustand.meldung}
-        </span>
-      )}
-    </div>
+    </>
   );
 }
 
@@ -144,6 +162,10 @@ export function Wachbeginn() {
   const [tafel, setTafel] = useState<UploadZustand<TafelBrbErgebnis>>({ status: "leer" });
   const [seestation, setSeestation] = useState<UploadZustand<SeestationPdfErgebnis>>({ status: "leer" });
   const [toernstaende, setToernstaende] = useState<UploadZustand<ToernstaendeErgebnis>>({ status: "leer" });
+  // Manuell gewählter Marker-Lotse (Fallback, wenn der Namensabgleich
+  // zwischen Tafel und Tendertafel nicht greift) — ein neues Seestation-PDF
+  // setzt die Wahl zurück.
+  const [markerManuell, setMarkerManuell] = useState<number | null>(null);
 
   function handleDatei<T>(
     setzen: (z: UploadZustand<T>) => void,
@@ -166,10 +188,6 @@ export function Wachbeginn() {
   const handleTafelDatei = handleDatei(setTafel, async (seiten) =>
     (await import("../lib/tafelBrbParse")).parseTafelBrb(seiten),
   );
-  // Manuell gewählter Marker-Lotse (Fallback, wenn der Namensabgleich
-  // zwischen Tafel und Tendertafel nicht greift) — ein neues Seestation-PDF
-  // setzt die Wahl zurück.
-  const [markerManuell, setMarkerManuell] = useState<number | null>(null);
   const handleSeestationDatei = handleDatei(setSeestation, async (seiten) => {
     setMarkerManuell(null);
     return (await import("../lib/seestationPdfParse")).parseSeestationPdf(seiten);
@@ -196,9 +214,31 @@ export function Wachbeginn() {
     [seestation],
   );
 
+  const tafelAmpel = ampelFuer(tafel, (d) => d.sektionen.length > 0);
+  const seestationAmpel = ampelFuer(seestation, (d) => d.eintraege.length > 0);
+  const toernstaendeAmpel = ampelFuer(toernstaende, (d) => d.eintraege.length > 0);
+  const auswertungAmpel: Ampel = !auswertung
+    ? "offen"
+    : auswertung.meldungen.some((m) => m.stufe === "warnung")
+      ? "alarm"
+      : "ok";
+  // Übernehmen erst, wenn beide Pflicht-PDFs sauber analysiert sind.
+  const uebernehmbar = auswertung !== null && tafelAmpel === "ok" && seestationAmpel === "ok";
+
+  function handleNeueWache() {
+    setTafel({ status: "leer" });
+    setSeestation({ status: "leer" });
+    setToernstaende({ status: "leer" });
+    setMarkerManuell(null);
+    setTab("tafel");
+    setPhase("upload");
+  }
+
   function handleUebernehmen() {
     if (!auswertung) return;
+    resetAlles();
     importiereWache(auswertung);
+    setFrageOffen(false);
     setPhase("fertig");
   }
 
@@ -210,49 +250,105 @@ export function Wachbeginn() {
         description={`Neue Wache aus den PDF-Exporten von elbe-pilot.de aufsetzen — die Analyse läuft vollständig auf diesem Gerät. (App-Stand: ${__BUILD_STAND__})`}
       />
 
-      {phase === "start" && (
-        <Panel title="Neue Wache">
-          <p className="wachbeginn__intro">
-            Startet den Wachbeginn-Ablauf: Alle bestehenden Daten werden gelöscht, danach werden die
-            PDF-Exporte (Tafel Brb und Seestation, optional Törnstände) hochgeladen, geprüft und als
-            Grundgerüst der neuen Wache übernommen.
-          </p>
-          <button type="button" className="btn btn--accent" onClick={() => setFrageOffen(true)} data-testid="neue-wache">
-            Neue Wache erstellen
+      <Panel>
+        <div className="wachbeginn__aktionen">
+          <button type="button" className="btn btn--accent" onClick={handleNeueWache} data-testid="neue-wache">
+            Neue Wache
           </button>
-        </Panel>
-      )}
+          {phase === "upload" && (
+            <button
+              type="button"
+              className="btn btn--accent"
+              disabled={!uebernehmbar}
+              onClick={() => setFrageOffen(true)}
+              data-testid="uebernehmen"
+            >
+              Wache übernehmen
+            </button>
+          )}
+        </div>
 
-      {frageOffen && (
-        <Modal title="Neue Wache erstellen" onClose={() => setFrageOffen(false)} titelZentriert>
-          <FrageModal
-            zentriert
-            warnung="Alle bestehenden Daten werden gelöscht und die Wache neu initialisiert."
-            frage="Fortfahren?"
-            onJa={() => {
-              resetAlles();
-              setFrageOffen(false);
-              setPhase("upload");
-            }}
-            onNein={() => setFrageOffen(false)}
-          />
-        </Modal>
-      )}
+        {phase === "start" && (
+          <p className="wachbeginn__intro">
+            Startet den Wachbeginn-Ablauf: die PDF-Exporte (Tafel Brb und Seestation, optional
+            Törnstände) hochladen und prüfen. Erst beim Übernehmen werden die bestehenden Daten
+            gelöscht und durch das neue Grundgerüst ersetzt.
+          </p>
+        )}
 
-      {phase === "upload" && (
-        <>
-          <Panel>
+        {phase === "fertig" && (
+          <p className="wachbeginn__intro" data-testid="fertig-text">
+            Die neue Wache ist eingerichtet. Bitte die Daten auf den Seiten Tafel Brb, Einsatzplanung,
+            Einsatzstation und Seestation prüfen und Schiffsnamen sowie fehlende Angaben nachtragen.
+          </p>
+        )}
+
+        {phase === "upload" && (
+          <>
+            <div className="wachbeginn__leiste">
+              <PdfKnopf label="Tafel-PDF auswählen" onDatei={handleTafelDatei} inputTestId="tafel-datei" />
+              <PdfKnopf
+                label="Tendertafel-PDF auswählen"
+                onDatei={handleSeestationDatei}
+                inputTestId="seestation-datei"
+              />
+              <PdfKnopf
+                label="Törnliste-PDF auswählen"
+                onDatei={handleToernstaendeDatei}
+                inputTestId="toernstaende-datei"
+              />
+              <select
+                className="wachbeginn__marker"
+                aria-label="Marker-Lotse (nächster Lotse der Einsatzstation in der Tendertafel)"
+                title="Marker-Lotse: nächster Lotse der Einsatzstation in der Tendertafel"
+                value={auswertung?.markerIndex ?? ""}
+                disabled={kandidaten.length === 0}
+                onChange={(e) => setMarkerManuell(e.target.value === "" ? null : Number(e.target.value))}
+                data-testid="marker-auswahl"
+              >
+                <option value="">– Marker-Lotse –</option>
+                {kandidaten.map((k) => (
+                  <option key={k.index} value={k.index}>
+                    {k.vNr} – {k.lotse}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="wachbeginn__tabs" role="tablist">
-              <TabKnopf id="tafel" label="Tafel Brb" hinweis="Pflicht" status={tafel.status} aktiv={tab === "tafel"} onWahl={() => setTab("tafel")} />
-              <TabKnopf id="seestation" label="Seestation" hinweis="Pflicht" status={seestation.status} aktiv={tab === "seestation"} onWahl={() => setTab("seestation")} />
-              <TabKnopf id="toernstaende" label="Törnstände" hinweis="optional" status={toernstaende.status} aktiv={tab === "toernstaende"} onWahl={() => setTab("toernstaende")} />
+              <TabKnopf
+                id="tafel"
+                label="Tafel Brb"
+                hinweis="Pflicht"
+                dateiname={dateinameVon(tafel)}
+                ampel={tafelAmpel}
+                aktiv={tab === "tafel"}
+                onWahl={() => setTab("tafel")}
+              />
+              <TabKnopf
+                id="seestation"
+                label="Seestation"
+                hinweis="Pflicht"
+                dateiname={dateinameVon(seestation)}
+                ampel={seestationAmpel}
+                aktiv={tab === "seestation"}
+                onWahl={() => setTab("seestation")}
+              />
+              <TabKnopf
+                id="toernstaende"
+                label="Törnstände"
+                hinweis="optional"
+                dateiname={dateinameVon(toernstaende)}
+                ampel={toernstaendeAmpel}
+                aktiv={tab === "toernstaende"}
+                onWahl={() => setTab("toernstaende")}
+              />
               <TabKnopf
                 id="auswertung"
                 label="Auswertung"
                 hinweis=""
-                status={
-                  !auswertung ? "leer" : auswertung.meldungen.some((m) => m.stufe === "warnung") ? "warnung" : "fertig"
-                }
+                dateiname={null}
+                ampel={auswertungAmpel}
                 aktiv={tab === "auswertung"}
                 onWahl={() => setTab("auswertung")}
               />
@@ -260,13 +356,13 @@ export function Wachbeginn() {
 
             <div className={tab === "tafel" ? undefined : "wachbeginn__tab-inhalt--versteckt"}>
               <p className="wachbeginn__intro">PDF-Export der BZ2 Tafel (elbe-pilot.de)</p>
-              <UploadKopf zustand={tafel} onDatei={handleTafelDatei} inputTestId="tafel-datei" />
+              {tafel.status === "fehler" && <Warnung>{tafel.meldung}</Warnung>}
               {tafel.status === "fertig" && <TafelVorschau ergebnis={tafel.daten} />}
             </div>
 
             <div className={tab === "seestation" ? undefined : "wachbeginn__tab-inhalt--versteckt"}>
               <p className="wachbeginn__intro">PDF-Export der BZ2 Tendertafel (elbe-pilot.de)</p>
-              <UploadKopf zustand={seestation} onDatei={handleSeestationDatei} inputTestId="seestation-datei" />
+              {seestation.status === "fehler" && <Warnung>{seestation.meldung}</Warnung>}
               {seestation.status === "fertig" && <SeestationVorschau ergebnis={seestation.daten} />}
             </div>
 
@@ -274,61 +370,41 @@ export function Wachbeginn() {
               <p className="wachbeginn__intro">
                 PDF-Export der BZ2 Törnliste — optional, Törnstände lassen sich auch manuell nachtragen.
               </p>
-              <UploadKopf zustand={toernstaende} onDatei={handleToernstaendeDatei} inputTestId="toernstaende-datei" />
+              {toernstaende.status === "fehler" && <Warnung>{toernstaende.meldung}</Warnung>}
               {toernstaende.status === "fertig" && <ToernstaendeVorschau ergebnis={toernstaende.daten} />}
             </div>
 
             <div className={tab === "auswertung" ? undefined : "wachbeginn__tab-inhalt--versteckt"}>
-            {!auswertung ? (
-              <p className="wachbeginn__intro">
-                Bitte Tafel Brb und Seestation hochladen — danach erscheinen hier die Auswertung und die
-                Übernahme.
-              </p>
-            ) : (
-              <div className="wachbeginn__vorschau" data-testid="auswertung">
-                {kandidaten.length > 0 && (
-                  <label className="wachbeginn__marker">
-                    Marker-Lotse (nächster Lotse der Einsatzstation in der Tendertafel)
-                    <select
-                      value={auswertung.markerIndex ?? ""}
-                      onChange={(e) => setMarkerManuell(e.target.value === "" ? null : Number(e.target.value))}
-                      data-testid="marker-auswahl"
-                    >
-                      <option value="">– bitte wählen –</option>
-                      {kandidaten.map((k) => (
-                        <option key={k.index} value={k.index}>
-                          {k.vNr} – {k.lotse}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-                <ul className="wachbeginn__meldungen">
-                  {auswertung.meldungen.map((m, i) => (
-                    <li key={i} className={`wachbeginn__meldung wachbeginn__meldung--${m.stufe}`}>
-                      {m.text}
-                    </li>
-                  ))}
-                </ul>
-                <div>
-                  <button type="button" className="btn btn--accent" onClick={handleUebernehmen} data-testid="uebernehmen">
-                    Wache übernehmen
-                  </button>
+              {!auswertung ? (
+                <p className="wachbeginn__intro">
+                  Bitte Tafel Brb und Seestation hochladen — danach erscheint hier die Auswertung.
+                </p>
+              ) : (
+                <div className="wachbeginn__vorschau" data-testid="auswertung">
+                  <ul className="wachbeginn__meldungen">
+                    {auswertung.meldungen.map((m, i) => (
+                      <li key={i} className={`wachbeginn__meldung wachbeginn__meldung--${m.stufe}`}>
+                        {m.text}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              </div>
-            )}
+              )}
             </div>
-          </Panel>
-        </>
-      )}
+          </>
+        )}
+      </Panel>
 
-      {phase === "fertig" && (
-        <Panel title="Wache übernommen">
-          <p className="wachbeginn__intro" data-testid="fertig-text">
-            Die neue Wache ist eingerichtet. Bitte die Daten auf den Seiten Tafel Brb, Einsatzplanung,
-            Einsatzstation und Seestation prüfen und Schiffsnamen sowie fehlende Angaben nachtragen.
-          </p>
-        </Panel>
+      {frageOffen && (
+        <Modal title="Wache übernehmen" onClose={() => setFrageOffen(false)} titelZentriert>
+          <FrageModal
+            zentriert
+            warnung="Alle bestehenden Daten werden gelöscht und die Wache neu initialisiert."
+            frage="Fortfahren?"
+            onJa={handleUebernehmen}
+            onNein={() => setFrageOffen(false)}
+          />
+        </Modal>
       )}
     </div>
   );
@@ -347,10 +423,7 @@ function TafelVorschau({ ergebnis }: { ergebnis: TafelBrbErgebnis }) {
       {metaTeile.length > 0 && <div className="wachbeginn__meta">{metaTeile.join("  ·  ")}</div>}
 
       {ergebnis.sektionen.length === 0 && (
-        <Warnung>
-          Keine bekannten Abschnitte erkannt — ist das wirklich ein Tafel-Brb-Export? Falls ja, hat sich
-          vermutlich das Seiten-Template geändert.
-        </Warnung>
+        <Warnung>Keine bekannten Abschnitte erkannt — ist das wirklich ein Tafel-Brb-Export?</Warnung>
       )}
 
       {ergebnis.sektionen.map((sektion) => (
@@ -381,10 +454,7 @@ function SeestationVorschau({ ergebnis }: { ergebnis: SeestationPdfErgebnis }) {
   return (
     <div className="wachbeginn__vorschau" data-testid="seestation-vorschau">
       {ergebnis.eintraege.length === 0 && (
-        <Warnung>
-          Keine Schiffseinträge erkannt — ist das wirklich ein Tendertafel-Export? Falls ja, hat sich
-          vermutlich das Seiten-Template geändert.
-        </Warnung>
+        <Warnung>Keine Schiffseinträge erkannt — ist das wirklich ein Tendertafel-Export?</Warnung>
       )}
 
       {ergebnis.kopfdaten.length > 0 && (
@@ -415,7 +485,7 @@ function SeestationVorschau({ ergebnis }: { ergebnis: SeestationPdfErgebnis }) {
           <span className="wachbeginn__anzahl">{ergebnis.eintraege.length} Zeilen</span>
         </summary>
         <VorschauTabelle
-          spalten={["Datum", "Zeit", "Schiff", "Kat.", "Best.", "T", "V-Nr.", "Lotse"]}
+          spalten={["Datum", "Zeit", "Schiff", "Kat.", "Best.", "T", "E3/St", "V-Nr.", "Lotse"]}
           zeilen={ergebnis.eintraege.map((e) => [
             e.datum,
             e.zeit,
@@ -423,6 +493,7 @@ function SeestationVorschau({ ergebnis }: { ergebnis: SeestationPdfErgebnis }) {
             e.kat,
             e.best,
             e.tender ? "T" : "",
+            e.e3st ? "E3" : "",
             e.vNr,
             e.lotse,
           ])}
@@ -436,10 +507,7 @@ function ToernstaendeVorschau({ ergebnis }: { ergebnis: ToernstaendeErgebnis }) 
   return (
     <div className="wachbeginn__vorschau" data-testid="toernstaende-vorschau">
       {ergebnis.eintraege.length === 0 && (
-        <Warnung>
-          Keine Törn-Zeilen erkannt — ist das wirklich ein Törnlisten-Export? Falls ja, hat sich
-          vermutlich das Seiten-Template geändert.
-        </Warnung>
+        <Warnung>Keine Törn-Zeilen erkannt — ist das wirklich ein Törnlisten-Export?</Warnung>
       )}
 
       {ergebnis.stand && <div className="wachbeginn__meta">Stand: {ergebnis.stand}</div>}

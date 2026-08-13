@@ -22,7 +22,7 @@
  *  zwischen Einträgen ~24). */
 
 import { istDruckzeile } from "./pdfExtrakt";
-import type { PdfSeite, PdfZeile } from "./pdfExtrakt";
+import type { PdfFlaeche, PdfSeite, PdfZeile } from "./pdfExtrakt";
 
 export interface TenderEintrag {
   datum: string;
@@ -39,6 +39,8 @@ export interface TenderEintrag {
   schiffFett: boolean;
   /** Lotsenname fett = Lotse ist bereits auf der Seestation */
   lotseFett: boolean;
+  /** Datum/Zeit-Zelle rot hinterlegt = E3/St */
+  e3st: boolean;
 }
 
 export interface SeestationPdfErgebnis {
@@ -90,19 +92,38 @@ function kalibriereTrenner(zeilen: PdfZeile[]): number {
 
 interface Block {
   zeilen: PdfZeile[];
+  /** Datums-/Uhrzeit-Zelle rot hinterlegt (= E3/St) */
+  rot: boolean;
 }
 
-function zuBloecke(zeilen: PdfZeile[]): Block[] {
+/** Liegt eine Zelle links des Trenners auf einer roten Fläche? Die roten
+ *  Rechtecke der Tendertafel liegen über genau der Datums-/Uhrzeit-Spalte.
+ *  Geprüft wird immer nur gegen die Flächen DERSELBEN Seite — y-Werte sind
+ *  seitenlokal, ein Vergleich über die Seitengrenze hinweg trifft zufällig. */
+function istRotHinterlegt(zeilen: PdfZeile[], roteFlaechen: PdfFlaeche[], trenner: number): boolean {
+  return zeilen.some((zeile) =>
+    zeile.zellen.some(
+      (zelle) =>
+        zelle.x < trenner &&
+        roteFlaechen.some(
+          (f) => zeile.y >= f.y && zeile.y <= f.yEnde && zelle.x >= f.x - 2 && zelle.x <= f.xEnde + 2,
+        ),
+    ),
+  );
+}
+
+function zuBloecke(zeilen: PdfZeile[], roteFlaechen: PdfFlaeche[], trenner: number): Block[] {
   const bloecke: Block[] = [];
   let letzteY: number | null = null;
   for (const zeile of zeilen) {
     if (letzteY !== null && letzteY - zeile.y <= BLOCK_ABSTAND && bloecke.length > 0) {
       bloecke[bloecke.length - 1].zeilen.push(zeile);
     } else {
-      bloecke.push({ zeilen: [zeile] });
+      bloecke.push({ zeilen: [zeile], rot: false });
     }
     letzteY = zeile.y;
   }
+  for (const block of bloecke) block.rot = istRotHinterlegt(block.zeilen, roteFlaechen, trenner);
   return bloecke;
 }
 
@@ -118,6 +139,7 @@ function parseBlock(block: Block, trenner: number): TenderEintrag {
     lotse: "",
     schiffFett: false,
     lotseFett: false,
+    e3st: block.rot,
   };
   const anhaengen = (feld: "schiff" | "lotse" | "kat" | "best" | "vNr", text: string) => {
     eintrag[feld] = eintrag[feld] === "" ? text : `${eintrag[feld]} ${text}`;
@@ -173,16 +195,17 @@ export function parseSeestationPdf(seiten: PdfSeite[]): SeestationPdfErgebnis {
   // sind seitenlokal, ein Abstandsvergleich wäre über die Grenze hinweg
   // bedeutungslos.
   const bloecke: Block[] = [];
-  for (const inhalt of inhaltProSeite) {
-    zuBloecke(inhalt).forEach((block, i) => {
+  inhaltProSeite.forEach((inhalt, seitenNr) => {
+    zuBloecke(inhalt, seiten[seitenNr].roteFlaechen, trenner).forEach((block, i) => {
       const letzter = bloecke[bloecke.length - 1];
       if (i === 0 && !hatDatum(block) && letzter && hatDatum(letzter)) {
         letzter.zeilen.push(...block.zeilen);
+        letzter.rot = letzter.rot || block.rot;
         return;
       }
       bloecke.push(block);
     });
-  }
+  });
 
   for (const block of bloecke) {
     if (hatDatum(block)) {
