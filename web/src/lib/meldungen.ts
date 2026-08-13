@@ -25,7 +25,7 @@ import { istListenvergabeJob, VERGABE_GRUPPE } from "./listenvergabe";
 import { geplanterAbruf, planeEinsatzstation, planeEinsatzstationMitVergaben } from "./planungEinsatzstation";
 import { etaSeestation } from "./seestation";
 import { seeLotsenAnzahl } from "./seestationAbteilen";
-import { berechneSeestationsDefizite } from "./seestationBedarf";
+import { berechneSeestationsDefizite, knappeVorlaeufe } from "./seestationBedarf";
 
 export type MeldungsStufe = "alarm" | "warnung" | "vorschlag" | "info";
 
@@ -259,6 +259,26 @@ function seestationSchiffMeldungen(daten: MeldungsDaten, jetzt: Date): Meldung[]
   return meldungen;
 }
 
+
+/**
+ * Knapper Vorlauf: die Zuteilung akzeptiert seit der Absenkung auf 15 Min.
+ * auch Lotsen, die kurz vor dem Schiff eintreffen (siehe
+ * lib/seestation.ts::VORLAUF_AUF_STATION_MS). Angestrebt ist aber eine
+ * Stunde — wird die unterschritten, meldet sich das hier als WARNUNG
+ * (bewusst kein Alarm: der Lotse ist zugeteilt, es wird nur eng).
+ */
+function vorlaufMeldungen(daten: MeldungsDaten): Meldung[] {
+  return knappeVorlaeufe(daten).map((k) => ({
+    id: `seestation-vorlauf-${k.schiff.id}-${k.lotsenKey}`,
+    stufe: "warnung" as const,
+    art: "Vorlauf Seestation knapp",
+    zeit: k.schiff.eta,
+    text:
+      `Vorlauf Seestation knapp: ${k.lotsenName} ist erst um ${formatUhrzeit(k.ankunft)} auf Station, ` +
+      `${k.schiff.schiffsname} kommt um ${formatUhrzeit(k.schiff.eta)} — nur ${k.vorlaufMinuten} Min. Vorlauf (angestrebt: 60)`,
+  }));
+}
+
 /**
  * Seestations-Bilanz: nutzt die geteilte Defizit-Berechnung (siehe
  * lib/seestationBedarf.ts, dort auch die ausführliche Erläuterung zu
@@ -395,6 +415,7 @@ export function berechneMeldungen(daten: MeldungsDaten, jetzt: Date, settings: A
     ...seestationAnkunftMeldungen(daten, jetzt),
     ...seestationSchiffMeldungen(daten, jetzt),
     ...seestationsMeldungen(daten, jetzt, settings),
+    ...vorlaufMeldungen(daten),
     ...namensMeldungen(daten),
     ...listenvergabeMeldungen(daten, settings),
   ]);

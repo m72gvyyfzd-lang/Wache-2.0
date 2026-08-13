@@ -7,8 +7,15 @@ import { etaSeestationMatrix } from "./coreJob";
  *  Datensätze) — auch Grundlage der AG-Fahrt-Vorschläge im Dashboard. */
 export const ANFAHRT_SEESTATION_MS = 3.5 * 3_600_000;
 
-/** Ein Lotse muss min. 1 Std. vor dem Schiffs-ETA auf der Seestation sein. */
-export const VORLAUF_AUF_STATION_MS = 3_600_000;
+/** Harte Grenze der Zuteilung: unter 15 Min. Vorlauf vor dem Schiffs-ETA
+ *  gilt ein Lotse nicht mehr als pünktlich und wird nur noch im zweiten
+ *  Durchgang (mit Verspätungs-Kennzeichnung) vergeben. */
+export const VORLAUF_AUF_STATION_MS = 15 * 60_000;
+
+/** Angestrebter Vorlauf: eine Stunde vor dem Schiffs-ETA. Wird er
+ *  unterschritten, bleibt die Zuteilung bestehen — es gibt aber eine
+ *  Warnung (kein Alarm) und die Ankunftszeit wird orange hervorgehoben. */
+export const VORLAUF_WARNUNG_MS = 3_600_000;
 
 /** Tender-AG: braucht min. 3 Std. Vorlauf, bis der Tender an der
  *  Einsatzstation abfahren kann — die Anfahrt zur Seestation (siehe

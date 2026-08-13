@@ -17,6 +17,7 @@ import { ANMELDUNG_ESKALATION_MS, ANMELDUNG_VORWARNUNG_MS } from "../lib/meldung
 import {
   sortiereSeestation,
   VORLAUF_AUF_STATION_MS,
+  VORLAUF_WARNUNG_MS,
   zeilenAusAbteilungen,
   zeilenAusSeestationLotsen,
   type SeestationZeile,
@@ -165,6 +166,20 @@ export function Seestation() {
       )
     : undefined;
   const aktiveZuteilung = vorschauZuteilung ?? basisZuteilung;
+
+  // Knapper Vorlauf: der Lotse ist zugeteilt, kommt aber weniger als eine
+  // Stunde vor seinem Schiff an (siehe VORLAUF_WARNUNG_MS). Bewusst aus der
+  // BASIS-Zuteilung — die Warnung beschreibt die echte Lage, unabhängig vom
+  // Vorschau-Schalter, und deckt sich so mit dem Meldungspanel.
+  const knappProKey = new Set<string>();
+  for (const schiff of schiffeSortiert) {
+    for (const slot of basisZuteilung.get(schiff.id)?.zugewiesen ?? []) {
+      if (slot.zeile.aufStation || slot.zeile.etaStn === undefined) continue;
+      if (schiff.eta.getTime() - slot.zeile.etaStn.getTime() < VORLAUF_WARNUNG_MS) {
+        knappProKey.add(slot.zeile.key);
+      }
+    }
+  }
 
   // VERPLANTE Kandidaten erscheinen immer — sie kommen mit ihrem Job-Schiff
   // ohnehin zur Seestation, ob ein ETA-Schiff sie braucht oder nicht. FREIE
@@ -446,6 +461,8 @@ export function Seestation() {
                 !lotse.aufStation &&
                 lotse.etaStn !== undefined &&
                 jetzt.getTime() >= lotse.etaStn.getTime();
+              const lotseVorlaufKnapp =
+                lotse !== undefined && !lotse.projiziert && !lotseAnkunftUeberfaellig && knappProKey.has(lotse.key);
               const lotseKlasse =
                 "seestation-table__seite" +
                 (lotse && lotseAuswahl.includes(lotse.key) ? " ist-ausgewaehlt" : "") +
@@ -542,7 +559,10 @@ export function Seestation() {
                         {lotse.elbehafen ? "✓" : ""}
                       </td>
                       <td
-                        className={`${lotseKlasse} num zentriert` + (lotseAnkunftUeberfaellig ? " zeit-ueberfaellig" : "")}
+                        className={
+                          `${lotseKlasse} num zentriert` +
+                          (lotseAnkunftUeberfaellig ? " zeit-ueberfaellig" : lotseVorlaufKnapp ? " zeit-warnung" : "")
+                        }
                         onClick={lotseKlick}
                         onDoubleClick={lotseDoppelklick}
                       >

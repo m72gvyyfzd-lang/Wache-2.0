@@ -14,7 +14,7 @@ import type { AbteilzeitSettings } from "@wache/core";
 import type { JobEintrag, SeeSchiff } from "../data/types";
 import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "./coreJob";
 import type { MeldungsDaten, MeldungsStufe } from "./meldungen";
-import { ANFAHRT_SEESTATION_MS, TENDER_VORLAUF_MS, VORLAUF_AUF_STATION_MS, sortiereSeestation, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "./seestation";
+import { ANFAHRT_SEESTATION_MS, TENDER_VORLAUF_MS, VORLAUF_AUF_STATION_MS, VORLAUF_WARNUNG_MS, sortiereSeestation, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "./seestation";
 import { planeSeestation, schiffePriorisiert } from "./seestationAbteilen";
 import { vorschauZeilen } from "./vorschau";
 
@@ -153,7 +153,11 @@ export function berechneSeestationsDefizite(
     const zuteilung = projektion.get(schiff.id);
     const fehlt = (zuteilung?.fehlt ?? 0) + (zuteilung?.zugewiesen.filter((s) => s.verspaetet).length ?? 0);
     if (fehlt <= 0) continue;
-    const ankunftsFrist = schiff.eta.getTime() - VORLAUF_AUF_STATION_MS;
+    // Für die PLANUNG einer AG-Fahrt wird der angestrebte Vorlauf von einer
+    // Stunde angesetzt, nicht die 15-Min.-Untergrenze der Zuteilung: sonst
+    // schlüge die App Fahrten vor, die sie im selben Atemzug als "Vorlauf
+    // knapp" bemängelt.
+    const ankunftsFrist = schiff.eta.getTime() - VORLAUF_WARNUNG_MS;
 
     // Handlungsoptionen: späteste AG-Abteilzeit = Ankunftsfrist − Anfahrt;
     // Tender-AG muss bis Ankunftsfrist − (Vorlauf + Anfahrt) eingeplant
@@ -201,4 +205,56 @@ const AG_ESKALATION_MS = 30 * 60_000;
 /** Kurzbezeichnung eines Trägerjobs für Empfehlungstexte. */
 export function traegerLabel(p: { eintrag: JobEintrag }): string {
   return p.eintrag.schiffsname ?? vonTypeLabel(p.eintrag);
+}
+
+/** Ein Lotse ist zwar zugeteilt, kommt aber später als der angestrebte
+ *  Vorlauf (siehe VORLAUF_WARNUNG_MS) vor dem Schiffs-ETA an. */
+export interface KnapperVorlauf {
+  schiff: SeeSchiff;
+  lotsenName: string;
+  /** eindeutiger Schlüssel der Lotsen-Zeile (siehe SeestationZeile.key) */
+  lotsenKey: string;
+  ankunft: Date;
+  /** verbleibender Vorlauf in Minuten (negativ = nach dem Schiffs-ETA) */
+  vorlaufMinuten: number;
+}
+
+/**
+ * Zuteilungen mit knappem Vorlauf: die Zuteilung selbst lässt seit der
+ * Absenkung auf 15 Min. auch Lotsen zu, die kurz vor dem Schiff eintreffen.
+ * Diese Fälle bleiben gültig, sollen den Einsatzleiter aber sichtbar
+ * erreichen — als Warnung im Meldungspanel und als orange Ankunftszeit in
+ * der Seestations-Liste.
+ *
+ * Gerechnet wird bewusst nur mit ECHTEN Lotsen (ohne Vorschau-Projektion):
+ * die Warnung beschreibt die aktuelle Lage, nicht eine mögliche.
+ */
+export function knappeVorlaeufe(daten: MeldungsDaten): KnapperVorlauf[] {
+  const abgeteiltProSchiff = new Map<number, number>();
+  for (const sa of daten.seeAbteilungen)
+    abgeteiltProSchiff.set(sa.seeSchiffId, (abgeteiltProSchiff.get(sa.seeSchiffId) ?? 0) + 1);
+  const pool = sortiereSeestation([
+    ...zeilenAusAbteilungen(daten.abteilungen),
+    ...zeilenAusSeestationLotsen(daten.seestationLotsen),
+  ]);
+  const schiffe = schiffePriorisiert(daten.seeSchiffe, abgeteiltProSchiff);
+  const zuteilung = planeSeestation(schiffe, pool, abgeteiltProSchiff, VORLAUF_AUF_STATION_MS);
+
+  const knapp: KnapperVorlauf[] = [];
+  for (const schiff of schiffe) {
+    for (const slot of zuteilung.get(schiff.id)?.zugewiesen ?? []) {
+      // Wer schon auf der Station steht, hat keinen Vorlauf-Nachteil.
+      if (slot.zeile.aufStation || slot.zeile.etaStn === undefined) continue;
+      const vorlauf = schiff.eta.getTime() - slot.zeile.etaStn.getTime();
+      if (vorlauf >= VORLAUF_WARNUNG_MS) continue;
+      knapp.push({
+        schiff,
+        lotsenName: slot.zeile.name,
+        lotsenKey: slot.zeile.key,
+        ankunft: slot.zeile.etaStn,
+        vorlaufMinuten: Math.round(vorlauf / 60_000),
+      });
+    }
+  }
+  return knapp;
 }
