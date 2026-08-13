@@ -19,6 +19,8 @@ import {
   ladeAktuelleFahrt,
   ladeANrZaehler,
   ladeHwBrb,
+  ladeVorschauAktiv,
+  speichereVorschauAktiv,
   ladeJobIdZaehler,
   ladeJobs,
   ladeLetzteVNr,
@@ -116,6 +118,10 @@ interface DataContextValue {
    *  HH-Jobs. Ohne HW_1 rechnen alle HH-Jobs mit den festen Offsets. */
   hwBrb: HwBrbEingabe;
   setHwBrb: (hwBrb: HwBrbEingabe) => void;
+  /** Vorschau-Projektion aktiv — geteilt zwischen der Seestations-Seite und
+   *  der Seestations-Kachel des Dashboards, damit beide dasselbe zeigen. */
+  vorschau: boolean;
+  setVorschau: (aktiv: boolean) => void;
 }
 
 /** Nutzdaten des Wachbeginn-Imports (siehe lib/wachbeginnImport.ts —
@@ -144,6 +150,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [seeAbteilungen, setSeeAbteilungen] = useState<SeeAbteilung[]>(() => ladeSeeAbteilungen());
   const [verbrauchteVNrn, setVerbrauchteVNrn] = useState<number[]>(() => ladeVerbrauchteVNrn());
   const [hwBrb, setHwBrbState] = useState<HwBrbEingabe>(() => ladeHwBrb());
+  const [vorschau, setVorschauState] = useState<boolean>(() => ladeVorschauAktiv());
+
+  const setVorschau = useCallback((aktiv: boolean) => {
+    setVorschauState(aktiv);
+    speichereVorschauAktiv(aktiv);
+  }, []);
 
   // Das HW-Paar fließt über ein Modul-Singleton in alle abteilzeitVon-
   // Aufrufstellen (siehe coreJob.ts). Direkt im Render gesetzt (idempotent),
@@ -396,6 +408,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setLetzteVNr,
         hwBrb,
         setHwBrb,
+        vorschau,
+        setVorschau,
         vNrStart,
         abteilungen,
         teileAb,

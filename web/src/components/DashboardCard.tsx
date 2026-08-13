@@ -9,6 +9,9 @@ import { AgPlanungTile } from "./AgPlanung";
 import { MeldungsTile } from "./Meldungen";
 import { MatrixTile, ZahlenTile } from "./ZahlenTile";
 import { zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "../lib/seestation";
+import { seeLotsenAnzahl } from "../lib/seestationAbteilen";
+import { vorschauZeilen } from "../lib/vorschau";
+import { formatUhrzeit } from "../lib/format";
 import "./DashboardCard.css";
 
 /** Welches der beiden Kachel-Panels gerade seine Detailliste zeigt — nur
@@ -36,6 +39,7 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
     seeAbteilungen,
     vNrStart,
     verbrauchteVNrn,
+    vorschau,
   } = useData();
 
   // Zeit-Tick: die Meldungen hängen an der Uhrzeit (gepl. Abruf etc.) und
@@ -132,23 +136,47 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
   const seeZeilen = [...zeilenAusAbteilungen(abteilungen), ...zeilenAusSeestationLotsen(seestationLotsen)];
   const anzahlAufSeestation = seeZeilen.filter((z) => z.aufStation).length;
 
-  // Seestations-Kachel: ETAs in Zeitfenstern gegen die Lotsen, die bis dahin
-  // auf Station sind. Die ETA-Fenster sind disjunkt (alles Fällige und
-  // Überfällige fällt ins erste), die Lotsenzahlen dagegen kumulativ — wer
-  // einmal auf Station ist, bleibt es auch in den späteren Fenstern.
-  const STUNDE_MS = 3_600_000;
-  const [grenze3, grenze6, grenze12] = [3, 6, 12].map((h) => jetzt.getTime() + h * STUNDE_MS);
-  const etaZeiten = seeSchiffe.map((s) => s.eta.getTime());
-  const etaFenster = [
-    etaZeiten.filter((t) => t <= grenze3).length,
-    etaZeiten.filter((t) => t > grenze3 && t <= grenze6).length,
-    etaZeiten.filter((t) => t > grenze6 && t <= grenze12).length,
-    etaZeiten.filter((t) => t > grenze12).length,
-  ];
-  const lotsenBis = (grenze: number) =>
-    seeZeilen.filter((z) => z.aufStation || (z.etaStn !== undefined && z.etaStn.getTime() <= grenze)).length;
-  // Letzte Spalte (">12h"): alle, die auf Station sind oder noch kommen.
-  const lotsenFenster = [lotsenBis(grenze3), lotsenBis(grenze6), lotsenBis(grenze12), seeZeilen.length];
+  // Seestations-Kachel: die Lage zu drei Zeitpunkten (in 3, 6 und 12 Std.)
+  // plus Gesamtstand. Alle Zeilen sind kumulativ — sie beantworten "wie
+  // steht es BIS zu dieser Uhrzeit", nicht "was passiert in diesem Fenster".
+  // Die Zeitpunkte liegen auf halben Stunden: die laufende Zeit wird auf die
+  // letzte halbe Stunde abgerundet, dann der Abstand addiert (13:14 → 16:00,
+  // 13:30 → 16:30).
+  const HALBE_STUNDE_MS = 1_800_000;
+  const basis = Math.floor(jetzt.getTime() / HALBE_STUNDE_MS) * HALBE_STUNDE_MS;
+  const zeitpunkte = [3, 6, 12].map((h) => basis + h * 2 * HALBE_STUNDE_MS);
+  // Letzte Spalte "ges." = ohne Zeitgrenze.
+  const grenzen = [...zeitpunkte, Number.POSITIVE_INFINITY];
+
+  // Schiffe, die noch Lotsen brauchen — vollständig abgeteilte zählen nicht
+  // mehr mit (dieselbe Regel wie die ETA-Liste der Seestations-Seite).
+  const abgeteiltProSchiff = new Map<number, number>();
+  for (const sa of seeAbteilungen) {
+    abgeteiltProSchiff.set(sa.seeSchiffId, (abgeteiltProSchiff.get(sa.seeSchiffId) ?? 0) + 1);
+  }
+  const offeneSchiffe = seeSchiffe
+    .map((s) => ({ eta: s.eta.getTime(), fehlt: seeLotsenAnzahl(s) - (abgeteiltProSchiff.get(s.id) ?? 0) }))
+    .filter((s) => s.fehlt > 0);
+  const etaZeile = grenzen.map((t) => offeneSchiffe.filter((s) => s.eta <= t).length);
+  const bedarfZeile = grenzen.map((t) =>
+    offeneSchiffe.filter((s) => s.eta <= t).reduce((summe, s) => summe + s.fehlt, 0),
+  );
+
+  // Verfügbar = auf Station oder bis dahin dort. seeZeilen enthält bereits
+  // nur die zählenden Lotsen (abgeschöpfte, see-abgeteilte und ankernde
+  // sind ausgefiltert, siehe lib/seestation.ts).
+  const verfuegbarBis = (zeilen: typeof seeZeilen, t: number) =>
+    zeilen.filter((z) => z.aufStation || (z.etaStn !== undefined && z.etaStn.getTime() <= t)).length;
+  const verfuegbarZeile = grenzen.map((t) => verfuegbarBis(seeZeilen, t));
+
+  // Vorschau: zusätzlich die Lotsen der Einsatzstation, die mit ihrem Job
+  // ohnehin zur Seestation kommen. Sie werden in der Bilanz mitgerechnet
+  // und in der Verfügbar-Zeile orange in Klammern ausgewiesen.
+  const projizierte = vorschau
+    ? vorschauZeilen(jobs, lotsen, aktuelleFahrt, abteilungen, settings, vNrStart, verbrauchteVNrn, jetzt).verplante
+    : [];
+  const projiziertZeile = grenzen.map((t) => verfuegbarBis(projizierte, t));
+  const bilanzZeile = grenzen.map((_, i) => verfuegbarZeile[i] + projiziertZeile[i] - bedarfZeile[i]);
 
   return (
     <div className="dashboard-card">
@@ -194,15 +222,12 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
             label="Seestation"
             testId="kachel-seestation"
             breite="breit"
-            spalten={["ges.", "+3h", "+6h", "+12h", "> 12h"]}
+            spalten={[...zeitpunkte.map((t) => formatUhrzeit(new Date(t))), "ges."]}
             zeilen={[
-              { titel: "ETAs", werte: [seeSchiffe.length, ...etaFenster] },
-              { titel: "ank. Lots.", werte: [null, ...lotsenFenster] },
-              {
-                titel: "Sauber",
-                delta: true,
-                werte: [null, ...lotsenFenster.map((l, i) => l - etaFenster[i])],
-              },
+              { titel: "ETAs", werte: etaZeile },
+              { titel: "Lots. bedarf", werte: bedarfZeile },
+              { titel: "Lots. verf.", werte: verfuegbarZeile, zusaetze: projiziertZeile },
+              { titel: "Bilanz", werte: bilanzZeile, bilanz: true },
             ]}
           />
         </div>

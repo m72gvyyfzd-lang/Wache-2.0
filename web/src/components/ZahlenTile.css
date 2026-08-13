@@ -85,9 +85,20 @@
   font-size: 1rem;
 }
 
-/* Fehlbestand in der Delta-Zeile */
+/* Bilanz-Zeile: Fehlbestand rot, Überschuss grün. */
 .zahlen-tile__zahl--fehlt {
   color: #b5432f;
+}
+
+.zahlen-tile__zahl--ueberschuss {
+  color: #3d8a4e;
+}
+
+/* Vorschau-Zuschlag: dieselbe Orange-Kennzeichnung wie die projizierten
+   Zeilen der Seestations-Liste (siehe Seestation.css::vorschau-orange). */
+.zahlen-tile__zusatz {
+  color: #c77d1e;
+  font-size: 0.8em;
 }
 
 /* iPad im Hochformat: die vier Kacheln teilen sich eine deutlich schmalere

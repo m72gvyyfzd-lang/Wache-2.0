@@ -28,6 +28,7 @@ const SEESTATION_LOTSEN_KEY = "wache.seestationLotsen.v1";
 const SEE_ABTEILUNGEN_KEY = "wache.seeAbteilungen.v1";
 const A_NR_ZAEHLER_KEY = "wache.aNrZaehler.v1";
 const VERBRAUCHTE_V_NR_KEY = "wache.verbrauchteVNrn.v1";
+const VORSCHAU_KEY = "wache.vorschau.v1";
 const ALARM_TON_KEY = "wache.alarmTon.v1";
 const HW_BRB_KEY = "wache.hwBrb.v1";
 const THEME_KEY = "wache.theme.v1";
@@ -287,6 +288,16 @@ export function ladeHwBrb(): HwBrbEingabe {
 
 export function speichereHwBrb(hwBrb: HwBrbEingabe): void {
   localStorage.setItem(HW_BRB_KEY, JSON.stringify(hwBrb));
+}
+
+/** Vorschau-Schalter (Seestation + Dashboard) — geteilt, damit beide
+ *  dieselbe Projektion zeigen, und über einen Neuladen hinweg stabil. */
+export function ladeVorschauAktiv(): boolean {
+  return localStorage.getItem(VORSCHAU_KEY) === "1";
+}
+
+export function speichereVorschauAktiv(aktiv: boolean): void {
+  localStorage.setItem(VORSCHAU_KEY, aktiv ? "1" : "0");
 }
 
 export function ladeAlarmTonAktiv(): boolean {

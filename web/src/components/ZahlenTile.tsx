@@ -61,8 +61,10 @@ export interface MatrixZeile {
   titel: string;
   /** ein Wert je Spalte; null lässt die Zelle frei */
   werte: (number | null)[];
-  /** Delta-Zeile: Vorzeichen wird mitgeschrieben, negative Werte rot */
-  delta?: boolean;
+  /** Vorschau-Zuschlag je Spalte — orange in Klammern hinter der Zahl */
+  zusaetze?: (number | null)[];
+  /** Bilanz-Zeile: Überschuss grün, Fehlbestand rot mit Minuszeichen */
+  bilanz?: boolean;
 }
 
 /** Kennzahlen-Kachel als Matrix: Spaltenköpfe oben, je Zeile eine
@@ -97,17 +99,21 @@ export function MatrixTile({
         {zeilen.map((zeile) => (
           <Fragment key={zeile.titel}>
             <span className="zahlen-tile__titel zahlen-tile__matrix-titel">{zeile.titel}</span>
-            {zeile.werte.map((wert, i) => (
-              <span
-                key={spalten[i]}
-                className={
-                  "zahlen-tile__zahl zahlen-tile__matrix-zahl" +
-                  (zeile.delta && wert !== null && wert < 0 ? " zahlen-tile__zahl--fehlt" : "")
-                }
-              >
-                {wert === null ? "" : zeile.delta && wert > 0 ? `+${wert}` : wert}
-              </span>
-            ))}
+            {zeile.werte.map((wert, i) => {
+              const zusatz = zeile.zusaetze?.[i] ?? 0;
+              const bilanzKlasse =
+                !zeile.bilanz || wert === null || wert === 0
+                  ? ""
+                  : wert < 0
+                    ? " zahlen-tile__zahl--fehlt"
+                    : " zahlen-tile__zahl--ueberschuss";
+              return (
+                <span key={spalten[i]} className={`zahlen-tile__zahl zahlen-tile__matrix-zahl${bilanzKlasse}`}>
+                  {wert === null ? "" : zeile.bilanz && wert > 0 ? `+${wert}` : wert}
+                  {zusatz > 0 && <span className="zahlen-tile__zusatz"> ({zusatz})</span>}
+                </span>
+              );
+            })}
           </Fragment>
         ))}
       </div>

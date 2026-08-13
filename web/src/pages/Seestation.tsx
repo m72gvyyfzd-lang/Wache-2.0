@@ -110,6 +110,8 @@ export function Seestation() {
     aktuelleFahrt,
     vNrStart,
     verbrauchteVNrn,
+    vorschau,
+    setVorschau,
   } = useData();
 
   // Bereits abgeteilte Lotsen je See-Schiff: voll abgeteilte Schiffe
@@ -141,7 +143,8 @@ export function Seestation() {
   // Einsatzstation einrechnet — VERPLANTE (mit Job, kommen mit ihrem
   // Job-Schiff raus) und FREIE (noch ohne Job, per AG holbar) — mit
   // derselben zweistufigen Zuteilung wie die Basis.
-  const [vorschau, setVorschau] = useState(false);
+  // Der Vorschau-Schalter lebt im DataContext — die Seestations-Kachel des
+  // Dashboards zeigt dieselbe Projektion.
   // Zeit-Tick wie im Dashboard: die Vorschau hängt an der Uhrzeit (früheste
   // AG-Ankunft, überfällige Abteilzeiten) und läuft so auch ohne
   // Datenänderung mit.
@@ -355,7 +358,7 @@ export function Seestation() {
             <button
               type="button"
               className={"btn btn--small" + (vorschau ? " btn--accent" : "")}
-              onClick={() => setVorschau((v) => !v)}
+              onClick={() => setVorschau(!vorschau)}
             >
               Vorschau
             </button>
