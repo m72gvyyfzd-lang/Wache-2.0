@@ -136,10 +136,16 @@ export function Seestation() {
     return () => clearInterval(id);
   }, []);
 
-  // Schiffe nach ETA (früheste oben); nur ein Schiff mit überfälliger
-  // Anmeldung rutscht ans Ende — dieselbe Reihenfolge gilt für die
-  // Lotsen-Zuteilung (siehe schiffePriorisiert).
+  // Zuteilungsreihenfolge: nach ETA, aber ein Schiff mit überfälliger
+  // Anmeldung stellt sich bei der Lotsen-Vergabe hinten an (siehe
+  // schiffePriorisiert) — es soll keinem bestätigten Schiff einen Lotsen
+  // wegnehmen.
   const schiffeSortiert = schiffePriorisiert(seeSchiffe, abgeteiltProSchiff, jetzt);
+  // ANZEIGE dagegen rein chronologisch: auch ein Alarm-Schiff bleibt an
+  // seiner zeitlichen Position (rot markiert), statt hinter Schiffen des
+  // Folgetags zu landen. Die Zuteilung wird je Schiff über die ID
+  // nachgeschlagen, die Reihenfolgen dürfen sich also unterscheiden.
+  const schiffeAnzeige = [...schiffeSortiert].sort((a, b) => a.eta.getTime() - b.eta.getTime());
   // Lotsen: Versetzliste ("Lotsen im Revier") + manuell hinzugefügte,
   // einsortiert nach V-Nr. mit Zusatz-Reihenfolge (101 → 101 (A) → 102)
   const lotsenZeilen = sortiereSeestation([
@@ -201,7 +207,7 @@ export function Seestation() {
   // Zeilen einsortieren — dort stünden sie später auch wirklich.
   const projizierte = [...verplante, ...freie.filter((z) => verspaetetProKey.has(z.key))];
   const anzeigeLotsen = sortiereSeestation([...lotsenZeilen, ...projizierte]);
-  const zeilen = Math.max(schiffeSortiert.length, anzeigeLotsen.length);
+  const zeilen = Math.max(schiffeAnzeige.length, anzeigeLotsen.length);
 
   const [schiffAuswahl, setSchiffAuswahl] = useState<number | null>(null);
   // Mehrere Lotsen wählbar, wenn das gewählte Schiff mehr als einen
@@ -424,7 +430,7 @@ export function Seestation() {
           </thead>
           <tbody>
             {Array.from({ length: zeilen }).map((_, i) => {
-              const schiff = schiffeSortiert[i];
+              const schiff = schiffeAnzeige[i];
               const lotse = anzeigeLotsen[i];
               const schiffZuteilung = schiff ? aktiveZuteilung.get(schiff.id) : undefined;
               const schiffDefizit = (schiffZuteilung?.fehlt ?? 0) > 0;
