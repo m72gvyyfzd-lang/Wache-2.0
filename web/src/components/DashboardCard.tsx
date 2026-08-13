@@ -7,7 +7,8 @@ import { berechneMeldungen, gruppiereMeldungen } from "../lib/meldungen";
 import { useData } from "../state/DataContext";
 import { AgPlanungTile } from "./AgPlanung";
 import { MeldungsTile } from "./Meldungen";
-import { StatTile } from "./StatTile";
+import { ZahlenTile } from "./ZahlenTile";
+import { zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "../lib/seestation";
 import "./DashboardCard.css";
 
 /** Welches der beiden Kachel-Panels gerade seine Detailliste zeigt — nur
@@ -118,6 +119,21 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
   const anzahlNOK = offeneJobs.filter((j) => j.liste === "nok").length;
   const anzahlAnmeldungen = offeneJobs.filter((j) => j.liste === "andere").length;
 
+  // Lotsen-Kennzahlen der Einsatzstation:
+  // Abger. — abgerufene Lotsen, die noch an der Station stehen (abgeteilte
+  //   sind aus der Einsatzstations-Liste verschwunden, siehe lotsenOrdnung).
+  // Fahrw. — Lotsen im Revier (Versetzliste), ohne die ankernden.
+  // SeeStn — Lotsen, die auf der Seestation angekommen sind (beide Quellen
+  //   der Liste "Auf Seestation").
+  const anzahlAbgerufen = lotsen.filter((l) => !l.abgeteilt && l.abgerufen).length;
+  const anzahlFahrwasser = abteilungen.filter(
+    (a) => a.vNr !== undefined && !a.aufSeestation && !a.ankert,
+  ).length;
+  const anzahlAufSeestation = [
+    ...zeilenAusAbteilungen(abteilungen),
+    ...zeilenAusSeestationLotsen(seestationLotsen),
+  ].filter((z) => z.aufStation).length;
+
   return (
     <div className="dashboard-card">
       <div className="dashboard-card__scroll">
@@ -135,7 +151,31 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
             onToggle={toggleAgPlanung}
             containerRef={agPlanungRef}
           />
-          <StatTile label="HH / NOK / Sonstige" value={`${anzahlHH} / ${anzahlNOK} / ${anzahlAnmeldungen}`} />
+          <ZahlenTile
+            label="Einsatzstation"
+            testId="kachel-einsatzstation"
+            gruppen={[
+              {
+                titel: "Jobs",
+                werte: [
+                  { kuerzel: "HH", wert: anzahlHH },
+                  { kuerzel: "NOK", wert: anzahlNOK },
+                  { kuerzel: "Sonst.", wert: anzahlAnmeldungen },
+                ],
+              },
+              {
+                titel: "Lotsen",
+                werte: [
+                  { kuerzel: "Abger.", wert: anzahlAbgerufen },
+                  { kuerzel: "Fahrw.", wert: anzahlFahrwasser },
+                  { kuerzel: "SeeStn", wert: anzahlAufSeestation },
+                ],
+              },
+            ]}
+          />
+          {/* Noch ohne Inhalt — steht erst einmal als Platzhalter, damit der
+              verfügbare Platz beurteilt werden kann. */}
+          <ZahlenTile label="Seestation" testId="kachel-seestation" gruppen={[]} />
         </div>
       </div>
     </div>

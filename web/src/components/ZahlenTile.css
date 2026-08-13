@@ -1,0 +1,95 @@
+/* Kennzahlen-Kachel: Rahmen, Größe und Kopfzeile kommen aus Meldungen.css
+   (Klasse .meldungs-tile), hier nur der Inhalt. Anders als die Meldungs-
+   Kacheln ist sie nicht anklickbar. */
+.zahlen-tile {
+  cursor: default;
+}
+
+.zahlen-tile__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 4px;
+  padding: 0 14px 10px;
+  overflow-y: auto;
+}
+
+.zahlen-tile__titel {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+/* Gleich breite Spalten: die Zahlen stehen damit unabhängig von der Länge
+   des Kürzels untereinander bündig. */
+.zahlen-tile__werte {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.zahlen-tile__spalte {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.zahlen-tile__kuerzel {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.zahlen-tile__zahl {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+/* iPad im Hochformat: die vier Kacheln teilen sich eine deutlich schmalere
+   Zeile — Kürzel und Zahlen rücken enger zusammen, damit "ABGER./FAHRW./
+   SEESTN" nicht ineinanderlaufen. */
+@media (max-width: 1024px) {
+  .zahlen-tile__body {
+    padding: 0 8px 8px;
+  }
+
+  .zahlen-tile__kuerzel {
+    font-size: 0.5rem;
+    letter-spacing: 0.01em;
+  }
+
+  .zahlen-tile__zahl {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .zahlen-tile__body {
+    padding: 0 8px 6px;
+  }
+
+  .zahlen-tile__titel {
+    font-size: 0.58rem;
+  }
+
+  .zahlen-tile__kuerzel {
+    font-size: 0.5rem;
+  }
+
+  .zahlen-tile__zahl {
+    font-size: 0.9rem;
+  }
+}

@@ -13,12 +13,12 @@
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.05),
     0 10px 22px rgba(0, 0, 0, 0.08);
-  flex: 0 0 25%;
-  /* Lange, nicht umbrechende Vorschlagstexte dürfen die Kachel nicht über
-     ihre 25%-Basis hinaus aufweiten (flex-min-width wäre sonst die
-     Textbreite). */
+  /* Alle Dashboard-Kacheln teilen sich die Zeile zu gleichen Teilen. Basis 0
+     statt eines Prozentwerts: so bleiben sie auch bei vier Kacheln in einer
+     Zeile, und lange, nicht umbrechende Texte können sie nicht aufweiten
+     (die flex-Basis wäre sonst die Textbreite). */
+  flex: 1 1 0;
   min-width: 0;
-  max-width: 25%;
   box-sizing: border-box;
   height: 168px;
   text-align: left;
