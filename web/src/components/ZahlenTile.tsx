@@ -3,6 +3,7 @@
  *  deren Klassen), zeigt darunter aber Zahlengruppen statt einer Liste.
  *  Ohne Gruppen bleibt nur der Rahmen stehen — als Platzhalter für noch
  *  nicht befüllte Kacheln. */
+import { Fragment } from "react";
 import "./Meldungen.css";
 import "./ZahlenTile.css";
 
@@ -12,17 +13,27 @@ export interface ZahlenGruppe {
   werte: { kuerzel: string; wert: number | string }[];
 }
 
+/** Abweichende Spaltenbreite in der Kachel-Leiste: "schmal"/"breit"
+ *  verschieben nur das Verhältnis, alle Kacheln bleiben in einer Zeile. */
+export type Kachelbreite = "schmal" | "breit";
+
+function rahmenKlasse(breite?: Kachelbreite): string {
+  return "meldungs-tile zahlen-tile" + (breite ? ` meldungs-tile--${breite}` : "");
+}
+
 export function ZahlenTile({
   label,
   gruppen,
+  breite,
   testId,
 }: {
   label: string;
   gruppen: ZahlenGruppe[];
+  breite?: Kachelbreite;
   testId?: string;
 }) {
   return (
-    <div className="meldungs-tile zahlen-tile" data-testid={testId}>
+    <div className={rahmenKlasse(breite)} data-testid={testId}>
       <div className="meldungs-tile__kopf">
         <span className="meldungs-tile__label">{label}</span>
       </div>
@@ -39,6 +50,65 @@ export function ZahlenTile({
               ))}
             </div>
           </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export interface MatrixZeile {
+  /** Zeilenbeschriftung links, z.B. "ETAs" */
+  titel: string;
+  /** ein Wert je Spalte; null lässt die Zelle frei */
+  werte: (number | null)[];
+  /** Delta-Zeile: Vorzeichen wird mitgeschrieben, negative Werte rot */
+  delta?: boolean;
+}
+
+/** Kennzahlen-Kachel als Matrix: Spaltenköpfe oben, je Zeile eine
+ *  Beschriftung und ihre Werte. Nutzt dieselben Schriftgrößen wie die
+ *  Gruppen-Variante darüber. */
+export function MatrixTile({
+  label,
+  spalten,
+  zeilen,
+  breite,
+  testId,
+}: {
+  label: string;
+  spalten: string[];
+  zeilen: MatrixZeile[];
+  breite?: Kachelbreite;
+  testId?: string;
+}) {
+  const raster = { gridTemplateColumns: `auto repeat(${spalten.length}, minmax(0, 1fr))` };
+  return (
+    <div className={rahmenKlasse(breite)} data-testid={testId}>
+      <div className="meldungs-tile__kopf">
+        <span className="meldungs-tile__label">{label}</span>
+      </div>
+      <div className="zahlen-tile__matrix" style={raster}>
+        <span />
+        {spalten.map((s) => (
+          <span key={s} className="zahlen-tile__kuerzel zahlen-tile__matrix-kopf">
+            {s}
+          </span>
+        ))}
+        {zeilen.map((zeile) => (
+          <Fragment key={zeile.titel}>
+            <span className="zahlen-tile__titel zahlen-tile__matrix-titel">{zeile.titel}</span>
+            {zeile.werte.map((wert, i) => (
+              <span
+                key={spalten[i]}
+                className={
+                  "zahlen-tile__zahl zahlen-tile__matrix-zahl" +
+                  (zeile.delta && wert !== null && wert < 0 ? " zahlen-tile__zahl--fehlt" : "")
+                }
+              >
+                {wert === null ? "" : zeile.delta && wert > 0 ? `+${wert}` : wert}
+              </span>
+            ))}
+          </Fragment>
         ))}
       </div>
     </div>

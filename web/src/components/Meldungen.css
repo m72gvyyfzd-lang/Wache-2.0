@@ -27,20 +27,48 @@
   cursor: pointer;
 }
 
+/* Abweichende Anteile: die Seestations-Kachel trägt eine 5-spaltige Matrix
+   und braucht mehr Platz, die Einsatzstations-Kachel kommt mit weniger aus.
+   Über flex-grow (bei Basis 0) bleibt alles in einer Zeile. */
+.meldungs-tile--breit {
+  flex-grow: 1.45;
+}
+
+.meldungs-tile--schmal {
+  flex-grow: 0.8;
+}
+
 .meldungs-tile__kopf {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 12px 14px 8px;
+  min-width: 0;
 }
 
+/* Der Titel wird abgeschnitten statt über den Kachelrand zu laufen — die
+   Kachel selbst darf nicht clippen, sonst verschwindet die aufgeklappte
+   Meldungsliste. */
 .meldungs-tile__label {
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--ink-muted);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 1024px) {
+  .meldungs-tile__kopf {
+    padding: 10px 8px 6px;
+  }
+
+  .meldungs-tile__label {
+    font-size: 0.6rem;
+    letter-spacing: 0.04em;
+  }
 }
 
 /* Gruppenzeilen-Liste: exakt 4 Zeilen sichtbar (4 × 26px), Rest scrollt. */

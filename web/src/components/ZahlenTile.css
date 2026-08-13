@@ -58,6 +58,38 @@
   color: var(--ink);
 }
 
+/* Matrix-Variante: Spaltenköpfe oben, links die Zeilenbeschriftung. */
+.zahlen-tile__matrix {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  align-content: space-evenly;
+  column-gap: 4px;
+  row-gap: 2px;
+  padding: 0 12px 10px;
+  overflow: auto;
+}
+
+.zahlen-tile__matrix-kopf,
+.zahlen-tile__matrix-zahl {
+  text-align: center;
+}
+
+.zahlen-tile__matrix-titel {
+  padding-right: 6px;
+  align-self: center;
+  white-space: nowrap;
+}
+
+.zahlen-tile__matrix-zahl {
+  font-size: 1rem;
+}
+
+/* Fehlbestand in der Delta-Zeile */
+.zahlen-tile__zahl--fehlt {
+  color: #b5432f;
+}
+
 /* iPad im Hochformat: die vier Kacheln teilen sich eine deutlich schmalere
    Zeile — Kürzel und Zahlen rücken enger zusammen, damit "ABGER./FAHRW./
    SEESTN" nicht ineinanderlaufen. */
@@ -66,13 +98,31 @@
     padding: 0 8px 8px;
   }
 
+  .zahlen-tile__titel {
+    font-size: 0.55rem;
+    letter-spacing: 0.04em;
+  }
+
   .zahlen-tile__kuerzel {
-    font-size: 0.5rem;
-    letter-spacing: 0.01em;
+    font-size: 0.46rem;
+    letter-spacing: 0;
   }
 
   .zahlen-tile__zahl {
     font-size: 1rem;
+  }
+
+  .zahlen-tile__matrix {
+    padding: 0 6px 8px;
+    column-gap: 2px;
+  }
+
+  .zahlen-tile__matrix-titel {
+    padding-right: 3px;
+  }
+
+  .zahlen-tile__matrix-zahl {
+    font-size: 0.8rem;
   }
 }
 

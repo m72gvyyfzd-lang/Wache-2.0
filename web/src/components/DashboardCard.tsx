@@ -7,7 +7,7 @@ import { berechneMeldungen, gruppiereMeldungen } from "../lib/meldungen";
 import { useData } from "../state/DataContext";
 import { AgPlanungTile } from "./AgPlanung";
 import { MeldungsTile } from "./Meldungen";
-import { ZahlenTile } from "./ZahlenTile";
+import { MatrixTile, ZahlenTile } from "./ZahlenTile";
 import { zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "../lib/seestation";
 import "./DashboardCard.css";
 
@@ -129,10 +129,26 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
   const anzahlFahrwasser = abteilungen.filter(
     (a) => a.vNr !== undefined && !a.aufSeestation && !a.ankert,
   ).length;
-  const anzahlAufSeestation = [
-    ...zeilenAusAbteilungen(abteilungen),
-    ...zeilenAusSeestationLotsen(seestationLotsen),
-  ].filter((z) => z.aufStation).length;
+  const seeZeilen = [...zeilenAusAbteilungen(abteilungen), ...zeilenAusSeestationLotsen(seestationLotsen)];
+  const anzahlAufSeestation = seeZeilen.filter((z) => z.aufStation).length;
+
+  // Seestations-Kachel: ETAs in Zeitfenstern gegen die Lotsen, die bis dahin
+  // auf Station sind. Die ETA-Fenster sind disjunkt (alles Fällige und
+  // Überfällige fällt ins erste), die Lotsenzahlen dagegen kumulativ — wer
+  // einmal auf Station ist, bleibt es auch in den späteren Fenstern.
+  const STUNDE_MS = 3_600_000;
+  const [grenze3, grenze6, grenze12] = [3, 6, 12].map((h) => jetzt.getTime() + h * STUNDE_MS);
+  const etaZeiten = seeSchiffe.map((s) => s.eta.getTime());
+  const etaFenster = [
+    etaZeiten.filter((t) => t <= grenze3).length,
+    etaZeiten.filter((t) => t > grenze3 && t <= grenze6).length,
+    etaZeiten.filter((t) => t > grenze6 && t <= grenze12).length,
+    etaZeiten.filter((t) => t > grenze12).length,
+  ];
+  const lotsenBis = (grenze: number) =>
+    seeZeilen.filter((z) => z.aufStation || (z.etaStn !== undefined && z.etaStn.getTime() <= grenze)).length;
+  // Letzte Spalte (">12h"): alle, die auf Station sind oder noch kommen.
+  const lotsenFenster = [lotsenBis(grenze3), lotsenBis(grenze6), lotsenBis(grenze12), seeZeilen.length];
 
   return (
     <div className="dashboard-card">
@@ -154,6 +170,7 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
           <ZahlenTile
             label="Einsatzstation"
             testId="kachel-einsatzstation"
+            breite="schmal"
             gruppen={[
               {
                 titel: "Jobs",
@@ -173,9 +190,21 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
               },
             ]}
           />
-          {/* Noch ohne Inhalt — steht erst einmal als Platzhalter, damit der
-              verfügbare Platz beurteilt werden kann. */}
-          <ZahlenTile label="Seestation" testId="kachel-seestation" gruppen={[]} />
+          <MatrixTile
+            label="Seestation"
+            testId="kachel-seestation"
+            breite="breit"
+            spalten={["ges.", "+3h", "+6h", "+12h", "> 12h"]}
+            zeilen={[
+              { titel: "ETAs", werte: [seeSchiffe.length, ...etaFenster] },
+              { titel: "ank. Lots.", werte: [null, ...lotsenFenster] },
+              {
+                titel: "Sauber",
+                delta: true,
+                werte: [null, ...lotsenFenster.map((l, i) => l - etaFenster[i])],
+              },
+            ]}
+          />
         </div>
       </div>
     </div>
