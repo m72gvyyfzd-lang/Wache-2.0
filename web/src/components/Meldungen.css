@@ -14,6 +14,11 @@
     0 1px 2px rgba(0, 0, 0, 0.05),
     0 10px 22px rgba(0, 0, 0, 0.08);
   flex: 0 0 25%;
+  /* Lange, nicht umbrechende Vorschlagstexte dürfen die Kachel nicht über
+     ihre 25%-Basis hinaus aufweiten (flex-min-width wäre sonst die
+     Textbreite). */
+  min-width: 0;
+  max-width: 25%;
   box-sizing: border-box;
   height: 168px;
   text-align: left;
@@ -64,6 +69,20 @@
 
 .meldungs-tile__gruppe--statisch {
   cursor: default;
+}
+
+/* AG-Planung: Vorschlagstexte sind länger — statt die Kachel zu verbreitern
+   bricht der Text um (Zeilenhöhe wächst mit, die Liste scrollt bei Bedarf). */
+.meldungs-tile__gruppe--mehrzeilig {
+  height: auto;
+  min-height: 26px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+.meldungs-tile__gruppe--mehrzeilig .meldungs-tile__gruppe-text {
+  white-space: normal;
+  overflow: visible;
 }
 
 .meldungs-tile__gruppe:hover {
@@ -212,6 +231,7 @@
 @media (max-width: 720px) {
   .meldungs-tile {
     flex-basis: 40%;
+    max-width: 40%;
     height: 140px;
   }
 

@@ -66,6 +66,22 @@ export function berechneAgPlanung(daten: MeldungsDaten, jetzt: Date, settings: A
   }
 
   for (const d of defizite) {
+    if (d.tenderEmpfehlung) {
+      // Geplante Tender-AG (kein Träger passt oder Träger hieße > 6 Std.
+      // warten): Planungszeitpunkt + geplante Abfahrt (= Abteilzeit des
+      // Tender-AG-Jobs) direkt im Vorschlag benennen. Je Schiff eine
+      // eigene Gruppe, da die Zeiten je ETA verschieden sind.
+      eintragen(
+        `tender-${d.schiff.id}`,
+        `Tender (planen bis ${formatUhrzeit(d.tenderEmpfehlung.planenBis)}, Abfahrt/Abt. ${formatUhrzeit(d.tenderEmpfehlung.abfahrt)})`,
+        d.fehlt,
+        d.stufe,
+        d.schiff.schiffsname,
+        d.schiff.eta,
+        false,
+      );
+      continue;
+    }
     if (d.zuteilungen.length === 0) {
       eintragen(
         "tender",

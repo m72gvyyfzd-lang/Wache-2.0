@@ -134,14 +134,25 @@ function trenneNameUndKat(roh: string): { name: string; kategorie: string } {
   return { name: roh.trim(), kategorie: "" };
 }
 
-/** Namensschlüssel für den Abgleich zwischen den drei PDF-Formaten
- *  ("Behnke J.H." / "Behnke, Jan-Hinrich" / "Behnke, J" → "behnke|j"):
- *  Nachname + erster Buchstabe des Vornamens. Punkte und doppelte
- *  Leerzeichen stören den Vergleich nicht. */
-export function nameSchluessel(roh: string): string {
+/** Namensabgleich zwischen den drei PDF-Formaten. Die Formate schreiben
+ *  Namen unterschiedlich: die Tafel nur den Nachnamen (Vornamens-Kürzel
+ *  NUR bei mehrfach vorkommenden Nachnamen, z.B. "Behnke J.H."), die
+ *  Törnliste immer Nachname + Kürzel ("Behnke, J"), die Tendertafel
+ *  ausgeschriebene Vornamen ("Behnke, Jan-Hinrich"). Deshalb: Nachnamen
+ *  müssen übereinstimmen; die Initiale wird NUR verglichen, wenn beide
+ *  Seiten eine haben. Punkte/Mehrfach-Leerzeichen stören nicht. */
+function zerlegeName(roh: string): { nachname: string; initiale: string } {
   const klein = roh.trim().toLowerCase().replace(/\./g, " ").replace(/\s+/g, " ").trim();
-  const m = klein.match(/^([a-zäöüß-]+)[,\s]+([a-zäöüß])/);
-  return m ? `${m[1]}|${m[2]}` : klein;
+  const m = klein.match(/^([a-zäöüß-]+)(?:[,\s]+([a-zäöüß]))?/);
+  return { nachname: m?.[1] ?? klein, initiale: m?.[2] ?? "" };
+}
+
+export function passtName(a: string, b: string): boolean {
+  const za = zerlegeName(a);
+  const zb = zerlegeName(b);
+  if (za.nachname !== zb.nachname) return false;
+  if (za.initiale === "" || zb.initiale === "") return true;
+  return za.initiale === zb.initiale;
 }
 
 function spaltenIndex(sektion: TafelSektion, name: string): number {
@@ -475,11 +486,17 @@ export function baueWachImport(
   } else if (!ersterLotse) {
     meldungen.push({ stufe: "warnung", text: "Keine Einsatzstations-Lotsen — Marker-Abgleich nicht möglich" });
   } else {
-    const markerSchluessel = nameSchluessel(ersterLotse.name);
-    markerIndex = tender.eintraege.findIndex(
-      (e) => e.lotse !== "" && nameSchluessel(trenneNameUndKat(e.lotse).name) === markerSchluessel,
-    );
-    if (markerIndex === -1) {
+    const treffer = tender.eintraege
+      .map((e, i) => ({ e, i }))
+      .filter(({ e }) => e.lotse !== "" && passtName(ersterLotse.name, trenneNameUndKat(e.lotse).name));
+    if (treffer.length === 1) {
+      markerIndex = treffer[0].i;
+    } else if (treffer.length > 1) {
+      meldungen.push({
+        stufe: "warnung",
+        text: `Marker-Lotse "${ersterLotse.name}" ist in der Tendertafel mehrdeutig (${treffer.length} Treffer) — bitte den Marker unten manuell auswählen`,
+      });
+    } else {
       meldungen.push({
         stufe: "warnung",
         text: `Marker-Lotse "${ersterLotse.name}" nicht in der Tendertafel gefunden — bitte den Marker unten manuell auswählen`,
@@ -548,18 +565,11 @@ export function baueWachImport(
     const iWb = toerns.spalten.findIndex((s) => s.toLowerCase().includes("blau"));
     const iWr = toerns.spalten.findIndex((s) => s.toLowerCase().includes("rot"));
     const iHulo = toerns.spalten.findIndex((s) => s.toLowerCase().includes("hulo"));
-    const proSchluessel = new Map<string, string[][]>();
-    for (const zeile of toerns.eintraege) {
-      const schluessel = nameSchluessel(zeile[iName] ?? "");
-      const liste = proSchluessel.get(schluessel) ?? [];
-      liste.push(zeile);
-      proSchluessel.set(schluessel, liste);
-    }
     let gefunden = 0;
     const ohneToern: string[] = [];
     const mehrdeutig: string[] = [];
     for (const lotse of importDaten.lotsen) {
-      const treffer = proSchluessel.get(nameSchluessel(lotse.name)) ?? [];
+      const treffer = toerns.eintraege.filter((zeile) => passtName(lotse.name, zeile[iName] ?? ""));
       if (treffer.length === 1) {
         const zeile = treffer[0];
         const wert = (i: number) => (i >= 0 && /^\d+$/.test(zeile[i] ?? "") ? Number(zeile[i]) : 0);

@@ -29,7 +29,7 @@ export function AgPlanungTile({ gruppen, offen, onToggle, containerRef }: AgPlan
       </div>
       <div className="meldungs-tile__gruppen">
         {gruppen.map((g) => (
-          <div key={g.id} className="meldungs-tile__gruppe meldungs-tile__gruppe--statisch">
+          <div key={g.id} className="meldungs-tile__gruppe meldungs-tile__gruppe--statisch meldungs-tile__gruppe--mehrzeilig">
             <span className={`meldungs-punkt meldungs-punkt--${g.stufe}`} aria-hidden="true" />
             <span className="meldungs-tile__gruppe-text">
               {g.anzahl}× AG mit {g.empfehlung}

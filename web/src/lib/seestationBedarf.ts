@@ -20,9 +20,11 @@ import { vorschauZeilen } from "./vorschau";
 
 /** Ein AG-Lotse soll möglichst nicht länger als 6 Std. auf der Seestation
  *  auf sein Schiff warten (Ankunft über den gewählten Träger bis zum
- *  Schiffs-ETA). Wird das nicht erreicht (kein Träger fährt spät genug ab),
- *  bleibt die Zuteilung trotzdem bestehen, eskaliert aber zur Warnung — die
- *  Prognose blendet lange Wartezeiten nicht aus, sondern zeigt sie an. */
+ *  Schiffs-ETA). Fährt kein Träger spät genug ab, ist das GENAU die
+ *  Konstellation für eine geplante Tender-AG: eigener Tender, Abfahrt so,
+ *  dass die Lotsen zeitgerecht auf der Seestation sind (siehe
+ *  tenderEmpfehlung). Nur wenn auch das nicht mehr geht, bleibt die
+ *  Träger-Zuteilung mit Warnung stehen. */
 export const WARTE_MAX_AG_MS = 6 * 3_600_000;
 
 export interface AgZuteilung {
@@ -47,6 +49,11 @@ export interface SeestationDefizit {
   zuteilungen: AgZuteilung[];
   tenderMoeglich: boolean;
   tenderFrist: number;
+  /** Empfohlene Tender-AG, wenn kein Träger passt oder jeder Träger die
+   *  Lotsen länger als 6 Std. warten ließe: bis `planenBis` einplanen
+   *  (Tender braucht 3 Std. Vorlauf), `abfahrt` ist die geplante Abfahrt
+   *  und damit die Abteilzeit des Tender-AG-Jobs. */
+  tenderEmpfehlung?: { planenBis: Date; abfahrt: Date };
 }
 
 /**
@@ -70,7 +77,10 @@ export function planeAgTraeger(
   }
   const beste = kandidatenAufsteigend[kandidatenAufsteigend.length - 1];
   const zweitBeste = kandidatenAufsteigend[kandidatenAufsteigend.length - 2];
-  if (fehlt >= 4 && zweitBeste) {
+  // Split nur, wenn auch der zweite Träger das 6-Std.-Warteziel hält —
+  // sonst lieber alle auf den späteren Träger statt eine Teilgruppe
+  // unnötig lange warten zu lassen.
+  if (fehlt >= 4 && zweitBeste && !zuteilung(zweitBeste, 1).ueberWarteziel) {
     const ersteAnzahl = Math.ceil(fehlt / 2);
     return [zuteilung(beste, ersteAnzahl), zuteilung(zweitBeste, fehlt - ersteAnzahl)];
   }
@@ -154,17 +164,27 @@ export function berechneSeestationsDefizite(
       continue;
     }
 
-    const zuteilungen = planeAgTraeger(kandidaten, fehlt, schiff.eta);
+    let zuteilungen = planeAgTraeger(kandidaten, fehlt, schiff.eta);
+    let tenderEmpfehlung: SeestationDefizit["tenderEmpfehlung"];
+    // Kein Träger passt oder jeder Träger ließe die Lotsen länger als
+    // 6 Std. warten: genau dafür ist die geplante Tender-AG da — Abfahrt
+    // so spät, dass die Lotsen zeitgerecht (Ankunftsfrist) auf der
+    // Seestation sind; die Abfahrt ist zugleich die Abteilzeit des
+    // Tender-AG-Jobs, eingeplant sein muss sie 3 Std. vorher.
+    if (tenderMoeglich && (zuteilungen.length === 0 || zuteilungen.some((z) => z.ueberWarteziel))) {
+      const abfahrt = new Date(Math.max(abfahrtsFrist, jetzt.getTime() + TENDER_VORLAUF_MS));
+      tenderEmpfehlung = { abfahrt, planenBis: new Date(abfahrt.getTime() - TENDER_VORLAUF_MS) };
+      zuteilungen = [];
+    }
     const traegerFrist = kandidaten.length > 0 ? kandidaten[kandidaten.length - 1].abteilzeit.getTime() : -Infinity;
     const handlungsFrist = Math.max(traegerFrist, tenderMoeglich ? tenderFrist : -Infinity);
     // Neben der üblichen Zeitnot eskaliert auch eine zu lange Wartezeit auf
-    // der Seestation zur Warnung — die Prognose soll das sichtbar machen,
-    // nicht stillschweigend hinnehmen.
+    // der Seestation zur Warnung — außer die Tender-Empfehlung löst sie auf.
     const ueberWarteziel = zuteilungen.some((z) => z.ueberWarteziel);
     const stufe: MeldungsStufe =
       handlungsFrist - jetzt.getTime() <= AG_ESKALATION_MS || ueberWarteziel ? "warnung" : "vorschlag";
 
-    defizite.push({ schiff, fehlt, stufe, zuteilungen, tenderMoeglich, tenderFrist });
+    defizite.push({ schiff, fehlt, stufe, zuteilungen, tenderMoeglich, tenderFrist, tenderEmpfehlung });
   }
   return defizite;
 }
