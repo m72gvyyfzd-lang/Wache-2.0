@@ -78,7 +78,12 @@ export function schiffePriorisiert(
       // planungsEta) und muss deshalb auch bei der Vergabe VOR Schiffen
       // stehen, deren rohe ETA zwar früher liegt, deren tatsächlicher
       // Bedarf aber später einsetzt.
-      return planungsEta(a).getTime() - planungsEta(b).getTime();
+      const diff = planungsEta(a).getTime() - planungsEta(b).getTime();
+      if (diff !== 0) return diff;
+      // Bei exakt gleicher Abt.Zeit wird IMMER das E3/St-Schiff zuerst
+      // abgeteilt (angemeldet oder nicht) — gilt auch ohne Vorschau.
+      if (Boolean(a.e3st) !== Boolean(b.e3st)) return a.e3st ? -1 : 1;
+      return a.eta.getTime() - b.eta.getTime();
     });
 }
 

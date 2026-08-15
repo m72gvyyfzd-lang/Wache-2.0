@@ -163,9 +163,14 @@ export function Seestation() {
   // BERECHNETEN Abt.Zeit (E3/St 1,5 Std. vor, Verbünde gemeinsam) — bei
   // Gleichstand E3/St zuerst. Die Zuteilung wird je Schiff über die ID
   // nachgeschlagen, die Reihenfolgen dürfen sich also unterscheiden.
-  const schiffeAnzeige = [...schiffeSortiert].sort((a, b) =>
-    vorschauAbt ? vergleicheVorschauAbt(a, b, vorschauAbt) : a.eta.getTime() - b.eta.getTime(),
-  );
+  const schiffeAnzeige = [...schiffeSortiert].sort((a, b) => {
+    if (vorschauAbt) return vergleicheVorschauAbt(a, b, vorschauAbt);
+    const diff = a.eta.getTime() - b.eta.getTime();
+    if (diff !== 0) return diff;
+    // Bei zeitgleicher Anzeige steht das E3/St-Schiff zuerst — es wird
+    // auch zuerst abgeteilt (gilt immer, nicht nur in der Vorschau).
+    return Boolean(a.e3st) !== Boolean(b.e3st) ? (a.e3st ? -1 : 1) : 0;
+  });
   // Lotsen: Versetzliste ("Lotsen im Revier") + manuell hinzugefügte,
   // einsortiert nach V-Nr. mit Zusatz-Reihenfolge (101 → 101 (A) → 102)
   const lotsenZeilen = sortiereSeestation([
