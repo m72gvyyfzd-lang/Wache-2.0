@@ -62,7 +62,12 @@ export function schiffePriorisiert(
       const rangA = anmeldungUeberfaellig(a, jetzt) ? 1 : 0;
       const rangB = anmeldungUeberfaellig(b, jetzt) ? 1 : 0;
       if (rangA !== rangB) return rangA - rangB;
-      return (a.eta?.getTime() ?? 0) - (b.eta?.getTime() ?? 0);
+      // Priorisierung nach Abt.Zeit (planungsEta), nicht der rohen ETA: ein
+      // E3/St-Schiff braucht seinen Lotsen 1,5 Std. früher (siehe
+      // planungsEta) und muss deshalb auch bei der Vergabe VOR Schiffen
+      // stehen, deren rohe ETA zwar früher liegt, deren tatsächlicher
+      // Bedarf aber später einsetzt.
+      return planungsEta(a).getTime() - planungsEta(b).getTime();
     });
 }
 
