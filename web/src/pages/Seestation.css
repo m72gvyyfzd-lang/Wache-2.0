@@ -57,6 +57,17 @@
   background: rgba(181, 67, 47, 0.14);
 }
 
+/* Vorschau-Kennzeichnung unter der ETA eines E3/St-Schiffs: die berechnete
+   Abt.Zeit (ETA − 1,5 Std., bei Verbünden zusammengelegt) — orange wie die
+   übrigen Vorschau-Projektionen, bewusst dezent klein. */
+.seestation-table .eta-abt-vorschau {
+  color: #c77d1e;
+  font-size: 0.66rem;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
 /* Überfällig (Abteilung Seestation/Einsatzplanung-Ankunft/Anmeldung-Alarm):
    Text rot+fett — dieselbe Farbe/Konvention wie Einsatzplanung::zeit-ueberfaellig. */
 .seestation-table td.zeit-ueberfaellig {

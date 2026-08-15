@@ -79,12 +79,16 @@ export function MatrixTile({
   zeilen,
   breite,
   testId,
+  aktion,
 }: {
   label: string;
   spalten: string[];
   zeilen: MatrixZeile[];
   breite?: Kachelbreite;
   testId?: string;
+  /** kleines Bedienelement oben links in der Kopfzeile (z.B. der
+   *  Vorschau-Schalter der Seestations-Kachel) */
+  aktion?: import("react").ReactNode;
 }) {
   // Jede Zeile ist ein eigenes Raster mit identischen Spalten — nur so lässt
   // sich eine ganze Zeile umrahmen und die Spalten fluchten trotzdem. Die
@@ -98,7 +102,8 @@ export function MatrixTile({
   };
   return (
     <div className={rahmenKlasse(breite)} data-testid={testId}>
-      <div className="meldungs-tile__kopf">
+      <div className="meldungs-tile__kopf zahlen-tile__kopf-mit-aktion">
+        {aktion && <span className="zahlen-tile__kopf-aktion">{aktion}</span>}
         <span className="meldungs-tile__label">{label}</span>
       </div>
       <div className="zahlen-tile__matrix">

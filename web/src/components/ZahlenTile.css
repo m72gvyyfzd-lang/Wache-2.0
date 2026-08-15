@@ -11,6 +11,38 @@
   justify-content: center;
 }
 
+/* Kopfzeile mit Bedienelement oben links (Vorschau-Schalter der
+   Seestations-Kachel): der Titel bleibt trotzdem zentriert, der Schalter
+   sitzt absolut am linken Rand. */
+.zahlen-tile .zahlen-tile__kopf-mit-aktion {
+  position: relative;
+}
+
+.zahlen-tile__kopf-aktion {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.zahlen-tile__vorschau-btn {
+  padding: 2px 8px;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.zahlen-tile__vorschau-btn--aktiv {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 .zahlen-tile__body {
   flex: 1;
   min-height: 0;

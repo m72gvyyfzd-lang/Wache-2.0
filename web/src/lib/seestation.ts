@@ -40,6 +40,80 @@ export function planungsEta(schiff: Pick<SeeSchiff, "eta" | "e3st">): Date {
   return schiff.e3st ? new Date(schiff.eta.getTime() - E3ST_VORLAUF_MS) : schiff.eta;
 }
 
+/** E3/St-Verbund (nur Vorschau-Rechnung): Liegen die ETAs mehrerer
+ *  E3/St-Schiffe höchstens 3 Std. nach dem FRÜHESTEN Schiff der Gruppe,
+ *  teilen sie sich eine Lotsenboot-Tour. */
+export const E3ST_VERBUND_FENSTER_MS = 3 * 3_600_000;
+
+export interface VorschauAbtZeit {
+  /** wirksame Abt.Zeit der Vorschau-Rechnung (bei Verbund-Folgeschiffen
+   *  die Zeit des führenden Schiffs + 1 Min. je Position) */
+  abtZeit: Date;
+  /** Sortier-/Prioritätszeit: bei Verbund-Folgeschiffen die Zeit des
+   *  FÜHRENDEN Schiffs (ohne Minuten-Aufschlag) — der Verbund gewinnt
+   *  gemeinsam vor anderen Schiffen mit derselben Zeit, die +1 Minute
+   *  ordnet nur innerhalb des Verbunds. */
+  prioZeit: Date;
+  /** Anzahl Schiffe im Verbund — 1 = kein Verbund */
+  verbundGroesse: number;
+  /** Position im Verbund (0 = führendes Schiff) */
+  verbundIndex: number;
+}
+
+/** Wirksame Abt.Zeiten für die VORSCHAU-Zuteilung: E3/St-Schiffe im
+ *  3-Std.-Fenster (siehe E3ST_VERBUND_FENSTER_MS) bilden einen Verbund und
+ *  übernehmen gemeinsam die Abt.Zeit des führenden Schiffs — jedes weitere
+ *  reiht sich mit +1 Minute ein (dieselbe Bootstour, die Minute hält nur
+ *  die Reihenfolge eindeutig). Alle übrigen Schiffe behalten ihre
+ *  planungsEta. Ohne Vorschau wird diese Rechnung nirgends verwendet. */
+export function vorschauAbtZeiten(seeSchiffe: SeeSchiff[]): Map<number, VorschauAbtZeit> {
+  const ergebnis = new Map<number, VorschauAbtZeit>();
+  for (const s of seeSchiffe) {
+    const abt = planungsEta(s);
+    ergebnis.set(s.id, { abtZeit: abt, prioZeit: abt, verbundGroesse: 1, verbundIndex: 0 });
+  }
+  const e3st = seeSchiffe.filter((s) => s.e3st).sort((a, b) => a.eta.getTime() - b.eta.getTime());
+  let i = 0;
+  while (i < e3st.length) {
+    const erster = e3st[i];
+    let j = i + 1;
+    while (j < e3st.length && e3st[j].eta.getTime() - erster.eta.getTime() <= E3ST_VERBUND_FENSTER_MS) j++;
+    const verbund = e3st.slice(i, j);
+    if (verbund.length > 1) {
+      const basis = planungsEta(erster).getTime();
+      verbund.forEach((s, index) => {
+        ergebnis.set(s.id, {
+          abtZeit: new Date(basis + index * 60_000),
+          prioZeit: new Date(basis),
+          verbundGroesse: verbund.length,
+          verbundIndex: index,
+        });
+      });
+    }
+    i = j;
+  }
+  return ergebnis;
+}
+
+/** Vergleich zweier Schiffe nach den Vorschau-Zusatzregeln:
+ *  1. Prioritätszeit (Verbünde gemeinsam über die Zeit des führenden
+ *     Schiffs), 2. bei Gleichstand E3/St vor normalem Schiff, 3. innerhalb
+ *     eines Verbunds die +1-Minuten-Reihenfolge, 4. rohe ETA. */
+export function vergleicheVorschauAbt(
+  a: SeeSchiff,
+  b: SeeSchiff,
+  vorschauAbt: Map<number, VorschauAbtZeit>,
+): number {
+  const infoA = vorschauAbt.get(a.id);
+  const infoB = vorschauAbt.get(b.id);
+  const prioDiff = (infoA?.prioZeit ?? planungsEta(a)).getTime() - (infoB?.prioZeit ?? planungsEta(b)).getTime();
+  if (prioDiff !== 0) return prioDiff;
+  if (Boolean(a.e3st) !== Boolean(b.e3st)) return a.e3st ? -1 : 1;
+  const abtDiff = (infoA?.abtZeit ?? planungsEta(a)).getTime() - (infoB?.abtZeit ?? planungsEta(b)).getTime();
+  if (abtDiff !== 0) return abtDiff;
+  return a.eta.getTime() - b.eta.getTime();
+}
+
 /** Tender-AG: braucht min. 3 Std. Vorlauf, bis der Tender an der
  *  Einsatzstation abfahren kann — die Anfahrt zur Seestation (siehe
  *  ANFAHRT_SEESTATION_MS) kommt danach noch obendrauf.

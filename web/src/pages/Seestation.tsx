@@ -19,8 +19,10 @@ import {
   ANMELDUNG_VORWARNUNG_MS,
   planungsEta,
   sortiereSeestation,
+  vergleicheVorschauAbt,
   VORLAUF_AUF_STATION_MS,
   VORLAUF_WARNUNG_MS,
+  vorschauAbtZeiten,
   zeilenAusAbteilungen,
   zeilenAusSeestationLotsen,
   type SeestationZeile,
@@ -143,11 +145,27 @@ export function Seestation() {
   // schiffePriorisiert) — es soll keinem bestätigten Schiff einen Lotsen
   // wegnehmen.
   const schiffeSortiert = schiffePriorisiert(seeSchiffe, abgeteiltProSchiff, jetzt);
-  // ANZEIGE dagegen rein chronologisch: auch ein Alarm-Schiff bleibt an
-  // seiner zeitlichen Position (rot markiert), statt hinter Schiffen des
-  // Folgetags zu landen. Die Zuteilung wird je Schiff über die ID
+  // Vorschau-Zusatzregeln (NUR bei aktiviertem Schalter): E3/St-Schiffe im
+  // 3-Std.-Fenster bilden einen Verbund (eine Bootstour, Abt.Zeit des
+  // ersten + 1 Min. je Folgeschiff, siehe vorschauAbtZeiten) und gewinnen
+  // bei zeitgleicher Abt.Zeit vor normalen Schiffen — der Verbund gewinnt
+  // gemeinsam (Prioritätszeit = führendes Schiff).
+  const vorschauAbt = vorschau ? vorschauAbtZeiten(seeSchiffe) : undefined;
+  const vorschauAbtZeitVon = vorschauAbt
+    ? (schiff: SeeSchiff) => vorschauAbt.get(schiff.id)?.abtZeit ?? planungsEta(schiff)
+    : undefined;
+  const schiffeVorschauSortiert = vorschauAbt
+    ? schiffePriorisiert(seeSchiffe, abgeteiltProSchiff, jetzt, vorschauAbt)
+    : schiffeSortiert;
+  // ANZEIGE ohne Vorschau rein chronologisch: auch ein Alarm-Schiff bleibt
+  // an seiner zeitlichen Position (rot markiert), statt hinter Schiffen des
+  // Folgetags zu landen. Mit Vorschau sortiert die Liste temporär nach der
+  // BERECHNETEN Abt.Zeit (E3/St 1,5 Std. vor, Verbünde gemeinsam) — bei
+  // Gleichstand E3/St zuerst. Die Zuteilung wird je Schiff über die ID
   // nachgeschlagen, die Reihenfolgen dürfen sich also unterscheiden.
-  const schiffeAnzeige = [...schiffeSortiert].sort((a, b) => a.eta.getTime() - b.eta.getTime());
+  const schiffeAnzeige = [...schiffeSortiert].sort((a, b) =>
+    vorschauAbt ? vergleicheVorschauAbt(a, b, vorschauAbt) : a.eta.getTime() - b.eta.getTime(),
+  );
   // Lotsen: Versetzliste ("Lotsen im Revier") + manuell hinzugefügte,
   // einsortiert nach V-Nr. mit Zusatz-Reihenfolge (101 → 101 (A) → 102)
   const lotsenZeilen = sortiereSeestation([
@@ -168,12 +186,15 @@ export function Seestation() {
   const { verplante, freie } = vorschau
     ? vorschauZeilen(jobs, lotsen, aktuelleFahrt, abteilungen, settings, vNrStart, verbrauchteVNrn, jetzt)
     : { verplante: [], freie: [] };
+  // Die Vorschau-Zuteilung nutzt die Vorschau-Zusatzregeln: Verbund-
+  // Abt.Zeiten und E3/St-Vorrang (siehe schiffeVorschauSortiert oben).
   const vorschauZuteilung = vorschau
     ? planeSeestation(
-        schiffeSortiert,
+        schiffeVorschauSortiert,
         sortiereSeestation([...lotsenZeilen, ...verplante, ...freie]),
         abgeteiltProSchiff,
         VORLAUF_AUF_STATION_MS,
+        vorschauAbtZeitVon,
       )
     : undefined;
   const aktiveZuteilung = vorschauZuteilung ?? basisZuteilung;
@@ -551,6 +572,10 @@ export function Seestation() {
                       setEhQuickEdit({ zeile: lotse, left: e.currentTarget.getBoundingClientRect().left });
                     }
                   : undefined;
+              // Vorschau-Kennzeichnung: bei E3/St-Schiffen steht die
+              // berechnete Abt.Zeit (inkl. Verbund-Zusammenlegung) unter der
+              // ETA — nur solange die Vorschau aktiv ist.
+              const abtInfo = schiff && schiff.e3st ? vorschauAbt?.get(schiff.id) : undefined;
               return (
                 <tr key={i}>
                   {schiff ? (
@@ -564,6 +589,12 @@ export function Seestation() {
                         onDoubleClick={schiffDoppelklick}
                       >
                         {formatUhrzeit(schiff.eta)}
+                        {abtInfo && (
+                          <div className="eta-abt-vorschau">
+                            Abt. {formatUhrzeit(abtInfo.abtZeit)}
+                            {abtInfo.verbundGroesse > 1 && <div>(Verbund)</div>}
+                          </div>
+                        )}
                       </td>
                       <td
                         className={`${schiffKlasse} cell-name` + (schiffDefizit ? " zuteilung-defizit" : "")}

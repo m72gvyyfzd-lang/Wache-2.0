@@ -8,7 +8,7 @@ import { useData } from "../state/DataContext";
 import { AgPlanungTile } from "./AgPlanung";
 import { MeldungsTile } from "./Meldungen";
 import { MatrixTile, ZahlenTile } from "./ZahlenTile";
-import { planungsEta, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "../lib/seestation";
+import { planungsEta, vorschauAbtZeiten, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "../lib/seestation";
 import { seeLotsenAnzahl } from "../lib/seestationAbteilen";
 import { vorschauZeilen } from "../lib/vorschau";
 import { formatUhrzeit } from "../lib/format";
@@ -40,6 +40,7 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
     vNrStart,
     verbrauchteVNrn,
     vorschau,
+    setVorschau,
   } = useData();
 
   // Zeit-Tick: die Meldungen hängen an der Uhrzeit (gepl. Abruf etc.) und
@@ -158,9 +159,16 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
   }
   // "eta" hier ist bereits die Abt.Zeit (bei E3/St 1,5 Std. vor der rohen
   // ETA, siehe seestation.ts::planungsEta) — dieselbe Frist, mit der auch
-  // die Zuteilung und die AG-Planung rechnen.
+  // die Zuteilung und die AG-Planung rechnen. Bei aktivierter Vorschau
+  // fließt zusätzlich die Verbund-Zusammenlegung ein (E3/St-Schiffe im
+  // 3-Std.-Fenster teilen sich eine Bootstour, siehe vorschauAbtZeiten) —
+  // dieselbe Rechnung wie die Vorschau der Seestations-Seite.
+  const vorschauAbt = vorschau ? vorschauAbtZeiten(seeSchiffe) : undefined;
   const offeneSchiffe = seeSchiffe
-    .map((s) => ({ eta: planungsEta(s).getTime(), fehlt: seeLotsenAnzahl(s) - (abgeteiltProSchiff.get(s.id) ?? 0) }))
+    .map((s) => ({
+      eta: (vorschauAbt?.get(s.id)?.abtZeit ?? planungsEta(s)).getTime(),
+      fehlt: seeLotsenAnzahl(s) - (abgeteiltProSchiff.get(s.id) ?? 0),
+    }))
     .filter((s) => s.fehlt > 0);
   const etaZeile = grenzen.map((t) => offeneSchiffe.filter((s) => s.eta <= t).length);
   const bedarfZeile = grenzen.map((t) =>
@@ -227,6 +235,16 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
             label="Seestation"
             testId="kachel-seestation"
             breite="breit"
+            aktion={
+              <button
+                type="button"
+                className={"zahlen-tile__vorschau-btn" + (vorschau ? " zahlen-tile__vorschau-btn--aktiv" : "")}
+                onClick={() => setVorschau(!vorschau)}
+                title={vorschau ? "Vorschau ausschalten" : "Vorschau einschalten"}
+              >
+                Vorschau
+              </button>
+            }
             spalten={[...zeitpunkte.map((t) => formatUhrzeit(new Date(t))), "ges."]}
             zeilen={[
               { titel: "ETAs", werte: etaZeile, rahmen: true },

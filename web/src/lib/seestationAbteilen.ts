@@ -6,7 +6,13 @@
  */
 import { darfFahren, darfZweiterLotse, schiffsRang } from "@wache/core";
 import type { SeeSchiff } from "../data/types";
-import { ANMELDUNG_ESKALATION_MS, planungsEta, type SeestationZeile } from "./seestation";
+import {
+  ANMELDUNG_ESKALATION_MS,
+  planungsEta,
+  vergleicheVorschauAbt,
+  type SeestationZeile,
+  type VorschauAbtZeit,
+} from "./seestation";
 
 /** Anzahl benötigter Lotsen eines See-Schiffs: Standard 1, Doppeldecker 2. */
 export function seeLotsenAnzahl(schiff: SeeSchiff): number {
@@ -55,6 +61,10 @@ export function schiffePriorisiert(
   seeSchiffe: SeeSchiff[],
   abgeteiltProSchiff: Map<number, number>,
   jetzt: Date,
+  /** Vorschau-Zusatzregeln (siehe seestation.ts::vorschauAbtZeiten): mit
+   *  Map gelten Verbund-Zusammenlegung und E3/St-Vorrang bei Gleichstand —
+   *  ohne (Standard) bleibt es bei der reinen planungsEta-Reihenfolge. */
+  vorschauAbt?: Map<number, VorschauAbtZeit>,
 ): SeeSchiff[] {
   return [...seeSchiffe]
     .filter((s) => seeLotsenAnzahl(s) - (abgeteiltProSchiff.get(s.id) ?? 0) > 0)
@@ -62,6 +72,7 @@ export function schiffePriorisiert(
       const rangA = anmeldungUeberfaellig(a, jetzt) ? 1 : 0;
       const rangB = anmeldungUeberfaellig(b, jetzt) ? 1 : 0;
       if (rangA !== rangB) return rangA - rangB;
+      if (vorschauAbt) return vergleicheVorschauAbt(a, b, vorschauAbt);
       // Priorisierung nach Abt.Zeit (planungsEta), nicht der rohen ETA: ein
       // E3/St-Schiff braucht seinen Lotsen 1,5 Std. früher (siehe
       // planungsEta) und muss deshalb auch bei der Vergabe VOR Schiffen
@@ -112,6 +123,9 @@ export function planeSeestation(
   lotsenZeilen: SeestationZeile[],
   abgeteiltProSchiff: Map<number, number>,
   vorlaufMs: number,
+  /** Abt.Zeit-Funktion — Standard planungsEta; die Vorschau reicht hier
+   *  ihre Verbund-Rechnung durch (siehe seestation.ts::vorschauAbtZeiten). */
+  abtZeitVon: (schiff: SeeSchiff) => Date = planungsEta,
 ): Map<number, SeestationZuteilung> {
   interface OffenerPlatz {
     istErster: boolean;
@@ -133,8 +147,9 @@ export function planeSeestation(
   for (const schiff of schiffe) {
     // E3/St-Schiffe brauchen den Lotsen schon 1,5 Std. vor der ETA an Bord
     // des Lotsenboots — die Ankunftsfrist auf der Seestation richtet sich
-    // deshalb nach der Abt.Zeit (planungsEta), nicht nach der rohen ETA.
-    const ankunftsFrist = planungsEta(schiff).getTime() - vorlaufMs;
+    // deshalb nach der Abt.Zeit (planungsEta bzw. Vorschau-Verbund), nicht
+    // nach der rohen ETA.
+    const ankunftsFrist = abtZeitVon(schiff).getTime() - vorlaufMs;
     const nochOffen: OffenerPlatz[] = [];
     for (const platz of offeneProSchiff.get(schiff.id)!) {
       const index = pool.findIndex(
