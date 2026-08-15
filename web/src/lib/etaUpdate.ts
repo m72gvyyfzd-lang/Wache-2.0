@@ -53,7 +53,11 @@ const VERGLEICHSFELDER: EtaUpdateFeld[] = [
 ];
 
 function schluessel(name: string): string {
-  return name.replace(/\s+/g, " ").trim().toUpperCase();
+  // Ein angehängtes Versetzmittel-Kürzel ("HAVSTRAUM B"/"HAVSTRAUM T", von
+  // älteren Importen fälschlich in den Namen übernommen) zählt beim
+  // Abgleich nicht — so heilt ein erneutes Update solche Einträge, statt
+  // Duplikate anzulegen.
+  return name.replace(/\s+/g, " ").trim().toUpperCase().replace(/ [BT]$/, "");
 }
 
 function feldWert(schiff: Omit<SeeSchiff, "id">, feld: EtaUpdateFeld): string | number | boolean {
@@ -110,15 +114,21 @@ export function berechneEtaUpdate(
       continue;
     }
     const felder = VERGLEICHSFELDER.filter((f) => feldWert(neu, f) !== feldWert(alt, f));
-    if (felder.length === 0) {
+    // Namensabweichung trotz Match (z.B. gespeichertes "HAVSTRAUM B" gegen
+    // "HAVSTRAUM" aus dem PDF): der PDF-Name ist die Quelle — der Eintrag
+    // wird beim Übernehmen mit bereinigt.
+    const nameNeu = neu.schiffsname.replace(/\s+/g, " ").trim();
+    const nameWeichtAb = nameNeu !== alt.schiffsname.replace(/\s+/g, " ").trim();
+    if (felder.length === 0 && !nameWeichtAb) {
       zeilen.push({ typ: "unveraendert", neu, alt, felder: [] });
       continue;
     }
     zeilen.push({ typ: "geaendert", neu, alt, felder });
-    // schiffsname bleibt der bestehende (identisch bis auf Leerraum), die
-    // Vergleichsfelder kommen aus dem PDF, alles Übrige bleibt unangetastet.
+    // Die Vergleichsfelder (und ggf. der bereinigte Name) kommen aus dem
+    // PDF, alles Übrige bleibt unangetastet.
     ersetzungen.set(alt.id, {
       ...alt,
+      schiffsname: nameNeu,
       eta: neu.eta,
       kategorie: neu.kategorie,
       angemeldet: neu.angemeldet,

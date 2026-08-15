@@ -161,6 +161,11 @@ function parseBlock(block: Block, trenner: number): TenderEintrag {
         eintrag.zeit = text;
       } else if (text.toUpperCase() === "T") {
         eintrag.tender = true;
+      } else if (text.toUpperCase() === "B") {
+        // Versetzmittel "Boot" (Gegenstück zum Tender-"T") — für die Wache
+        // ohne Bedeutung. Wichtig ist nur, dass das freistehende "B" NICHT
+        // an den Schiffsnamen wandert: sonst matcht "HAVSTRAUM B" beim
+        // ETA-Update nicht mehr auf das bestehende Schiff "HAVSTRAUM".
       } else if (BEST_RE.test(text)) {
         anhaengen("best", text);
       } else if (VNR_RE.test(text)) {

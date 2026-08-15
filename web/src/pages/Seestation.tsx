@@ -178,8 +178,9 @@ export function Seestation() {
     ...zeilenAusSeestationLotsen(seestationLotsen),
   ]);
   // Basis-Zuteilung: echte Lotsen (auf Station oder unterwegs) — immer
-  // sichtbar, unabhängig von der Vorschau. Zweistufig (siehe planeSeestation):
-  // pünktliche Kandidaten zuerst, dann Rest mit Verspätungs-Kennzeichnung.
+  // sichtbar, unabhängig von der Vorschau. Warteschlangen-Prinzip (siehe
+  // planeSeestation): das früheste Schiff bekommt den frühesten geeigneten
+  // Lotsen, knapp Verspätete werden zugeteilt und nur markiert.
   const basisZuteilung = planeSeestation(schiffeSortiert, lotsenZeilen, abgeteiltProSchiff, VORLAUF_AUF_STATION_MS);
 
   // Vorschau: zuschaltbare Projektion, die zusätzlich die Lotsen der
