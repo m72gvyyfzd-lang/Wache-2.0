@@ -14,7 +14,7 @@ import type { AbteilzeitSettings } from "@wache/core";
 import type { JobEintrag, SeeSchiff } from "../data/types";
 import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "./coreJob";
 import type { MeldungsDaten, MeldungsStufe } from "./meldungen";
-import { ANFAHRT_SEESTATION_MS, TENDER_VORLAUF_MS, VORLAUF_AUF_STATION_MS, VORLAUF_WARNUNG_MS, sortiereSeestation, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "./seestation";
+import { ANFAHRT_SEESTATION_MS, TENDER_VORLAUF_MS, VORLAUF_AUF_STATION_MS, VORLAUF_WARNUNG_MS, planungsEta, sortiereSeestation, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "./seestation";
 import { planeSeestation, schiffePriorisiert } from "./seestationAbteilen";
 import { vorschauZeilen } from "./vorschau";
 
@@ -73,11 +73,13 @@ export interface SeestationDefizit {
 export function planeAgTraeger(
   kandidatenAufsteigend: { eintrag: JobEintrag; abteilzeit: Date }[],
   fehlt: number,
-  schiffEta: Date,
+  /** Abt.Zeit des Schiffs — bei E3/St bereits die um 1,5 Std. vorgezogene
+   *  Zeit (siehe seestation.ts::planungsEta), sonst die rohe ETA. */
+  schiffAbtZeit: Date,
 ): AgZuteilung[] {
   if (kandidatenAufsteigend.length === 0) return [];
   function zuteilung(traeger: { eintrag: JobEintrag; abteilzeit: Date }, anzahl: number): AgZuteilung {
-    const wartezeitMs = schiffEta.getTime() - (traeger.abteilzeit.getTime() + ANFAHRT_SEESTATION_MS);
+    const wartezeitMs = schiffAbtZeit.getTime() - (traeger.abteilzeit.getTime() + ANFAHRT_SEESTATION_MS);
     return { traeger, anzahl, wartezeitMs, ueberWarteziel: wartezeitMs > WARTE_MAX_AG_MS };
   }
   const beste = kandidatenAufsteigend[kandidatenAufsteigend.length - 1];
@@ -156,8 +158,11 @@ export function berechneSeestationsDefizite(
     // Für die PLANUNG einer AG-Fahrt wird der angestrebte Vorlauf von einer
     // Stunde angesetzt, nicht die 15-Min.-Untergrenze der Zuteilung: sonst
     // schlüge die App Fahrten vor, die sie im selben Atemzug als "Vorlauf
-    // knapp" bemängelt.
-    const ankunftsFrist = schiff.eta.getTime() - VORLAUF_WARNUNG_MS;
+    // knapp" bemängelt. Basis ist die Abt.Zeit (planungsEta) statt der
+    // rohen ETA — bei E3/St-Schiffen müssen die Lotsen 1,5 Std. früher
+    // bereitstehen, auch wenn das Schiff noch nicht angemeldet ist.
+    const schiffAbtZeit = planungsEta(schiff);
+    const ankunftsFrist = schiffAbtZeit.getTime() - VORLAUF_WARNUNG_MS;
 
     // Handlungsoptionen: späteste AG-Abteilzeit = Ankunftsfrist − Anfahrt;
     // Tender-AG muss bis Ankunftsfrist − (Vorlauf + Anfahrt) eingeplant
@@ -173,7 +178,7 @@ export function berechneSeestationsDefizite(
       continue;
     }
 
-    let zuteilungen = planeAgTraeger(kandidaten, fehlt, schiff.eta);
+    let zuteilungen = planeAgTraeger(kandidaten, fehlt, schiffAbtZeit);
     let tenderEmpfehlung: SeestationDefizit["tenderEmpfehlung"];
     // Kein Träger passt oder jeder Träger ließe die Lotsen länger als
     // 6 Std. warten: genau dafür ist die geplante Tender-AG da — Abfahrt
@@ -245,7 +250,7 @@ export function knappeVorlaeufe(daten: MeldungsDaten, jetzt: Date): KnapperVorla
     for (const slot of zuteilung.get(schiff.id)?.zugewiesen ?? []) {
       // Wer schon auf der Station steht, hat keinen Vorlauf-Nachteil.
       if (slot.zeile.aufStation || slot.zeile.etaStn === undefined) continue;
-      const vorlauf = schiff.eta.getTime() - slot.zeile.etaStn.getTime();
+      const vorlauf = planungsEta(schiff).getTime() - slot.zeile.etaStn.getTime();
       if (vorlauf >= VORLAUF_WARNUNG_MS) continue;
       knapp.push({
         schiff,

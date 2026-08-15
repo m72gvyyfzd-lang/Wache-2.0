@@ -1,5 +1,5 @@
 /** Berechnungen rund um die Seestation. */
-import type { Abteilung, SeestationLotse } from "../data/types";
+import type { Abteilung, SeeSchiff, SeestationLotse } from "../data/types";
 import { etaSeestationMatrix } from "./coreJob";
 
 /** Pauschale Anfahrtszeit von der Abteilung bis zur Seestation — Fallback,
@@ -21,6 +21,24 @@ export const VORLAUF_WARNUNG_MS = 3_600_000;
  *  15 Min. NACH dem ETA gilt sie als überfällig (Alarm). */
 export const ANMELDUNG_VORWARNUNG_MS = 30 * 60_000;
 export const ANMELDUNG_ESKALATION_MS = 15 * 60_000;
+
+/** E3/St-Schiffe: die eingetragene ETA ist die Zeit, zu der der Lotse an
+ *  Bord sein soll — nicht die Ankunft an der Seestation. Das Lotsenboot
+ *  braucht 1,5 Std., um den Lotsen von der Seestation zum Schiff zu
+ *  bringen; diese Abfahrtszeit (ETA − 1,5 Std.) ist die eigentliche
+ *  Abt.Zeit, an der sich die gesamte Planung ausrichten muss — unabhängig
+ *  vom Anmeldestatus (siehe planungsEta). */
+export const E3ST_VORLAUF_MS = 1.5 * 3_600_000;
+
+/** Der Zeitpunkt, an dem ein Schiff tatsächlich einen Lotsen auf der
+ *  Seestation braucht: bei E3/St-Schiffen die Abt.Zeit (ETA − 1,5 Std.,
+ *  siehe E3ST_VORLAUF_MS), sonst die ETA selbst. Einzige Stelle für diese
+ *  Umrechnung — jede Fristen-/Vorlauf-Berechnung der Seestation nutzt
+ *  diesen Wert statt schiff.eta direkt, die ETA-Liste zeigt weiterhin die
+ *  unveränderte, eingetragene ETA an. */
+export function planungsEta(schiff: Pick<SeeSchiff, "eta" | "e3st">): Date {
+  return schiff.e3st ? new Date(schiff.eta.getTime() - E3ST_VORLAUF_MS) : schiff.eta;
+}
 
 /** Tender-AG: braucht min. 3 Std. Vorlauf, bis der Tender an der
  *  Einsatzstation abfahren kann — die Anfahrt zur Seestation (siehe

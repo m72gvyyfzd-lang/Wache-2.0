@@ -17,7 +17,7 @@
 import type { AbteilzeitSettings } from "@wache/core";
 import { formatUhrzeit } from "./format";
 import type { MeldungsDaten, MeldungsStufe } from "./meldungen";
-import { ANFAHRT_SEESTATION_MS, TENDER_VORLAUF_MS } from "./seestation";
+import { ANFAHRT_SEESTATION_MS, TENDER_VORLAUF_MS, planungsEta } from "./seestation";
 import { MIN_TENDER_LOTSEN, berechneSeestationsDefizite, traegerLabel } from "./seestationBedarf";
 import type { SeestationDefizit } from "./seestationBedarf";
 
@@ -72,7 +72,7 @@ export function berechneAgPlanung(daten: MeldungsDaten, jetzt: Date, settings: A
     for (const z of d.zuteilungen) {
       const key = `traeger-${z.traeger.eintrag.id}`;
       const empfehlung = `${traegerLabel(z.traeger)} (Abt. ${formatUhrzeit(z.traeger.abteilzeit)})`;
-      eintragen(key, empfehlung, z.anzahl, d.stufe, d.schiff.schiffsname, d.schiff.eta, z.ueberWarteziel);
+      eintragen(key, empfehlung, z.anzahl, d.stufe, d.schiff.schiffsname, planungsEta(d.schiff), z.ueberWarteziel);
     }
   }
 
@@ -90,7 +90,7 @@ export function berechneAgPlanung(daten: MeldungsDaten, jetzt: Date, settings: A
     .filter((d): d is SeestationDefizit & { tenderEmpfehlung: NonNullable<SeestationDefizit["tenderEmpfehlung"]> } =>
       Boolean(d.tenderEmpfehlung),
     )
-    .sort((a, b) => a.schiff.eta.getTime() - b.schiff.eta.getTime());
+    .sort((a, b) => planungsEta(a.schiff).getTime() - planungsEta(b.schiff).getTime());
   const fahrten: { abfahrt: Date; anzahl: number; mitglieder: typeof tenderBedarf }[] = [];
   for (const d of tenderBedarf) {
     const letzte = fahrten[fahrten.length - 1];
@@ -108,7 +108,7 @@ export function berechneAgPlanung(daten: MeldungsDaten, jetzt: Date, settings: A
     const planenBis = new Date(fahrt.abfahrt.getTime() - TENDER_VORLAUF_MS);
     const empfehlung = `Tender (planen bis ${formatUhrzeit(planenBis)}, Abfahrt/Abt. ${formatUhrzeit(fahrt.abfahrt)})`;
     for (const d of fahrt.mitglieder) {
-      eintragen(`tenderfahrt-${i}`, empfehlung, d.fehlt, d.stufe, d.schiff.schiffsname, d.schiff.eta, false);
+      eintragen(`tenderfahrt-${i}`, empfehlung, d.fehlt, d.stufe, d.schiff.schiffsname, planungsEta(d.schiff), false);
     }
   });
 

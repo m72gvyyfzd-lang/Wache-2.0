@@ -23,7 +23,7 @@ import { abteilzeitVon, benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel 
 import { formatUhrzeit } from "./format";
 import { istListenvergabeJob, VERGABE_GRUPPE } from "./listenvergabe";
 import { geplanterAbruf, planeEinsatzstation, planeEinsatzstationMitVergaben } from "./planungEinsatzstation";
-import { ANMELDUNG_ESKALATION_MS, ANMELDUNG_VORWARNUNG_MS, etaSeestation } from "./seestation";
+import { ANMELDUNG_ESKALATION_MS, ANMELDUNG_VORWARNUNG_MS, etaSeestation, planungsEta } from "./seestation";
 import { seeLotsenAnzahl } from "./seestationAbteilen";
 import { berechneSeestationsDefizite, knappeVorlaeufe } from "./seestationBedarf";
 
@@ -223,13 +223,17 @@ function seestationSchiffMeldungen(daten: MeldungsDaten, jetzt: Date): Meldung[]
     const verbleibend = seeLotsenAnzahl(schiff) - (abgeteiltProSchiff.get(schiff.id) ?? 0);
     if (verbleibend <= 0) continue;
 
-    if (schiff.eta.getTime() <= jetzt.getTime()) {
+    // Abt.Zeit statt roher ETA: bei E3/St-Schiffen ist die Fahrt zum Schiff
+    // (1,5 Std.) bereits einkalkuliert (siehe seestation.ts::planungsEta) —
+    // sonst schlüge die Meldung 1,5 Std. zu spät an.
+    const abtZeit = planungsEta(schiff);
+    if (abtZeit.getTime() <= jetzt.getTime()) {
       meldungen.push({
         id: `seestation-abteilung-alarm-${schiff.id}`,
         stufe: "alarm",
         art: "Abteilung Seestation überfällig",
-        zeit: schiff.eta,
-        text: `Abteilung Seestation überfällig: ${schiff.schiffsname} sollte bereits um ${formatUhrzeit(schiff.eta)} Lotsen erhalten haben`,
+        zeit: abtZeit,
+        text: `Abteilung Seestation überfällig: ${schiff.schiffsname} sollte bereits um ${formatUhrzeit(abtZeit)} Lotsen erhalten haben${schiff.e3st ? " (E3/St, Abt.Zeit)" : ""}`,
       });
     }
 
@@ -295,12 +299,13 @@ function seestationsMeldungen(daten: MeldungsDaten, jetzt: Date, settings: Abtei
 
   for (const d of defizite) {
     if (d.stufe !== "alarm") continue;
-    const fehltText = `um ${formatUhrzeit(d.schiff.eta)} fehl${d.fehlt === 1 ? "t" : "en"} ${d.fehlt} Lotse${d.fehlt === 1 ? "" : "n"} für ${d.schiff.schiffsname}`;
+    const abtZeit = planungsEta(d.schiff);
+    const fehltText = `um ${formatUhrzeit(abtZeit)} fehl${d.fehlt === 1 ? "t" : "en"} ${d.fehlt} Lotse${d.fehlt === 1 ? "" : "n"} für ${d.schiff.schiffsname}${d.schiff.e3st ? " (E3/St, Abt.Zeit)" : ""}`;
     meldungen.push({
       id: `seestation-defizit-${d.schiff.id}`,
       stufe: "alarm",
       art: "Seestation: Lotse fehlt",
-      zeit: d.schiff.eta,
+      zeit: abtZeit,
       text: `Seestation: ${fehltText} — kein Trägerjob und Tender-AG nicht mehr rechtzeitig (3 Std. Vorlauf + 3,5 Std. Anfahrt)`,
     });
   }

@@ -8,7 +8,7 @@ import { useData } from "../state/DataContext";
 import { AgPlanungTile } from "./AgPlanung";
 import { MeldungsTile } from "./Meldungen";
 import { MatrixTile, ZahlenTile } from "./ZahlenTile";
-import { zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "../lib/seestation";
+import { planungsEta, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "../lib/seestation";
 import { seeLotsenAnzahl } from "../lib/seestationAbteilen";
 import { vorschauZeilen } from "../lib/vorschau";
 import { formatUhrzeit } from "../lib/format";
@@ -156,8 +156,11 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
   for (const sa of seeAbteilungen) {
     abgeteiltProSchiff.set(sa.seeSchiffId, (abgeteiltProSchiff.get(sa.seeSchiffId) ?? 0) + 1);
   }
+  // "eta" hier ist bereits die Abt.Zeit (bei E3/St 1,5 Std. vor der rohen
+  // ETA, siehe seestation.ts::planungsEta) — dieselbe Frist, mit der auch
+  // die Zuteilung und die AG-Planung rechnen.
   const offeneSchiffe = seeSchiffe
-    .map((s) => ({ eta: s.eta.getTime(), fehlt: seeLotsenAnzahl(s) - (abgeteiltProSchiff.get(s.id) ?? 0) }))
+    .map((s) => ({ eta: planungsEta(s).getTime(), fehlt: seeLotsenAnzahl(s) - (abgeteiltProSchiff.get(s.id) ?? 0) }))
     .filter((s) => s.fehlt > 0);
   const etaZeile = grenzen.map((t) => offeneSchiffe.filter((s) => s.eta <= t).length);
   const bedarfZeile = grenzen.map((t) =>

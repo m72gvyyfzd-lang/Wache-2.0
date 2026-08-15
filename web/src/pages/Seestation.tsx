@@ -17,6 +17,7 @@ import { formatUhrzeit } from "../lib/format";
 import {
   ANMELDUNG_ESKALATION_MS,
   ANMELDUNG_VORWARNUNG_MS,
+  planungsEta,
   sortiereSeestation,
   VORLAUF_AUF_STATION_MS,
   VORLAUF_WARNUNG_MS,
@@ -460,10 +461,14 @@ export function Seestation() {
                 "seestation-table__seite" +
                 (schiff && schiffAuswahl === schiff.id ? " ist-ausgewaehlt" : "") +
                 (schiff?.angemeldet ? " fett" : "");
-              // Abteilung Seestation überfällig: ETA verstrichen, noch nicht
-              // vollständig abgeteilt — unabhängig von der Anmeldung.
+              // Abteilung Seestation überfällig: Abt.Zeit verstrichen, noch
+              // nicht vollständig abgeteilt — unabhängig von der Anmeldung.
+              // Bei E3/St zählt die um 1,5 Std. vorgezogene Abt.Zeit (siehe
+              // planungsEta), nicht die rohe ETA.
               const schiffAbteilungUeberfaellig =
-                schiff !== undefined && jetzt.getTime() >= schiff.eta.getTime() && verbleibendeLotsen(schiff) > 0;
+                schiff !== undefined &&
+                jetzt.getTime() >= planungsEta(schiff).getTime() &&
+                verbleibendeLotsen(schiff) > 0;
               // Anmeldung überfällig (Alarm) bzw. bald fällig (Warnung) —
               // dieselben Schwellen wie die Dashboard-Meldung (lib/meldungen.ts).
               const schiffAnmeldungRest = schiff ? schiff.eta.getTime() - jetzt.getTime() : Number.POSITIVE_INFINITY;

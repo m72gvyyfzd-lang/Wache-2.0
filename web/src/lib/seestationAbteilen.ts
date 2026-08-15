@@ -6,7 +6,7 @@
  */
 import { darfFahren, darfZweiterLotse, schiffsRang } from "@wache/core";
 import type { SeeSchiff } from "../data/types";
-import { ANMELDUNG_ESKALATION_MS, type SeestationZeile } from "./seestation";
+import { ANMELDUNG_ESKALATION_MS, planungsEta, type SeestationZeile } from "./seestation";
 
 /** Anzahl benötigter Lotsen eines See-Schiffs: Standard 1, Doppeldecker 2. */
 export function seeLotsenAnzahl(schiff: SeeSchiff): number {
@@ -126,7 +126,10 @@ export function planeSeestation(
 
   // 1. Durchgang: nur pünktliche Kandidaten, unpassende bleiben im Pool.
   for (const schiff of schiffe) {
-    const ankunftsFrist = schiff.eta.getTime() - vorlaufMs;
+    // E3/St-Schiffe brauchen den Lotsen schon 1,5 Std. vor der ETA an Bord
+    // des Lotsenboots — die Ankunftsfrist auf der Seestation richtet sich
+    // deshalb nach der Abt.Zeit (planungsEta), nicht nach der rohen ETA.
+    const ankunftsFrist = planungsEta(schiff).getTime() - vorlaufMs;
     const nochOffen: OffenerPlatz[] = [];
     for (const platz of offeneProSchiff.get(schiff.id)!) {
       const index = pool.findIndex(
