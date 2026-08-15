@@ -223,17 +223,20 @@ function seestationSchiffMeldungen(daten: MeldungsDaten, jetzt: Date): Meldung[]
     const verbleibend = seeLotsenAnzahl(schiff) - (abgeteiltProSchiff.get(schiff.id) ?? 0);
     if (verbleibend <= 0) continue;
 
-    // Abt.Zeit statt roher ETA: bei E3/St-Schiffen ist die Fahrt zum Schiff
-    // (1,5 Std.) bereits einkalkuliert (siehe seestation.ts::planungsEta) —
-    // sonst schlüge die Meldung 1,5 Std. zu spät an.
+    // Abt.Zeit statt roher ETA: bei nicht angemeldeten E3/St-Schiffen ist
+    // die Fahrt zum Schiff (1,5 Std.) bereits einkalkuliert (siehe
+    // seestation.ts::planungsEta) — sonst schlüge die Meldung 1,5 Std. zu
+    // spät an. Nach der Anmeldung ist die eingetragene Zeit selbst die
+    // Abt.Zeit, der Zusatz im Text entfällt dann.
     const abtZeit = planungsEta(schiff);
+    const e3stZusatz = abtZeit.getTime() !== schiff.eta.getTime() ? " (E3/St, Abt.Zeit)" : "";
     if (abtZeit.getTime() <= jetzt.getTime()) {
       meldungen.push({
         id: `seestation-abteilung-alarm-${schiff.id}`,
         stufe: "alarm",
         art: "Abteilung Seestation überfällig",
         zeit: abtZeit,
-        text: `Abteilung Seestation überfällig: ${schiff.schiffsname} sollte bereits um ${formatUhrzeit(abtZeit)} Lotsen erhalten haben${schiff.e3st ? " (E3/St, Abt.Zeit)" : ""}`,
+        text: `Abteilung Seestation überfällig: ${schiff.schiffsname} sollte bereits um ${formatUhrzeit(abtZeit)} Lotsen erhalten haben${e3stZusatz}`,
       });
     }
 
@@ -300,7 +303,8 @@ function seestationsMeldungen(daten: MeldungsDaten, jetzt: Date, settings: Abtei
   for (const d of defizite) {
     if (d.stufe !== "alarm") continue;
     const abtZeit = planungsEta(d.schiff);
-    const fehltText = `um ${formatUhrzeit(abtZeit)} fehl${d.fehlt === 1 ? "t" : "en"} ${d.fehlt} Lotse${d.fehlt === 1 ? "" : "n"} für ${d.schiff.schiffsname}${d.schiff.e3st ? " (E3/St, Abt.Zeit)" : ""}`;
+    const e3stZusatz = abtZeit.getTime() !== d.schiff.eta.getTime() ? " (E3/St, Abt.Zeit)" : "";
+    const fehltText = `um ${formatUhrzeit(abtZeit)} fehl${d.fehlt === 1 ? "t" : "en"} ${d.fehlt} Lotse${d.fehlt === 1 ? "" : "n"} für ${d.schiff.schiffsname}${e3stZusatz}`;
     meldungen.push({
       id: `seestation-defizit-${d.schiff.id}`,
       stufe: "alarm",

@@ -31,13 +31,16 @@ export const ANMELDUNG_ESKALATION_MS = 15 * 60_000;
 export const E3ST_VORLAUF_MS = 1.5 * 3_600_000;
 
 /** Der Zeitpunkt, an dem ein Schiff tatsächlich einen Lotsen auf der
- *  Seestation braucht: bei E3/St-Schiffen die Abt.Zeit (ETA − 1,5 Std.,
- *  siehe E3ST_VORLAUF_MS), sonst die ETA selbst. Einzige Stelle für diese
- *  Umrechnung — jede Fristen-/Vorlauf-Berechnung der Seestation nutzt
- *  diesen Wert statt schiff.eta direkt, die ETA-Liste zeigt weiterhin die
- *  unveränderte, eingetragene ETA an. */
-export function planungsEta(schiff: Pick<SeeSchiff, "eta" | "e3st">): Date {
-  return schiff.e3st ? new Date(schiff.eta.getTime() - E3ST_VORLAUF_MS) : schiff.eta;
+ *  Seestation braucht: bei NICHT angemeldeten E3/St-Schiffen die Abt.Zeit
+ *  (ETA − 1,5 Std., siehe E3ST_VORLAUF_MS), sonst die ETA selbst. Mit der
+ *  Anmeldung wird die Abfahrtszeit des Lotsenboots zur neuen, eingetragenen
+ *  Zeit — die 1,5 Std. stecken dann bereits im Wert, ein weiterer Abzug
+ *  würde doppelt rechnen. Einzige Stelle für diese Umrechnung — jede
+ *  Fristen-/Vorlauf-Berechnung der Seestation nutzt diesen Wert statt
+ *  schiff.eta direkt, die ETA-Liste zeigt weiterhin die unveränderte,
+ *  eingetragene Zeit an. */
+export function planungsEta(schiff: Pick<SeeSchiff, "eta" | "e3st" | "angemeldet">): Date {
+  return schiff.e3st && !schiff.angemeldet ? new Date(schiff.eta.getTime() - E3ST_VORLAUF_MS) : schiff.eta;
 }
 
 /** E3/St-Verbund (nur Vorschau-Rechnung): Liegen die ETAs mehrerer
@@ -72,12 +75,19 @@ export function vorschauAbtZeiten(seeSchiffe: SeeSchiff[]): Map<number, Vorschau
     const abt = planungsEta(s);
     ergebnis.set(s.id, { abtZeit: abt, prioZeit: abt, verbundGroesse: 1, verbundIndex: 0 });
   }
-  const e3st = seeSchiffe.filter((s) => s.e3st).sort((a, b) => a.eta.getTime() - b.eta.getTime());
+  // Gruppiert wird über die WIRKSAME Abt.Zeit (planungsEta): bei einem
+  // angemeldeten E3/St-Schiff ist das die eingetragene Zeit, bei einem
+  // nicht angemeldeten die um 1,5 Std. vorgezogene — so landen beide
+  // Zustände vergleichbar auf der Bootstour-Achse.
+  const e3st = seeSchiffe
+    .filter((s) => s.e3st)
+    .sort((a, b) => planungsEta(a).getTime() - planungsEta(b).getTime());
   let i = 0;
   while (i < e3st.length) {
     const erster = e3st[i];
     let j = i + 1;
-    while (j < e3st.length && e3st[j].eta.getTime() - erster.eta.getTime() <= E3ST_VERBUND_FENSTER_MS) j++;
+    while (j < e3st.length && planungsEta(e3st[j]).getTime() - planungsEta(erster).getTime() <= E3ST_VERBUND_FENSTER_MS)
+      j++;
     const verbund = e3st.slice(i, j);
     if (verbund.length > 1) {
       const basis = planungsEta(erster).getTime();

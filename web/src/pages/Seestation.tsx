@@ -572,10 +572,18 @@ export function Seestation() {
                       setEhQuickEdit({ zeile: lotse, left: e.currentTarget.getBoundingClientRect().left });
                     }
                   : undefined;
-              // Vorschau-Kennzeichnung: bei E3/St-Schiffen steht die
-              // berechnete Abt.Zeit (inkl. Verbund-Zusammenlegung) unter der
-              // ETA — nur solange die Vorschau aktiv ist.
-              const abtInfo = schiff && schiff.e3st ? vorschauAbt?.get(schiff.id) : undefined;
+              // Vorschau-Kennzeichnung: die berechnete Abt.Zeit (inkl.
+              // Verbund-Zusammenlegung) steht unter der ETA — nur solange
+              // die Vorschau aktiv ist und die Zeit tatsächlich abweicht
+              // (bei angemeldeten E3/St-Schiffen ist die eingetragene Zeit
+              // bereits die Abt.Zeit, dann entfällt der Hinweis).
+              const abtInfoRoh = schiff ? vorschauAbt?.get(schiff.id) : undefined;
+              const abtInfo =
+                abtInfoRoh &&
+                schiff &&
+                (abtInfoRoh.abtZeit.getTime() !== schiff.eta.getTime() || abtInfoRoh.verbundGroesse > 1)
+                  ? abtInfoRoh
+                  : undefined;
               return (
                 <tr key={i}>
                   {schiff ? (
