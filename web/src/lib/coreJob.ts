@@ -159,7 +159,17 @@ export interface EintragMitAbteilzeit {
 }
 
 /** Einheitliche Warteschlange: alle Einträge nach Abteilzeit aufsteigend,
- *  Einträge ohne berechenbare Abteilzeit ans Ende. */
+ *  Einträge ohne berechenbare Abteilzeit ans Ende.
+ *
+ *  Ein AG-Job muss zwingend NACH seinem Trägerschiff stehen — die
+ *  Sekunden-Reserve aus agAbteilzeitVon() erreicht das normalerweise durch
+ *  eine (in der Minuten-Anzeige unsichtbare) minimal spätere Abteilzeit.
+ *  Diese Reserve geht aber verloren, sobald der Wert über ein nur
+ *  minutengenaues Formularfeld läuft (z.B. beim erneuten Speichern der
+ *  Trägerschiff-Auswahl im AG-Formular) — dann sind beide Zeiten exakt
+ *  gleich, und ohne expliziten Tie-Break entschiede die zufällige
+ *  Array-Reihenfolge der Jobs. Der Vergleich erzwingt die Reihenfolge
+ *  deshalb zusätzlich explizit über die AG-Verknüpfung. */
 export function sortiereEintraege(eintraege: JobEintrag[], settings: AbteilzeitSettings): EintragMitAbteilzeit[] {
   return eintraege
     .map((eintrag) => ({ eintrag, abteilzeit: abteilzeitVon(eintrag, settings) }))
@@ -167,6 +177,8 @@ export function sortiereEintraege(eintraege: JobEintrag[], settings: AbteilzeitS
       if (!a.abteilzeit && !b.abteilzeit) return 0;
       if (!a.abteilzeit) return 1;
       if (!b.abteilzeit) return -1;
+      if (a.eintrag.agJobId === b.eintrag.id && a.abteilzeit.getTime() <= b.abteilzeit.getTime()) return 1;
+      if (b.eintrag.agJobId === a.eintrag.id && b.abteilzeit.getTime() <= a.abteilzeit.getTime()) return -1;
       return a.abteilzeit.getTime() - b.abteilzeit.getTime();
     });
 }
