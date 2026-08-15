@@ -29,7 +29,7 @@ export interface TenderEintrag {
   zeit: string;
   schiff: string;
   kat: string;
-  /** Bestimmung: H (Hamburg), K (Kanal/NOK), EH (Elbehafen) */
+  /** Bestimmung: H (Hamburg), K (Kanal/NOK), EH (Elbehafen), BÜTZ, STADE … */
   best: string;
   /** "T"-Markierung (Tender) vorhanden */
   tender: boolean;
@@ -54,10 +54,25 @@ const BLOCK_ABSTAND = 14;
 
 const DATUM_RE = /^\d{1,2}\.\d{1,2}\.$/;
 const ZEIT_RE = /^\d{1,2}:\d{2}$/;
+/** Einzeilige Einträge setzen Datum und Uhrzeit GEMEINSAM in eine Zelle
+ *  ("15.08. 21:00"): nur bei dreizeiligen Blöcken (umbrechender Schiffs-/
+ *  Lotsenname oder Versetzmittel-Kürzel) stehen Datum und Zeit getrennt
+ *  übereinander. Ohne dieses Muster fiele jeder einzeilige Eintrag durch
+ *  die Datums-Erkennung und landete fälschlich in den Kopfdaten.
+ *
+ *  Es zählt aber NUR als erste Zelle einer Zeile: in der Tendertafel ist
+ *  Datum/Zeit immer die linke Randspalte. Andere Tafeln (z.B. Tafel Brb)
+ *  führen dasselbe Muster in einer rechten Spalte — eine falsch
+ *  hochgeladene Datei würde sonst als gültige Tendertafel durchgehen. */
+const DATUM_ZEIT_RE = /^(\d{1,2}\.\d{1,2}\.)\s+(\d{1,2}:\d{2})$/;
 /** V-Nrn sind zwei- bis dreistellig (mit optionalem Zusatz A–D). Einstellige
  *  Zahlen bleiben bewusst außen vor — das sind die Kategorien. */
 const VNR_RE = /^\d{2,3}\s*[A-D]?$/i;
-const BEST_RE = /^(H|K|EH)$/i;
+/** Neben H (Hamburg), K (Kanal/NOK) und EH (Elbehafen) schreibt die Tafel
+ *  auch ausgeschriebene Kurzziele in die Bestimmungs-Spalte ("BÜTZ" =
+ *  Bützfleth, "STADE") — ohne Erkennung würden sie dem Schiffsnamen
+ *  zugeschlagen ("CORELLI BÜTZ"). */
+const BEST_RE = /^(H|K|EH|BÜTZ|STADE)$/i;
 /** Kategorie: einstellige Zahl oder AGF-Form ("AGF 3/7", "Agf3+"). */
 const KAT_RE = /^(\d|agf\s*\d(\s*\/\s*\d)?\+?)$/i;
 
@@ -155,7 +170,11 @@ function parseBlock(block: Block, trenner: number): TenderEintrag {
         if (zelle.fett) eintrag.lotseFett = true;
         continue;
       }
-      if (DATUM_RE.test(text)) {
+      const datumZeit = zelle === zeile.zellen[0] ? DATUM_ZEIT_RE.exec(text) : null;
+      if (datumZeit) {
+        eintrag.datum = datumZeit[1];
+        eintrag.zeit = datumZeit[2];
+      } else if (DATUM_RE.test(text)) {
         eintrag.datum = text;
       } else if (ZEIT_RE.test(text)) {
         eintrag.zeit = text;
@@ -191,7 +210,11 @@ export function parseSeestationPdf(seiten: PdfSeite[]): SeestationPdfErgebnis {
   const trenner = kalibriereTrenner(inhaltProSeite.flat());
 
   const hatDatum = (block: Block) =>
-    block.zeilen.some((zeile) => zeile.zellen.some((zelle) => DATUM_RE.test(zelle.text) && zelle.x < trenner));
+    block.zeilen.some(
+      (zeile) =>
+        zeile.zellen.some((zelle) => DATUM_RE.test(zelle.text) && zelle.x < trenner) ||
+        (zeile.zellen.length > 0 && DATUM_ZEIT_RE.test(zeile.zellen[0].text) && zeile.zellen[0].x < trenner),
+    );
 
   // Blöcke aller Seiten in EINER Liste: ein Schiffseintrag beginnt immer mit
   // seiner Datumszeile, deshalb gehört ein Block ohne Datum am Seitenanfang
