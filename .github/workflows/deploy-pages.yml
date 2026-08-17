@@ -1,3 +1,9 @@
+# Hinweis: "on.push.paths" greift nur, wenn der Push selbst Dateien in
+# einem der gelisteten Pfade ändert — ein leerer Commit (git commit
+# --allow-empty) hat keinen Diff und löst den Workflow deshalb NIE aus,
+# unabhängig von etwaigen GitHub-Störungen. Zum manuellen Neuanstoßen
+# eines hängengebliebenen Deploys braucht es also eine echte Änderung
+# in einem der u.g. Pfade (z.B. eine Kommentarzeile hier).
 name: Deploy web/ to GitHub Pages
 
 on:
