@@ -14,7 +14,7 @@
  */
 import { darfFahren, darfJobTyp, istListenvergabeTyp, schiffsRang, type AbteilzeitSettings } from "@wache/core";
 import type { AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
-import { benoetigteLotsenAnzahl, istBunkernPausiert, sortiereEintraege, type EintragMitAbteilzeit } from "./coreJob";
+import { benoetigteLotsenAnzahl, istBunkernPausiert, istCuxVergabe, sortiereEintraege, type EintragMitAbteilzeit } from "./coreJob";
 import { istListenvergabeJob, planeListenvergabe, toernStand, type VergabePlanung } from "./listenvergabe";
 import { sortiereUndNummeriere } from "./lotsenOrdnung";
 
@@ -72,6 +72,12 @@ export function planeEinsatzstationMitVergaben(
   // Phase 1: Listenvergaben
   for (const { eintrag: job } of jobsSortiert) {
     if (!istListenvergabeJob(job)) continue;
+    // Cux-Vergaben werden von Cuxhaven-Seite bedient: keine Zählgruppe,
+    // kein Gewinner, kein Lotsen-Verbrauch — als wäre der Job nicht da.
+    if (istCuxVergabe(job)) {
+      zuweisungen.set(job.id, []);
+      continue;
+    }
     const benoetigt = benoetigteLotsenAnzahl(job) - (abgeteiltProJob?.get(job.id) ?? 0);
     if (benoetigt <= 0) {
       zuweisungen.set(job.id, []);

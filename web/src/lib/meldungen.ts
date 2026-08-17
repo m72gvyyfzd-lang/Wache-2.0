@@ -19,7 +19,7 @@ import type {
   SeeSchiff,
   SeestationLotse,
 } from "../data/types";
-import { abteilzeitVon, benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "./coreJob";
+import { abteilzeitVon, benoetigteLotsenAnzahl, istCuxVergabe, sortiereEintraege, vonTypeLabel } from "./coreJob";
 import { formatUhrzeit } from "./format";
 import { istListenvergabeJob, VERGABE_GRUPPE } from "./listenvergabe";
 import { geplanterAbruf, planeEinsatzstation, planeEinsatzstationMitVergaben } from "./planungEinsatzstation";
@@ -86,8 +86,11 @@ function abrufMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitS
   const meldungen: Meldung[] = [];
   const abgeteiltProJob = new Map<number, number>();
   for (const a of daten.abteilungen) abgeteiltProJob.set(a.jobId, (abgeteiltProJob.get(a.jobId) ?? 0) + 1);
+  // Cux-Vergaben werden von Cuxhaven-Seite bedient und erzeugen keinerlei
+  // Meldungen (siehe coreJob.ts::istCuxVergabe).
   const jobsSortiert = sortiereEintraege(daten.jobs, settings).filter(
-    ({ eintrag }) => benoetigteLotsenAnzahl(eintrag) - (abgeteiltProJob.get(eintrag.id) ?? 0) > 0,
+    ({ eintrag }) =>
+      !istCuxVergabe(eintrag) && benoetigteLotsenAnzahl(eintrag) - (abgeteiltProJob.get(eintrag.id) ?? 0) > 0,
   );
   const zuweisungen = planeEinsatzstation(daten.jobs, daten.lotsen, daten.aktuelleFahrt, settings, abgeteiltProJob);
 
@@ -158,8 +161,11 @@ function abteilungEinsatzplanungMeldungen(daten: MeldungsDaten, jetzt: Date, set
   const meldungen: Meldung[] = [];
   const abgeteiltProJob = new Map<number, number>();
   for (const a of daten.abteilungen) abgeteiltProJob.set(a.jobId, (abgeteiltProJob.get(a.jobId) ?? 0) + 1);
+  // Cux-Vergaben werden von Cuxhaven-Seite bedient und erzeugen keinerlei
+  // Meldungen (siehe coreJob.ts::istCuxVergabe).
   const jobsSortiert = sortiereEintraege(daten.jobs, settings).filter(
-    ({ eintrag }) => benoetigteLotsenAnzahl(eintrag) - (abgeteiltProJob.get(eintrag.id) ?? 0) > 0,
+    ({ eintrag }) =>
+      !istCuxVergabe(eintrag) && benoetigteLotsenAnzahl(eintrag) - (abgeteiltProJob.get(eintrag.id) ?? 0) > 0,
   );
   for (const { eintrag: job, abteilzeit } of jobsSortiert) {
     if (!abteilzeit || istListenvergabeJob(job) || abteilzeit.getTime() > jetzt.getTime()) continue;
@@ -350,7 +356,8 @@ function listenvergabeMeldungen(daten: MeldungsDaten, settings: AbteilzeitSettin
   const meldungen: Meldung[] = [];
   const vergaben = daten.jobs
     .map((job) => ({ job, abteilzeit: abteilzeitVon(job, settings) }))
-    .filter(({ job }) => istListenvergabeJob(job));
+    // Cux-Vergaben zählen nicht: weder Unterbesetzung noch Zeitgleichheit.
+    .filter(({ job }) => istListenvergabeJob(job) && !istCuxVergabe(job));
 
   // Unterbesetzte Zählgruppen: dieselbe Planung wie die Einsatzplanung —
   // die Meldung erlischt, sobald die Vergabe abgeteilt ist (kein

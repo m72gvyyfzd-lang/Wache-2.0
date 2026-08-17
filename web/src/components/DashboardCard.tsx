@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getAbteilzeitSettings } from "@wache/core";
 import { spieleAlarmTon } from "../lib/alarmTon";
 import { berechneAgPlanung } from "../lib/agPlanung";
-import { benoetigteLotsenAnzahl } from "../lib/coreJob";
+import { benoetigteLotsenAnzahl, istCuxVergabe } from "../lib/coreJob";
 import { berechneMeldungen, gruppiereMeldungen } from "../lib/meldungen";
 import { useData } from "../state/DataContext";
 import { AgPlanungTile } from "./AgPlanung";
@@ -117,8 +117,9 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
   // Sichtbarkeits-Regel wie auf Tafel Brb selbst (siehe Jobs.tsx::sichtbar).
   const abgeteiltProJobZaehlung = new Map<number, number>();
   for (const a of abteilungen) abgeteiltProJobZaehlung.set(a.jobId, (abgeteiltProJobZaehlung.get(a.jobId) ?? 0) + 1);
+  // Cux-Vergaben zählen nicht als offene Jobs — sie laufen von Cuxhaven.
   const offeneJobs = jobs.filter(
-    (j) => benoetigteLotsenAnzahl(j) - (abgeteiltProJobZaehlung.get(j.id) ?? 0) > 0,
+    (j) => !istCuxVergabe(j) && benoetigteLotsenAnzahl(j) - (abgeteiltProJobZaehlung.get(j.id) ?? 0) > 0,
   );
   const anzahlHH = offeneJobs.filter((j) => j.liste === "hamburg").length;
   const anzahlNOK = offeneJobs.filter((j) => j.liste === "nok").length;

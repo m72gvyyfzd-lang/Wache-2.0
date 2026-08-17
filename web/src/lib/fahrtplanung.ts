@@ -9,7 +9,7 @@
  */
 import type { AbteilzeitSettings } from "@wache/core";
 import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag, SeeAbteilung, SeeSchiff, SeestationLotse } from "../data/types";
-import { abteilzeitVon, benoetigteLotsenAnzahl, istAgJob, istBunkernPausiert } from "./coreJob";
+import { abteilzeitVon, benoetigteLotsenAnzahl, istAgJob, istBunkernPausiert, istCuxVergabe } from "./coreJob";
 import { planungsEta, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "./seestation";
 import { seeLotsenAnzahl } from "./seestationAbteilen";
 
@@ -64,7 +64,11 @@ export function zaehleJobsBrb(
   const abgeteiltProJob = new Map<number, number>();
   for (const a of abteilungen) abgeteiltProJob.set(a.jobId, (abgeteiltProJob.get(a.jobId) ?? 0) + 1);
 
-  const offen = jobs.filter((j) => benoetigteLotsenAnzahl(j) - (abgeteiltProJob.get(j.id) ?? 0) > 0);
+  // Cux-Vergaben (Brb/Cux-Schalter) zählen nicht mit — sie werden von
+  // Cuxhaven-Seite bedient und binden hier keine Lotsen.
+  const offen = jobs.filter(
+    (j) => !istCuxVergabe(j) && benoetigteLotsenAnzahl(j) - (abgeteiltProJob.get(j.id) ?? 0) > 0,
+  );
   const imFenster = (j: JobEintrag) => {
     if (istBunkernPausiert(j)) return true;
     const abteilzeit = abteilzeitVon(j, settings);

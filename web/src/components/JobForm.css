@@ -205,3 +205,40 @@
 .frage-modal--zentriert .frage-modal__warnung {
   text-align: center;
 }
+
+/* Brb/Cux-Schalter (Listenvergaben): zweigeteilte Pille neben dem
+   Type-Dropdown — Brb aktiv = accent, Cux aktiv = grün (der Job läuft
+   dann in keiner Berechnung mehr mit). */
+.job-form__segment {
+  display: flex;
+  align-self: flex-end;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.job-form__segment-btn {
+  border: none;
+  background: var(--surface-2);
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 9px 16px;
+  cursor: pointer;
+}
+
+.job-form__segment-btn + .job-form__segment-btn {
+  border-left: 1px solid var(--line);
+}
+
+.job-form__segment-btn--aktiv {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.job-form__segment-btn--cux {
+  background: #2e8b57;
+  color: #fff;
+  font-weight: 600;
+}

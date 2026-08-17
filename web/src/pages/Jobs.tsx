@@ -8,7 +8,7 @@ import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import { ZeitFeldModal } from "../components/ZeitFeldModal";
 import type { JobEintrag, JobListe } from "../data/types";
-import { benoetigteLotsenAnzahl, istAgJob, istBunkernPausiert, istVerwaisterAgJob, sortiereEintraege, type EintragMitAbteilzeit } from "../lib/coreJob";
+import { benoetigteLotsenAnzahl, istAgJob, istBunkernPausiert, istCuxVergabe, istVerwaisterAgJob, sortiereEintraege, type EintragMitAbteilzeit } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { useData } from "../state/DataContext";
 import "./Jobs.css";
@@ -206,7 +206,9 @@ function AndereListe({ zeilen, alleJobs, abgeteiltProJob, onNeu, onZeile, onWarn
             const zeilenKlick = () => (verwaist ? onWarnung(eintrag) : onZeile(eintrag));
             const klasse = "row-click" + (verwaist ? " zeile-warnung" : "");
             return (
-              <tr key={eintrag.id}>
+              // Cux-Vergaben laufen in keiner Berechnung mit — die ganze
+              // Zeile wird grün dargestellt (siehe istCuxVergabe).
+              <tr key={eintrag.id} className={istCuxVergabe(eintrag) ? "zeile-cux" : undefined}>
                 <td className={`num muted ${klasse}`} onClick={zeilenKlick}>
                   {i + 1}
                 </td>

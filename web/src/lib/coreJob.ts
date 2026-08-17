@@ -1,6 +1,6 @@
 /** Übersetzt den UI-Datentyp JobEintrag in den Berechnungstyp Job aus
  *  @wache/core und bündelt die darauf aufbauenden Helfer. */
-import { berechneAbteilzeit, berechneBrbPrognose, berechneSeePrognose } from "@wache/core";
+import { berechneAbteilzeit, berechneBrbPrognose, berechneSeePrognose, istListenvergabeTyp } from "@wache/core";
 import type {
   AbteilzeitSettings,
   BrbPrognose,
@@ -129,6 +129,13 @@ export function vonTypeLabel(eintrag: JobEintrag): string {
   if (eintrag.typ === "Nebelradar") return "NeRa";
   if (eintrag.typ === "AG (Tender)") return "AG-T";
   return eintrag.typ ?? "?";
+}
+
+/** Listenvergabe, die von Cuxhaven-Seite bedient wird (Brb/Cux-Schalter im
+ *  Andere-Jobs-Formular): der Job bleibt in der Liste sichtbar (grün),
+ *  fließt aber in KEINE Berechnung ein — als wäre er nicht da. */
+export function istCuxVergabe(eintrag: JobEintrag): boolean {
+  return eintrag.liste === "andere" && istListenvergabeTyp(eintrag.typ) && Boolean(eintrag.vergabeCux);
 }
 
 /** AG-Jobs im weiteren Sinn: klassische AG (an einen Trägerjob gehängt)

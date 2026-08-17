@@ -13,6 +13,7 @@ import type { JobEintrag, LotsenEintrag } from "../data/types";
 import {
   benoetigteLotsenAnzahl,
   istAgJob,
+  istCuxVergabe,
   istOhneVNrJob,
   seeReiseInfoVon,
   sortiereEintraege,
@@ -66,8 +67,11 @@ export function Einsatzplanung() {
   // der Liste, AG-Jobs zeigen bis dahin die Rest-Anzahl.
   const abgeteiltProJob = new Map<number, number>();
   for (const a of abteilungen) abgeteiltProJob.set(a.jobId, (abgeteiltProJob.get(a.jobId) ?? 0) + 1);
+  // Cux-Vergaben laufen von Cuxhaven-Seite: sie erscheinen hier nicht —
+  // als wäre der Job nicht da (sichtbar bleibt er grün in "Andere Jobs").
   const jobsSortiert = sortiereEintraege(jobs, settings).filter(
-    ({ eintrag }) => benoetigteLotsenAnzahl(eintrag) - (abgeteiltProJob.get(eintrag.id) ?? 0) > 0,
+    ({ eintrag }) =>
+      !istCuxVergabe(eintrag) && benoetigteLotsenAnzahl(eintrag) - (abgeteiltProJob.get(eintrag.id) ?? 0) > 0,
   );
   // Komplette Lotsenliste der Einsatzstation: 1. Prio Fahrt ≠ leer (in der
   // dort geltenden Fahrt-Rotationsreihenfolge), 2. Prio Fahrt = leer — genau

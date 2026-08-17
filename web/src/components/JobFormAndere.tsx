@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { ANMELDUNGS_TYPEN, getAbteilzeitSettings } from "@wache/core";
+import { ANMELDUNGS_TYPEN, getAbteilzeitSettings, istListenvergabeTyp } from "@wache/core";
 import type { AnmeldungsTyp, Geschwindigkeitsklasse } from "@wache/core";
 import type { JobEintrag } from "../data/types";
 import { agAbteilzeitVon } from "../lib/coreJob";
@@ -41,6 +41,9 @@ function katPflicht(typ: AnmeldungsTyp | ""): boolean {
 
 export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, onCancel }: JobFormAndereProps) {
   const [typ, setTyp] = useState<AnmeldungsTyp | "">(initial?.typ ?? "");
+  // Brb/Cux-Schalter (nur Listenvergaben): Cux = die Vergabe wird von
+  // Cuxhaven-Seite bedient, der Job läuft in keiner Berechnung mehr mit.
+  const [cux, setCux] = useState(initial?.vergabeCux ?? false);
   const [schiffsname, setSchiffsname] = useState(initial?.schiffsname ?? "");
   const [kategorie, setKategorie] = useState(initial?.kategorie ?? "");
   const [geschwindigkeit, setGeschwindigkeit] = useState<Geschwindigkeitsklasse>(
@@ -139,6 +142,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
       ehfLotseBenoetigt: typ === "EHF" ? ehfLotse : undefined,
       ehfWache: typ === "EHF" ? ehfWache : undefined,
       bhfBesetzZeit: typ === "BHF" ? fromLocalInput(bhfBesetzZeit) : undefined,
+      vergabeCux: istListenvergabeTyp(typ) && cux ? true : undefined,
       abtZeitManuell: ausDatumUndZeit(abtZeitDatum, abtZeitZeit),
       geschwindigkeitsklasse:
         mitSpeedAuswahl(typ) && geschwindigkeit !== "normal" ? geschwindigkeit : undefined,
@@ -148,7 +152,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
   return (
     <form className="job-form" onSubmit={handleSubmit}>
       <div className="job-form__row">
-        <label className="job-form__grow3">
+        <label className="job-form__grow2">
           Type
           <select value={typ} onChange={(e) => handleTypChange(e.target.value as AnmeldungsTyp | "")} required>
             <option value="">–</option>
@@ -159,6 +163,26 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
             ))}
           </select>
         </label>
+        {/* Brb/Cux-Schalter — ohne Überschrift, nur bei Listenvergaben.
+            Cux nimmt den Job aus allen Berechnungen (grüne Zeile). */}
+        {istListenvergabeTyp(typ) && (
+          <div className="job-form__segment" role="group" aria-label="Vergabe-Seite">
+            <button
+              type="button"
+              className={"job-form__segment-btn" + (!cux ? " job-form__segment-btn--aktiv" : "")}
+              onClick={() => setCux(false)}
+            >
+              Brb
+            </button>
+            <button
+              type="button"
+              className={"job-form__segment-btn" + (cux ? " job-form__segment-btn--cux" : "")}
+              onClick={() => setCux(true)}
+            >
+              Cux
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Bei Type "AG"/"Nebelradar" ausgeblendet — bleibt aber im Layout,

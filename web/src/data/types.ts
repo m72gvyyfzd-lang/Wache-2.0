@@ -38,6 +38,13 @@ export interface JobEintrag {
    *  (siehe lib/listenvergabe.ts). Auch für NOK-Jobs (neben Kuden). */
   geplBunkern?: boolean;
 
+  /** Nur Listenvergaben (2+2, 1+1, HuLo, WB, WR): true = die Vergabe wird
+   *  von Cuxhaven-Seite bedient. Der Job bleibt in der Andere-Jobs-Liste
+   *  sichtbar (grün), fließt aber in KEINE Berechnung mehr ein — keine
+   *  Zuteilung, keine Zählgruppe, keine Meldungen, keine Fahrt-Planung
+   *  (siehe coreJob.ts::istCuxVergabe). undefined/false = Brb (Standard). */
+  vergabeCux?: boolean;
+
   // Liste NOK
   holt?: Date;
   ticker?: Date;

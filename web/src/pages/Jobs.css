@@ -33,3 +33,12 @@ td.lots-rest {
 .job-bunkert td.cell-name {
   color: var(--ink-faint);
 }
+
+/* Cux-Listenvergabe: die Vergabe wird von Cuxhaven bedient — die Zeile
+   bleibt sichtbar, aber komplett grün, und der Job fließt in keine
+   Berechnung mehr ein. Die td-Selektoren schlagen die muted-Farben. */
+tr.zeile-cux td,
+tr.zeile-cux td.muted,
+tr.zeile-cux td.cell-name {
+  color: #2e8b57;
+}
