@@ -124,6 +124,8 @@ export interface SeestationLage {
   etasGesamt: number;
   /** Summe der noch fehlenden Lotsen der `etasBis`-Schiffe */
   lotsenBedarf: number;
+  /** Summe der fehlenden Lotsen ALLER offenen Schiffe, ohne Zeitgrenze */
+  lotsenBedarfGesamt: number;
 }
 
 /** Puffer hinter dem Ende der nächsten Fahrt: Schiffe kurz danach müssen
@@ -148,5 +150,6 @@ export function zaehleSeestation(
     etasBis: imFenster.length,
     etasGesamt: offene.length,
     lotsenBedarf: imFenster.reduce((summe, s) => summe + s.fehlt, 0),
+    lotsenBedarfGesamt: offene.reduce((summe, s) => summe + s.fehlt, 0),
   };
 }

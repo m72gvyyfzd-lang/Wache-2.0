@@ -28,31 +28,43 @@ const settings = getAbteilzeitSettings("Wechsel Tide");
 
 const STORAGE_KEY = "wache.fahrtplanung.v1";
 
-/** Die editierbaren Zählfelder der Jobs-Brb-Kachel in Anzeigereihenfolge.
- *  `ermittelt`: wird von "Daten ermitteln" aus den Listen befüllt —
- *  "lose Abgänge" und "Reserve" sind reine Benutzereingaben. */
-const FELD_GRUPPEN: { key: FeldKey; label: string; ermittelt: boolean }[][] = [
+interface FeldDef {
+  key: FeldKey;
+  label: string;
+  /** wird von "Daten ermitteln" aus den Listen befüllt — die übrigen
+   *  Felder (lose Abgänge, im Zulauf, Reserve) sind reine Handeingaben. */
+  ermittelt: boolean;
+}
+
+/** Linker Block: zwei dezent umrahmte Paare (Hamburg-Seite / NOK-Seite). */
+const LINKE_RAHMEN: FeldDef[][] = [
   [
-    { key: "hamburg", label: "Schiffe aus Hamburg", ermittelt: true },
+    { key: "hamburg", label: "aus HH", ermittelt: true },
     { key: "loseAbgaenge", label: "lose Abgänge", ermittelt: false },
-    { key: "nok", label: "Schiffe aus NOK", ermittelt: true },
-    { key: "liegend", label: "Liegende Schiffe", ermittelt: true },
   ],
   [
-    { key: "radar", label: "Radar", ermittelt: true },
-    { key: "vergaben", label: "Listenvergaben", ermittelt: true },
-    { key: "ag", label: "AG", ermittelt: true },
-    { key: "reserve", label: "Reserve", ermittelt: false },
+    { key: "nok", label: "im NOK", ermittelt: true },
+    { key: "imZulauf", label: "im Zulauf", ermittelt: false },
   ],
 ];
 
-type FeldKey = "hamburg" | "loseAbgaenge" | "nok" | "liegend" | "radar" | "vergaben" | "ag" | "reserve";
+/** Rechter Block: Liegende oben, dann Radar/Vergaben/AG/Reserve. */
+const RECHTE_FELDER: FeldDef[] = [
+  { key: "liegend", label: "Liegende Schiffe", ermittelt: true },
+  { key: "radar", label: "Radar", ermittelt: true },
+  { key: "vergaben", label: "Listenvergaben", ermittelt: true },
+  { key: "ag", label: "AG", ermittelt: true },
+  { key: "reserve", label: "Reserve", ermittelt: false },
+];
+
+type FeldKey = "hamburg" | "loseAbgaenge" | "nok" | "imZulauf" | "liegend" | "radar" | "vergaben" | "ag" | "reserve";
 type Werte = Record<FeldKey, string>;
 
 const LEERE_WERTE: Werte = {
   hamburg: "",
   loseAbgaenge: "",
   nok: "",
+  imZulauf: "",
   liegend: "",
   radar: "",
   vergaben: "",
@@ -129,6 +141,24 @@ export function FahrtPlanung() {
   const lotsenAktuell = zaehleLotsenAktuell(lotsen, abteilungen, seestationLotsen, aktuelle);
   const seestation = zaehleSeestation(seeSchiffe, seeAbteilungen, endeNaechste);
 
+  function feldZeile(feld: FeldDef) {
+    return (
+      <label key={feld.key} className="fahrt-feld">
+        <span className="fahrt-feld__label">{feld.label}</span>
+        <input
+          type="number"
+          min={0}
+          inputMode="numeric"
+          value={werte[feld.key]}
+          onChange={(e) => setWerte((w) => ({ ...w, [feld.key]: e.target.value }))}
+        />
+        <span className="fahrt-feld__vorwert">
+          {feld.ermittelt && vorherige[feld.key] !== undefined ? `(${vorherige[feld.key]})` : ""}
+        </span>
+      </label>
+    );
+  }
+
   return (
     <div>
       <PageHeader title="Fahrt-Planung" centered />
@@ -170,25 +200,14 @@ export function FahrtPlanung() {
         <section className="fahrt-kachel fahrt-jobs">
           <h3 className="fahrt-kachel__titel">Jobs Brb</h3>
           <div className="fahrt-jobs__gruppen">
-            {FELD_GRUPPEN.map((gruppe, gi) => (
-              <div key={gi} className="fahrt-jobs__gruppe">
-                {gruppe.map((feld) => (
-                  <label key={feld.key} className="fahrt-feld">
-                    <span className="fahrt-feld__label">{feld.label}</span>
-                    <input
-                      type="number"
-                      min={0}
-                      inputMode="numeric"
-                      value={werte[feld.key]}
-                      onChange={(e) => setWerte((w) => ({ ...w, [feld.key]: e.target.value }))}
-                    />
-                    <span className="fahrt-feld__vorwert">
-                      {feld.ermittelt && vorherige[feld.key] !== undefined ? `(${vorherige[feld.key]})` : ""}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            ))}
+            <div className="fahrt-jobs__links">
+              {LINKE_RAHMEN.map((rahmen, ri) => (
+                <div key={ri} className="fahrt-jobs__rahmen">
+                  {rahmen.map((feld) => feldZeile(feld))}
+                </div>
+              ))}
+            </div>
+            <div className="fahrt-jobs__gruppe">{RECHTE_FELDER.map((feld) => feldZeile(feld))}</div>
           </div>
         </section>
 
@@ -222,7 +241,10 @@ export function FahrtPlanung() {
             </div>
             <div className="fahrt-feld">
               <span className="fahrt-feld__label">benötigte Lotsen</span>
-              <output>{seestation.lotsenBedarf}</output>
+              <output>
+                {seestation.lotsenBedarf}
+                <span className="fahrt-info__gesamt"> / {seestation.lotsenBedarfGesamt}</span>
+              </output>
             </div>
           </div>
         </section>
