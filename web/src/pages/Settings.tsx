@@ -4,6 +4,14 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import { handleZeitMitPrefill } from "../components/formShared";
+import {
+  ALARM_TOENE,
+  ladeAlarmTonWahl,
+  speichereAlarmTonWahl,
+  spieleAlarmTon,
+  tonEntsperren,
+  type AlarmTonName,
+} from "../lib/alarmTon";
 import { ausDatumUndZeit, toLocalDateInput, toLocalTimeInput } from "../lib/datetime";
 import { useData } from "../state/DataContext";
 import "./Settings.css";
@@ -17,6 +25,17 @@ export function Settings() {
   const [eingabe, setEingabe] = useState(formatVNr(letzteVNr));
   const [resetFrage, setResetFrage] = useState(false);
   const [resetMeldung, setResetMeldung] = useState("");
+
+  const [alarmTon, setAlarmTon] = useState<AlarmTonName>(() => ladeAlarmTonWahl());
+
+  /** Auswahl speichern und sofort vorspielen — der Klick ins Dropdown ist
+   *  zugleich die Nutzer-Interaktion, die den AudioContext entsperrt. */
+  function handleAlarmTon(name: AlarmTonName) {
+    setAlarmTon(name);
+    speichereAlarmTonWahl(name);
+    tonEntsperren();
+    spieleAlarmTon(name);
+  }
 
   const [hw1Datum, setHw1Datum] = useState(toLocalDateInput(hwBrb.hw1));
   const [hw1Zeit, setHw1Zeit] = useState(toLocalTimeInput(hwBrb.hw1));
@@ -67,7 +86,7 @@ export function Settings() {
       <PageHeader title="Settings" />
       <div className="settings-row">
         <Panel title="Allgemein" className="settings-row__allgemein">
-          <div className="settings-feld-zeile">
+          <div className="settings-feld-spalte">
             <label className="settings-feld">
               letzte V-Nr.:
               <input
@@ -78,6 +97,27 @@ export function Settings() {
                 onChange={(e) => handleChange(e.target.value)}
                 onBlur={handleBlur}
               />
+            </label>
+            <label className="settings-feld">
+              Alarmton:
+              <select value={alarmTon} onChange={(e) => handleAlarmTon(e.target.value as AlarmTonName)}>
+                {ALARM_TOENE.map((t) => (
+                  <option key={t.name} value={t.name}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn btn--small"
+                title="Alarmton probehören"
+                onClick={() => {
+                  tonEntsperren();
+                  spieleAlarmTon(alarmTon);
+                }}
+              >
+                ▶
+              </button>
             </label>
           </div>
         </Panel>
