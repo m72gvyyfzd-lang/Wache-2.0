@@ -26,3 +26,10 @@ td.lots-rest {
   font-weight: 700;
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
 }
+
+/* NOK-Schiff mit gepl. Bunkern: aus der Planung genommen (keine Abt.Zeit,
+   kein Lotse) — die ganze Zeile dezent, bis der Haken wieder raus ist. */
+.job-bunkert td,
+.job-bunkert td.cell-name {
+  color: var(--ink-faint);
+}

@@ -16,8 +16,10 @@ export function AnStationModal({ initial, onUebernehmen, onAbbrechen }: AnStatio
   const [zeit, setZeit] = useState(toLocalTimeInput(initial));
 
   function handleOk() {
+    // Leeres Feld ist eine bewusste Eingabe (iOS-Zeitrad: "Zurücksetzen"):
+    // die An-Stn.-Zeit wird gelöscht.
     if (zeit === "") {
-      onUebernehmen(initial);
+      onUebernehmen(undefined);
       return;
     }
     const [stunden, minuten] = zeit.split(":").map(Number);

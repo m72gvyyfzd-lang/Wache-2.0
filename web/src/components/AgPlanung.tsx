@@ -24,7 +24,9 @@ export function AgPlanungTile({ gruppen, offen, onToggle, containerRef }: AgPlan
       onClick={onToggle}
     >
       <div className="meldungs-tile__kopf">
-        <span className="meldungs-tile__label">AG-Planung</span>
+        <span className="meldungs-tile__label">
+          AG-Planung <span className="meldungs-tile__horizont">(max. 12 Std. voraus)</span>
+        </span>
         {gruppen.length > 0 && <span className={`meldungs-badge meldungs-badge--${stufe}`}>{gruppen.length}</span>}
       </div>
       <div className="meldungs-tile__gruppen">

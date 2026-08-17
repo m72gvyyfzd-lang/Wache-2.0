@@ -8,7 +8,7 @@ import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import { ZeitFeldModal } from "../components/ZeitFeldModal";
 import type { JobEintrag, JobListe } from "../data/types";
-import { benoetigteLotsenAnzahl, istAgJob, istVerwaisterAgJob, sortiereEintraege, type EintragMitAbteilzeit } from "../lib/coreJob";
+import { benoetigteLotsenAnzahl, istAgJob, istBunkernPausiert, istVerwaisterAgJob, sortiereEintraege, type EintragMitAbteilzeit } from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { useData } from "../state/DataContext";
 import "./Jobs.css";
@@ -105,8 +105,12 @@ function CheckpointListe({
             const abgeteilt = abgeteiltProJob.get(eintrag.id) ?? 0;
             const rest = benoetigteLotsenAnzahl(eintrag) - abgeteilt;
             const zeilenKlick = () => onZeile(eintrag);
+            // NOK-Schiffe mit gepl. Bunkern: aus der Planung genommen (keine
+            // Abt.Zeit, kein Lotse) — die Zeile steht dezent am Listenende,
+            // bis der Haken wieder raus ist (siehe istBunkernPausiert).
+            const pausiert = istBunkernPausiert(eintrag);
             return (
-              <tr key={eintrag.id}>
+              <tr key={eintrag.id} className={pausiert ? "job-bunkert" : undefined}>
                 <td className="num muted row-click" onClick={zeilenKlick}>
                   {i + 1}
                 </td>

@@ -203,7 +203,9 @@ export function SeestationLotseAktionModal({
   const [ziel, setZiel] = useState("");
 
   function neueEta(): Date | undefined {
-    if (zeit === "") return initialEtaStn;
+    // Leeres Feld ist eine bewusste Eingabe (iOS-Zeitrad: "Zurücksetzen"):
+    // die ETA Stn wird gelöscht.
+    if (zeit === "") return undefined;
     const [stunden, minuten] = zeit.split(":").map(Number);
     const ergebnis = new Date(basis);
     ergebnis.setHours(stunden, minuten, 0, 0);

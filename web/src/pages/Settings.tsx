@@ -35,6 +35,13 @@ export function Settings() {
 
   function handleResetJa() {
     resetAlles();
+    // resetAlles leert auch das gespeicherte HW-Paar — die lokalen
+    // Formularfelder müssen mitziehen, sonst stünden die alten Zeiten noch
+    // im Formular und würden beim nächsten Verlassen erneut gespeichert.
+    setHw1Datum("");
+    setHw1Zeit("");
+    setHw2Datum("");
+    setHw2Zeit("");
     setResetFrage(false);
     setResetMeldung(`Reset ausgeführt — alle Listen geleert, nächste V-Nr.: ${formatVNr(letzteVNr + 1)}.`);
   }

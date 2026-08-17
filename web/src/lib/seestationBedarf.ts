@@ -14,7 +14,7 @@ import type { AbteilzeitSettings } from "@wache/core";
 import type { JobEintrag, SeeSchiff } from "../data/types";
 import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "./coreJob";
 import type { MeldungsDaten, MeldungsStufe } from "./meldungen";
-import { ANFAHRT_SEESTATION_MS, TENDER_VORLAUF_MS, VORLAUF_AUF_STATION_MS, VORLAUF_WARNUNG_MS, planungsEta, sortiereSeestation, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "./seestation";
+import { ANFAHRT_SEESTATION_MS, PLANUNGS_HORIZONT_MS, TENDER_VORLAUF_MS, VORLAUF_AUF_STATION_MS, VORLAUF_WARNUNG_MS, planungsEta, sortiereSeestation, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "./seestation";
 import { planeSeestation, schiffePriorisiert } from "./seestationAbteilen";
 import { vorschauZeilen } from "./vorschau";
 
@@ -126,7 +126,18 @@ export function berechneSeestationsDefizite(
     ...verplante,
   ]);
   const schiffe = schiffePriorisiert(daten.seeSchiffe, abgeteiltProSchiff, jetzt);
-  const projektion = planeSeestation(schiffe, pool, abgeteiltProSchiff, VORLAUF_AUF_STATION_MS);
+  // Projizierte (verplante) Lotsen fließen nur innerhalb des 12-Std-
+  // Horizonts in die Rechnung ein — dieselbe Grenze wie die Vorschau der
+  // Seestations-Seite (siehe PLANUNGS_HORIZONT_MS).
+  const planungsHorizont = new Date(jetzt.getTime() + PLANUNGS_HORIZONT_MS);
+  const projektion = planeSeestation(
+    schiffe,
+    pool,
+    abgeteiltProSchiff,
+    VORLAUF_AUF_STATION_MS,
+    undefined,
+    planungsHorizont,
+  );
 
   // AG-Trägerjobs: künftige Hamburg/NOK-Abfahrten, an die eine AG-Fahrt
   // gehängt werden kann (aufsteigend nach Abteilzeit) — bereits per AG
@@ -152,6 +163,11 @@ export function berechneSeestationsDefizite(
 
   const defizite: SeestationDefizit[] = [];
   for (const schiff of daten.seeSchiffe) {
+    // AG-Planung nur innerhalb des 12-Std-Horizonts: weiter entfernte
+    // Schiffe ändern sich noch zu stark — sie tauchen weder in der
+    // AG-Planungs-Karte noch in der Bilanz-Meldung auf und rücken erst
+    // nach, wenn ihre Abt.Zeit in den Horizont hineinläuft.
+    if (planungsEta(schiff).getTime() > planungsHorizont.getTime()) continue;
     const zuteilung = projektion.get(schiff.id);
     const fehlt = (zuteilung?.fehlt ?? 0) + (zuteilung?.zugewiesen.filter((s) => s.verspaetet).length ?? 0);
     if (fehlt <= 0) continue;

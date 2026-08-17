@@ -126,6 +126,11 @@ export function planeSeestation(
   /** Abt.Zeit-Funktion — Standard planungsEta; die Vorschau reicht hier
    *  ihre Verbund-Rechnung durch (siehe seestation.ts::vorschauAbtZeiten). */
   abtZeitVon: (schiff: SeeSchiff) => Date = planungsEta,
+  /** Planungshorizont der Projektion (siehe PLANUNGS_HORIZONT_MS): Schiffe
+   *  mit Abt.Zeit NACH diesem Zeitpunkt bekommen nur noch ECHTE Lotsen
+   *  zugeteilt — projizierte (verplante/freie aus der Einsatzplanung)
+   *  bleiben ihnen vorenthalten, so weit im Voraus wird nicht vorgeplant. */
+  projektionBis?: Date,
 ): Map<number, SeestationZuteilung> {
   const ergebnis = new Map<number, SeestationZuteilung>();
   let pool = lotsenZeilen;
@@ -140,9 +145,12 @@ export function planeSeestation(
     // deshalb nach der Abt.Zeit (planungsEta bzw. Vorschau-Verbund), nicht
     // nach der rohen ETA.
     const ankunftsFrist = abtZeitVon(schiff).getTime() - vorlaufMs;
+    const nurEchte = projektionBis !== undefined && abtZeitVon(schiff).getTime() > projektionBis.getTime();
     for (let platz = 0; platz < benoetigt; platz++) {
       const istErster = bereits + platz === 0;
-      const index = pool.findIndex((k) => eignungsWarnungSeestation(schiff, k, istErster) === undefined);
+      const index = pool.findIndex(
+        (k) => !(nurEchte && k.projiziert) && eignungsWarnungSeestation(schiff, k, istErster) === undefined,
+      );
       if (index === -1) {
         zuteilung.fehlt += 1;
         continue;

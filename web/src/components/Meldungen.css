@@ -60,6 +60,13 @@
   text-overflow: ellipsis;
 }
 
+/* Dezenter Zusatz hinter dem Kachel-Label (AG-Planung: Planungshorizont). */
+.meldungs-tile__horizont {
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--ink-faint);
+}
+
 @media (max-width: 1024px) {
   .meldungs-tile__kopf {
     padding: 10px 8px 6px;

@@ -128,6 +128,14 @@
   gap: 8px;
 }
 
+/* Hinweis neben dem aktiven Vorschau-Schalter: die Projektion plant nur
+   bis zum 12-Std-Horizont voraus (siehe PLANUNGS_HORIZONT_MS). */
+.seestation-vorschau-hinweis {
+  font-size: 0.7rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
 /* Zuteilungs-Hinweis hinter dem Schiffsnamen (siehe ZuteilungsHinweis in
    Seestation.tsx): "X Lotse(n) benötigt", wenn Plätze unbesetzbar bleiben. */
 .zuteilung-benoetigt {

@@ -13,7 +13,9 @@ export function AbtZeitModal({ initial, onUebernehmen, onAbbrechen }: AbtZeitMod
   const [eingabe, setEingabe] = useState(toLocalInput(initial));
 
   function handleUebernehmen() {
-    onUebernehmen(eingabe === "" ? initial : fromLocalInput(eingabe));
+    // Leeres Feld ist eine bewusste Eingabe (iOS-Zeitrad: "Zurücksetzen"):
+    // die manuelle Abt.Zeit wird gelöscht, es gilt wieder die berechnete.
+    onUebernehmen(eingabe === "" ? undefined : fromLocalInput(eingabe));
   }
 
   return (

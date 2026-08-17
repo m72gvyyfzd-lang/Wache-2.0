@@ -110,9 +110,10 @@ interface DataContextValue {
   macheSeeAbteilungRueckgaengig: (id: number) => void;
   /** Reset (Settings): leert ALLE Listen (Jobs, Lotsen, Abteilungen,
    *  See-Schiffe, Seestation-Lotsen, SeeAbteilungen, verbrauchte V-Nrn)
-   *  und setzt die Zähler zurück — die V-Nr.-Zählung beginnt wieder bei
-   *  "letzte V-Nr." + 1. Die Einstellungen selbst (letzte V-Nr., aktuelle
-   *  Fahrt, Alarm-Ton) bleiben erhalten. */
+   *  sowie die HW-Zeiten Brunsbüttel und setzt die Zähler zurück — die
+   *  V-Nr.-Zählung beginnt wieder bei "letzte V-Nr." + 1. Die übrigen
+   *  Einstellungen (letzte V-Nr., aktuelle Fahrt, Alarm-Ton) bleiben
+   *  erhalten. */
   resetAlles: () => void;
   /** Wachbeginn-Import (nach resetAlles): setzt Jobs, Lotsen, See-Schiffe,
    *  Auf-Seestation-Lotsen sowie aktuelle Fahrt und letzte V-Nr. (inkl.
@@ -353,7 +354,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Reset: alle Listen leeren, Zähler zurücksetzen. Die ID-/A-Nr.-Zähler
   // dürfen NUR deshalb neu starten, weil alle Listen, die auf sie
   // verweisen (Jobs, Abteilungen, SeeAbteilungen), im selben Schritt
-  // geleert werden. Die Einstellungen (letzte V-Nr., aktuelle Fahrt,
+  // geleert werden. Die HW-Zeiten Brunsbüttel gehören zur Wache und werden
+  // mit geleert; die übrigen Einstellungen (letzte V-Nr., aktuelle Fahrt,
   // Alarm-Ton) bleiben unangetastet.
   const resetAlles = useCallback(() => {
     setJobs([]);
@@ -363,6 +365,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setSeestationLotsen([]);
     setSeeAbteilungen([]);
     setVerbrauchteVNrn([]);
+    setHwBrb({});
     const neuerStart = letzteVNr + 1;
     setVNrStartState(neuerStart);
     speichereVNrStart(neuerStart);
@@ -370,7 +373,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     speichereJobIdZaehler(1);
     naechsteANr.current = 1000;
     speichereANrZaehler(1000);
-  }, [letzteVNr]);
+  }, [letzteVNr, setHwBrb]);
 
   const importiereWache = useCallback((daten: WachImportDaten) => {
     let jobId = naechsteJobId.current!;

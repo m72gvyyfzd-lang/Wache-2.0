@@ -52,7 +52,18 @@ export function zuCoreJob(eintrag: JobEintrag): Job {
   };
 }
 
+/** NOK-Sonderregel "gepl. Bunkern": solange das Schiff bunkert, ist offen,
+ *  wann es weiterfährt — es hat KEINE Abt.Zeit, bekommt keinen Lotsen
+ *  zugeteilt und steht dezent am Listenende. Erst wenn der Haken wieder
+ *  raus ist (und der User die Zeiten neu einträgt), läuft es normal mit.
+ *  Gilt NUR für die NOK-Liste — Bütz-Bunkern in der HH-Liste bleibt wie
+ *  gehabt (dort verschiebt sich nur die Vergabe, siehe listenvergabe.ts). */
+export function istBunkernPausiert(eintrag: JobEintrag): boolean {
+  return eintrag.liste === "nok" && Boolean(eintrag.geplBunkern);
+}
+
 export function abteilzeitVon(eintrag: JobEintrag, settings: AbteilzeitSettings): Date | undefined {
+  if (istBunkernPausiert(eintrag)) return undefined;
   return berechneAbteilzeit(zuCoreJob(eintrag), settings, hwBrbAktuell);
 }
 

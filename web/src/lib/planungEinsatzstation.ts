@@ -14,7 +14,7 @@
  */
 import { darfFahren, darfJobTyp, istListenvergabeTyp, schiffsRang, type AbteilzeitSettings } from "@wache/core";
 import type { AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
-import { benoetigteLotsenAnzahl, sortiereEintraege, type EintragMitAbteilzeit } from "./coreJob";
+import { benoetigteLotsenAnzahl, istBunkernPausiert, sortiereEintraege, type EintragMitAbteilzeit } from "./coreJob";
 import { istListenvergabeJob, planeListenvergabe, toernStand, type VergabePlanung } from "./listenvergabe";
 import { sortiereUndNummeriere } from "./lotsenOrdnung";
 
@@ -86,6 +86,12 @@ export function planeEinsatzstationMitVergaben(
   // Phase 2: alle übrigen Jobs per FIFO
   for (const { eintrag: job } of jobsSortiert) {
     if (istListenvergabeJob(job)) continue;
+    // NOK-Schiffe mit gepl. Bunkern sind aus der Zuteilung ausgenommen —
+    // ohne Abt.Zeit gibt es nichts zu planen (siehe istBunkernPausiert).
+    if (istBunkernPausiert(job)) {
+      zuweisungen.set(job.id, []);
+      continue;
+    }
     const benoetigt = benoetigteLotsenAnzahl(job) - (abgeteiltProJob?.get(job.id) ?? 0);
     const zugewiesen: LotsenEintrag[] = [];
     const uebrig: LotsenEintrag[] = [];

@@ -47,6 +47,15 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
   function toggleBunkern(gesetzt: boolean) {
     setBunkern(gesetzt);
     setBemerkung((b) => (gesetzt ? mitToken(b, "Bunkert") : ohneToken(b, "Bunkert")));
+    // Beim Aktivieren werden Ticker- und Kuden-Zeit geleert: das Schiff
+    // liegt zum Bunkern, die alten Zeiten gelten nicht mehr. Nach dem
+    // Bunkern trägt der User die neuen Zeiten von Hand ein.
+    if (gesetzt) {
+      setTickerZeit("");
+      setTickerDatum("");
+      setKudenZeit("");
+      setKudenDatum("");
+    }
   }
 
   function entwurf(): JobEintrag {
