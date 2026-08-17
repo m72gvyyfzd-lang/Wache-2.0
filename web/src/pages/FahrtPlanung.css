@@ -56,11 +56,17 @@
   white-space: nowrap;
 }
 
-/* --- Kachel-Reihe: ½ + ¼ + ¼ — alle Kacheln gleich hoch (stretch) */
+/* --- Kachel-Raster: vier gleiche Spalten. Jobs Brb belegt 2/4, "Lotsen
+   aktuell" und "Seestation" je 1/4 (erste Zeile); die Fahrt-Kachel folgt
+   darunter mit 1/4. Kacheln einer Zeile sind gleich hoch (stretch). */
 .fahrt-reihe {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
+}
+
+.fahrt-jobs {
+  grid-column: span 2;
 }
 
 /* --- Jobs Brb: zwei Feldgruppen nebeneinander, Felder untereinander */
@@ -110,8 +116,11 @@
   font-weight: 400;
 }
 
+/* Beschriftung links vom Feld, aber rechtsbündig — so stehen alle
+   Beschriftungen bündig am Feldrand. */
 .fahrt-feld__label {
   font-weight: 400;
+  text-align: right;
 }
 
 .fahrt-feld input {
@@ -163,6 +172,18 @@
   color: var(--ink-faint);
   font-weight: 400;
   font-size: 0.8rem;
+}
+
+/* --- Kachel "Fahrt": zwei Gruppenrahmen untereinander (ausgehend /
+   einkommend) im Stil der Dashboard-Kacheln. */
+.fahrt-bilanz__gruppen {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fahrt-bilanz .zahlen-tile__gruppe {
+  padding: 0 10px 8px;
 }
 
 /* iPad Hochformat: Kacheln stapeln statt quetschen */

@@ -22,6 +22,8 @@ import {
 } from "../lib/fahrtplanung";
 import { formatUhrzeit } from "../lib/format";
 import { useData } from "../state/DataContext";
+// Gruppenrahmen der "Fahrt"-Kachel nutzen die Dashboard-Klassen.
+import "../components/ZahlenTile.css";
 import "./FahrtPlanung.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
@@ -141,6 +143,17 @@ export function FahrtPlanung() {
   const lotsenAktuell = zaehleLotsenAktuell(lotsen, abteilungen, seestationLotsen, aktuelle);
   const seestation = zaehleSeestation(seeSchiffe, seeAbteilungen, endeNaechste);
 
+  // "Fahrt"-Kachel: die beiden Richtungen gegenübergestellt.
+  // ausgehend — alle Zählfelder der Jobs-Brb-Kachel zusammen (leere Felder
+  // zählen als 0; das AG-Feld enthält bereits Lotsen, nicht Jobs). Der
+  // Bedarf zieht die Lotsen ab, die schon in der laufenden Fahrt sind:
+  // negativ = Überschuss, positiv = so viele Lotsen fehlen noch.
+  const jobsAusgehend = (Object.keys(LEERE_WERTE) as FeldKey[]).reduce(
+    (summe, key) => summe + (Number(werte[key]) || 0),
+    0,
+  );
+  const bedarfAusgehend = jobsAusgehend - lotsenAktuell.inFahrt;
+
   function feldZeile(feld: FeldDef) {
     return (
       <label key={feld.key} className="fahrt-feld">
@@ -246,6 +259,40 @@ export function FahrtPlanung() {
                 <span className="fahrt-info__gesamt"> / {seestation.lotsenBedarfGesamt}</span>
               </output>
             </div>
+          </div>
+        </section>
+
+        {/* Zusammenfassung beider Richtungen — Gruppenrahmen im Stil der
+            Dashboard-Kacheln (siehe components/ZahlenTile.css). */}
+        <section className="fahrt-kachel fahrt-bilanz" data-testid="kachel-fahrt">
+          <h3 className="fahrt-kachel__titel">Fahrt</h3>
+          <div className="fahrt-bilanz__gruppen">
+            <fieldset className="zahlen-tile__gruppe" data-testid="fahrt-ausgehend">
+              <legend className="zahlen-tile__titel">ausgehend</legend>
+              <div className="zahlen-tile__werte">
+                <div className="zahlen-tile__spalte">
+                  <span className="zahlen-tile__kuerzel">Jobs</span>
+                  <span className="zahlen-tile__zahl">{jobsAusgehend}</span>
+                </div>
+                <div className="zahlen-tile__spalte">
+                  <span className="zahlen-tile__kuerzel">Bedarf</span>
+                  <span className="zahlen-tile__zahl">{bedarfAusgehend}</span>
+                </div>
+              </div>
+            </fieldset>
+            <fieldset className="zahlen-tile__gruppe" data-testid="fahrt-einkommend">
+              <legend className="zahlen-tile__titel">einkommend</legend>
+              <div className="zahlen-tile__werte">
+                <div className="zahlen-tile__spalte">
+                  <span className="zahlen-tile__kuerzel">Jobs</span>
+                  <span className="zahlen-tile__zahl">{seestation.etasBis}</span>
+                </div>
+                <div className="zahlen-tile__spalte">
+                  <span className="zahlen-tile__kuerzel">Bedarf</span>
+                  <span className="zahlen-tile__zahl">{seestation.lotsenBedarf}</span>
+                </div>
+              </div>
+            </fieldset>
           </div>
         </section>
       </div>
