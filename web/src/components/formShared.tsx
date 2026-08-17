@@ -9,13 +9,16 @@ interface SchiffKatSelectProps {
   value: string;
   onChange: (wert: string) => void;
   className?: string;
+  /** Pflichtfeld: der leere Eintrag "–" blockiert dann das Speichern
+   *  (native Formular-Validierung). */
+  required?: boolean;
 }
 
-export function SchiffKatSelect({ value, onChange, className }: SchiffKatSelectProps) {
+export function SchiffKatSelect({ value, onChange, className, required }: SchiffKatSelectProps) {
   return (
     <label className={className}>
       Kat.
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
+      <select value={value} onChange={(e) => onChange(e.target.value)} required={required}>
         <option value="">–</option>
         {SCHIFFS_KATEGORIEN.map((kat) => (
           <option key={kat} value={kat}>

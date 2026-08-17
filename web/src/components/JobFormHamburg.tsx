@@ -101,9 +101,9 @@ export function JobFormHamburg({ initial, onSubmit, onDelete, onCancel }: JobFor
       <div className="job-form__row job-form__zeitgitter">
         <label className="job-form__zg-name">
           Schiffsname
-          <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} />
+          <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} required />
         </label>
-        <SchiffKatSelect value={kategorie} onChange={setKategorie} className="job-form__zg-kat" />
+        <SchiffKatSelect value={kategorie} onChange={setKategorie} className="job-form__zg-kat" required />
         <SpeedSelect value={geschwindigkeit} onChange={setGeschwindigkeit} className="job-form__zg-speed" />
         <label className="job-form__zg-extra">
           Bütz
@@ -119,11 +119,14 @@ export function JobFormHamburg({ initial, onSubmit, onDelete, onCancel }: JobFor
       <div className="job-form__row job-form__zeitgitter">
         <label>
           HH
+          {/* Pflicht — außer bei Bütz: dort ist das Feld gesperrt und die
+              Pflicht wandert auf den gepl. Abgang. */}
           <input
             type="time"
             value={hhZeit}
             onChange={(e) => handleZeitMitPrefill(e.target.value, hhDatum, setHhZeit, setHhDatum)}
             disabled={buetz}
+            required={!buetz}
           />
         </label>
         {buetz ? (
@@ -133,6 +136,7 @@ export function JobFormHamburg({ initial, onSubmit, onDelete, onCancel }: JobFor
               type="time"
               value={geplAbgangZeit}
               onChange={(e) => handleZeitMitPrefill(e.target.value, geplAbgangDatum, setGeplAbgangZeit, setGeplAbgangDatum)}
+              required
             />
           </label>
         ) : (

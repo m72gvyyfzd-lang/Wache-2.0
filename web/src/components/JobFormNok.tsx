@@ -86,9 +86,9 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
       <div className="job-form__row job-form__zeitgitter">
         <label className="job-form__zg-name">
           Schiffsname
-          <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} />
+          <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} required />
         </label>
-        <SchiffKatSelect value={kategorie} onChange={setKategorie} className="job-form__zg-kat" />
+        <SchiffKatSelect value={kategorie} onChange={setKategorie} className="job-form__zg-kat" required />
         <SpeedSelect value={geschwindigkeit} onChange={setGeschwindigkeit} className="job-form__zg-speed" />
       </div>
 
@@ -99,6 +99,7 @@ export function JobFormNok({ initial, onSubmit, onDelete, onCancel }: JobFormNok
             type="time"
             value={holtZeit}
             onChange={(e) => handleZeitMitPrefill(e.target.value, holtDatum, setHoltZeit, setHoltDatum)}
+            required
           />
         </label>
         <label>

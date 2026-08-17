@@ -33,6 +33,12 @@ function mitSpeedAuswahl(typ: AnmeldungsTyp | ""): boolean {
   return typ === "EHF" || typ === "BHF";
 }
 
+/** Typen, bei denen die Kat. Pflicht ist: die Vergabe-Dienste (Kat.
+ *  entscheidet über die Kandidaten-Gruppe) sowie EHF/BHF. */
+function katPflicht(typ: AnmeldungsTyp | ""): boolean {
+  return typ === "1+1" || typ === "2+2" || typ === "WR" || typ === "WB" || typ === "HuLo" || typ === "EHF" || typ === "BHF";
+}
+
 export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, onCancel }: JobFormAndereProps) {
   const [typ, setTyp] = useState<AnmeldungsTyp | "">(initial?.typ ?? "");
   const [schiffsname, setSchiffsname] = useState(initial?.schiffsname ?? "");
@@ -162,7 +168,9 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
           Schiffsname
           <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} />
         </label>
-        <SchiffKatSelect value={kategorie} onChange={setKategorie} />
+        {/* Kat.-Pflicht typabhängig — nie bei ausgeblendeter Zeile (ein
+            unsichtbares Pflichtfeld würde das Speichern stumm blockieren). */}
+        <SchiffKatSelect value={kategorie} onChange={setKategorie} required={!ohneSchiffsfelder(typ) && katPflicht(typ)} />
         {mitSpeedAuswahl(typ) && <SpeedSelect value={geschwindigkeit} onChange={setGeschwindigkeit} />}
       </div>
 
@@ -171,7 +179,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
           <>
             <label className="job-form__grow2">
               Schiff (aus Hamburg/NOK)
-              <select value={agJobId} onChange={(e) => handleAgJobId(e.target.value)}>
+              <select value={agJobId} onChange={(e) => handleAgJobId(e.target.value)} required>
                 <option value="">–</option>
                 {verknuepfbareJobs.map((job) => (
                   <option key={job.id} value={job.id}>
@@ -182,7 +190,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
             </label>
             <label>
               Lotsen
-              <input type="number" min={1} value={agLotsen} onChange={(e) => handleAgLotsen(e.target.value)} />
+              <input type="number" min={1} value={agLotsen} onChange={(e) => handleAgLotsen(e.target.value)} required />
             </label>
           </>
         )}
@@ -191,7 +199,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
             <span className="job-form__grow2" aria-hidden="true" />
             <label>
               Lotsen
-              <input type="number" min={1} value={agLotsen} onChange={(e) => setAgLotsen(e.target.value)} />
+              <input type="number" min={1} value={agLotsen} onChange={(e) => setAgLotsen(e.target.value)} required />
             </label>
           </>
         )}
@@ -199,20 +207,17 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
           <>
             <label>
               best. Abgang
-              <input type="datetime-local" value={ehfBestAbgang} onChange={(e) => handleBestAbgang(e.target.value)} />
+              <input type="datetime-local" value={ehfBestAbgang} onChange={(e) => handleBestAbgang(e.target.value)} required />
             </label>
             <Switch label="EHF-Lotse benötigt" checked={ehfLotse} onChange={setEhfLotse} />
             <Switch label="EHF-Wache" checked={ehfWache} onChange={setEhfWache} />
           </>
         )}
         {typ === "BHF" && (
-          <>
-            <span className="job-form__grow2" aria-hidden="true" />
-            <label className="job-form__abtzeit-eingabe">
-              Besetz-Zeit
-              <input type="datetime-local" value={bhfBesetzZeit} onChange={(e) => handleBesetzZeit(e.target.value)} />
-            </label>
-          </>
+          <label className="job-form__abtzeit-eingabe">
+            Besetz-Zeit
+            <input type="datetime-local" value={bhfBesetzZeit} onChange={(e) => handleBesetzZeit(e.target.value)} required />
+          </label>
         )}
       </div>
 
@@ -227,10 +232,13 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
         </label>
         <label>
           Abt. Zeit
+          {/* Pflicht für alle Typen — bei AG/EHF/BHF füllen die Kaskaden
+              (Trägerwahl, best. Abgang, Besetz-Zeit) das Feld automatisch. */}
           <input
             type="time"
             value={abtZeitZeit}
             onChange={(e) => handleZeitMitPrefill(e.target.value, abtZeitDatum, setAbtZeitZeit, setAbtZeitDatum)}
+            required
           />
         </label>
       </div>

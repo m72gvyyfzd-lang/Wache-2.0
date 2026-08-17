@@ -13,9 +13,9 @@
 export type AlarmTonName = "zweiklang" | "uhoh" | "dreiklang" | "glocke";
 
 export const ALARM_TOENE: { name: AlarmTonName; label: string }[] = [
-  { name: "zweiklang", label: "Zweiklang (Standard)" },
-  { name: "uhoh", label: "Uh-Oh (Messenger-Stil)" },
-  { name: "dreiklang", label: "Dreiklang (aufsteigend)" },
+  { name: "zweiklang", label: "Zweiklang" },
+  { name: "uhoh", label: "Uh-Oh" },
+  { name: "dreiklang", label: "Dreiklang" },
   { name: "glocke", label: "Glocke" },
 ];
 

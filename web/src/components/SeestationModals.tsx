@@ -58,7 +58,7 @@ export function SeeSchiffNeuModal({ onEinfuegen, onAbbrechen }: SeeSchiffNeuModa
           Schiffsname
           <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} required />
         </label>
-        <SchiffKatSelect value={kategorie} onChange={setKategorie} className="job-form__kat-schmal" />
+        <SchiffKatSelect value={kategorie} onChange={setKategorie} className="job-form__kat-schmal" required />
       </div>
       <div className="job-form__row">
         <label className="job-form__eta-datum">

@@ -69,6 +69,13 @@
 
 /* HW-Brunsbüttel-Felder: Zeit/Datum brauchen mehr Platz als das
    dreistellige V-Nr.-Feld. */
+/* Dropdowns (z.B. Alarmton) dürfen die schmale Karte nicht sprengen. */
+.settings-feld select {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 140px;
+}
+
 .settings-feld input.settings-feld__zeit {
   width: 90px;
 }
