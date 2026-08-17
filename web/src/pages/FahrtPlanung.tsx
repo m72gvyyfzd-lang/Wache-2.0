@@ -1,0 +1,232 @@
+/**
+ * Fahrt-Planung (Phase 1): Vorausplanung der nächsten Fahrt.
+ *
+ * Oben die Steuerleiste (aktuelle/nächste Fahrt + "Daten ermitteln"),
+ * darunter drei Kacheln: "Jobs Brb" (editierbare Zählfelder, per Knopf
+ * aus den Listen befüllt — der vorherige Wert bleibt dezent in Klammern
+ * sichtbar), "Lotsen aktuell" und "Seestation" (reine Info, live
+ * berechnet). Die Zuordnung der Lotsen zur nächsten Fahrt folgt in
+ * Phase 2.
+ */
+import { useEffect, useState } from "react";
+import { getAbteilzeitSettings } from "@wache/core";
+import { PageHeader } from "../components/PageHeader";
+import type { AktuelleFahrt } from "../data/types";
+import {
+  endeNaechsterFahrt,
+  folgeFahrt,
+  PLANBARE_FAHRTEN,
+  zaehleJobsBrb,
+  zaehleLotsenAktuell,
+  zaehleSeestation,
+} from "../lib/fahrtplanung";
+import { formatUhrzeit } from "../lib/format";
+import { useData } from "../state/DataContext";
+import "./FahrtPlanung.css";
+
+const settings = getAbteilzeitSettings("Wechsel Tide");
+
+const STORAGE_KEY = "wache.fahrtplanung.v1";
+
+/** Die editierbaren Zählfelder der Jobs-Brb-Kachel in Anzeigereihenfolge.
+ *  `ermittelt`: wird von "Daten ermitteln" aus den Listen befüllt —
+ *  "lose Abgänge" und "Reserve" sind reine Benutzereingaben. */
+const FELD_GRUPPEN: { key: FeldKey; label: string; ermittelt: boolean }[][] = [
+  [
+    { key: "hamburg", label: "Schiffe aus Hamburg", ermittelt: true },
+    { key: "loseAbgaenge", label: "lose Abgänge", ermittelt: false },
+    { key: "nok", label: "Schiffe aus NOK", ermittelt: true },
+    { key: "liegend", label: "Liegende Schiffe", ermittelt: true },
+  ],
+  [
+    { key: "radar", label: "Radar", ermittelt: true },
+    { key: "vergaben", label: "Listenvergaben", ermittelt: true },
+    { key: "ag", label: "AG", ermittelt: true },
+    { key: "reserve", label: "Reserve", ermittelt: false },
+  ],
+];
+
+type FeldKey = "hamburg" | "loseAbgaenge" | "nok" | "liegend" | "radar" | "vergaben" | "ag" | "reserve";
+type Werte = Record<FeldKey, string>;
+
+const LEERE_WERTE: Werte = {
+  hamburg: "",
+  loseAbgaenge: "",
+  nok: "",
+  liegend: "",
+  radar: "",
+  vergaben: "",
+  ag: "",
+  reserve: "",
+};
+
+interface Gespeichert {
+  aktuelle?: AktuelleFahrt;
+  naechste?: AktuelleFahrt;
+  werte?: Partial<Werte>;
+  vorherige?: Partial<Werte>;
+}
+
+function ladeGespeichert(): Gespeichert {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Gespeichert;
+  } catch {
+    return {};
+  }
+}
+
+export function FahrtPlanung() {
+  const { jobs, lotsen, abteilungen, seeSchiffe, seeAbteilungen, seestationLotsen, aktuelleFahrt } = useData();
+
+  const [gespeichert] = useState<Gespeichert>(() => ladeGespeichert());
+  const [aktuelle, setAktuelle] = useState<AktuelleFahrt>(gespeichert.aktuelle ?? aktuelleFahrt);
+  const [naechste, setNaechste] = useState<AktuelleFahrt>(gespeichert.naechste ?? folgeFahrt(gespeichert.aktuelle ?? aktuelleFahrt));
+  const [werte, setWerte] = useState<Werte>({ ...LEERE_WERTE, ...gespeichert.werte });
+  const [vorherige, setVorherige] = useState<Partial<Werte>>(gespeichert.vorherige ?? {});
+
+  // Minuten-Tick: das Fahrt-Fenster und die Info-Kacheln hängen an der Uhr.
+  const [jetzt, setJetzt] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setJetzt(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ aktuelle, naechste, werte, vorherige }));
+  }, [aktuelle, naechste, werte, vorherige]);
+
+  function handleAktuelle(fahrt: AktuelleFahrt) {
+    setAktuelle(fahrt);
+    // Die nächste Fahrt folgt dem Schema automatisch — der User kann sie
+    // danach bewusst abweichend setzen (mit Hinweis).
+    setNaechste(folgeFahrt(fahrt));
+  }
+
+  const schemaBruch = naechste !== folgeFahrt(aktuelle);
+  const endeNaechste = endeNaechsterFahrt(naechste, jetzt);
+
+  function handleErmitteln() {
+    const zaehlung = zaehleJobsBrb(jobs, abteilungen, settings, endeNaechste);
+    const neu: Partial<Werte> = {
+      hamburg: String(zaehlung.hamburg),
+      nok: String(zaehlung.nok),
+      liegend: String(zaehlung.liegend),
+      radar: String(zaehlung.radar),
+      vergaben: String(zaehlung.vergaben),
+      ag: String(zaehlung.ag),
+    };
+    // Vorwerte nur für die neu eingelesenen Felder merken — und nur, wenn
+    // dort schon etwas stand (beim allerersten Ermitteln gibt es nichts
+    // zu vergleichen).
+    const alteVorwerte: Partial<Werte> = {};
+    for (const key of Object.keys(neu) as FeldKey[]) {
+      if (werte[key] !== "") alteVorwerte[key] = werte[key];
+    }
+    setVorherige(alteVorwerte);
+    setWerte((w) => ({ ...w, ...neu }));
+  }
+
+  const lotsenAktuell = zaehleLotsenAktuell(lotsen, abteilungen, seestationLotsen, aktuelle);
+  const seestation = zaehleSeestation(seeSchiffe, seeAbteilungen, endeNaechste);
+
+  return (
+    <div>
+      <PageHeader title="Fahrt-Planung" centered />
+
+      <div className="fahrt-kachel fahrt-steuer">
+        <label className="fahrt-steuer__feld">
+          aktuelle Fahrt
+          <select value={aktuelle} onChange={(e) => handleAktuelle(e.target.value as AktuelleFahrt)}>
+            {PLANBARE_FAHRTEN.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="fahrt-steuer__feld">
+          nächste Fahrt
+          <select value={naechste} onChange={(e) => setNaechste(e.target.value as AktuelleFahrt)}>
+            {PLANBARE_FAHRTEN.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+        </label>
+        {schemaBruch && (
+          <span className="fahrt-steuer__hinweis">
+            ⚠ passt nicht zum Schema — nach {aktuelle} folgt üblicherweise {folgeFahrt(aktuelle)}
+          </span>
+        )}
+        <span className="fahrt-steuer__spacer" />
+        <span className="fahrt-steuer__fenster">Fenster bis {formatUhrzeit(endeNaechste)}</span>
+        <button type="button" className="btn btn--accent" onClick={handleErmitteln}>
+          Daten ermitteln
+        </button>
+      </div>
+
+      <div className="fahrt-reihe">
+        <section className="fahrt-kachel fahrt-jobs">
+          <h3 className="fahrt-kachel__titel">Jobs Brb</h3>
+          <div className="fahrt-jobs__gruppen">
+            {FELD_GRUPPEN.map((gruppe, gi) => (
+              <div key={gi} className="fahrt-jobs__gruppe">
+                {gruppe.map((feld) => (
+                  <label key={feld.key} className="fahrt-feld">
+                    <span className="fahrt-feld__label">{feld.label}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      value={werte[feld.key]}
+                      onChange={(e) => setWerte((w) => ({ ...w, [feld.key]: e.target.value }))}
+                    />
+                    <span className="fahrt-feld__vorwert">
+                      {feld.ermittelt && vorherige[feld.key] !== undefined ? `(${vorherige[feld.key]})` : ""}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="fahrt-kachel fahrt-info">
+          <h3 className="fahrt-kachel__titel">Lotsen aktuell</h3>
+          <div className="fahrt-info__zeilen">
+            <div className="fahrt-feld">
+              <span className="fahrt-feld__label">in der Fahrt</span>
+              <output>{lotsenAktuell.inFahrt}</output>
+            </div>
+            <div className="fahrt-feld">
+              <span className="fahrt-feld__label">im Fahrwasser</span>
+              <output>{lotsenAktuell.fahrwasser}</output>
+            </div>
+            <div className="fahrt-feld">
+              <span className="fahrt-feld__label">Auf Seestation</span>
+              <output>{lotsenAktuell.aufSeestation}</output>
+            </div>
+          </div>
+        </section>
+
+        <section className="fahrt-kachel fahrt-info">
+          <h3 className="fahrt-kachel__titel">Seestation</h3>
+          <div className="fahrt-info__zeilen">
+            <div className="fahrt-feld">
+              <span className="fahrt-feld__label">aktuelle ETAs</span>
+              <output>
+                {seestation.etasBis}
+                <span className="fahrt-info__gesamt"> / {seestation.etasGesamt}</span>
+              </output>
+            </div>
+            <div className="fahrt-feld">
+              <span className="fahrt-feld__label">benötigte Lotsen</span>
+              <output>{seestation.lotsenBedarf}</output>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}

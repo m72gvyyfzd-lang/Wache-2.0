@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: "/versetzlisten", label: "Versetzlisten" },
   { to: "/seestation", label: "Seestation" },
   { to: "/einsatzstation", label: "Einsatzstation" },
+  { to: "/fahrt-planung", label: "Fahrt-Planung" },
   { to: "/settings", label: "Settings" },
 ];
 

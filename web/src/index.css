@@ -203,6 +203,15 @@ select {
   padding: 8px 10px;
 }
 
+/* Leere Pflichtfelder in den Formularen dezent rötlich hervorheben, bis
+   ein Wert eingetragen ist (":invalid" trifft bei required genau die
+   leeren Felder — inkl. der "–"-Auswahl in Pflicht-Dropdowns). */
+.job-form input:required:invalid,
+.job-form select:required:invalid {
+  border-color: color-mix(in srgb, #b5432f 55%, var(--line));
+  background: color-mix(in srgb, #b5432f 8%, var(--surface-2));
+}
+
 tr.row-click {
   cursor: pointer;
 }

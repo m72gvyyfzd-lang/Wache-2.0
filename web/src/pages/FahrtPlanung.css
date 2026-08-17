@@ -1,0 +1,138 @@
+/* Fahrt-Planung: Steuerleiste + drei Kacheln (Jobs Brb ½, Lotsen aktuell ¼,
+   Seestation ¼) mit leichtem 3D-Effekt. */
+
+.fahrt-kachel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 18px;
+  box-shadow:
+    0 4px 12px rgba(15, 23, 42, 0.14),
+    0 1px 2px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.fahrt-kachel__titel {
+  margin: 0 0 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+}
+
+/* --- Steuerleiste: alles in einer Ebene nebeneinander, keine Überschrift */
+.fahrt-steuer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.fahrt-steuer__feld {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.fahrt-steuer__hinweis {
+  font-size: 0.8rem;
+  color: #b5432f;
+}
+
+.fahrt-steuer__spacer {
+  flex: 1;
+}
+
+.fahrt-steuer__fenster {
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+/* --- Kachel-Reihe: ½ + ¼ + ¼ */
+.fahrt-reihe {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+/* --- Jobs Brb: zwei Feldgruppen nebeneinander, Felder untereinander */
+.fahrt-jobs__gruppen {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 24px;
+}
+
+.fahrt-jobs__gruppe {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Eine Feldzeile: Beschriftung links, Feld fest breit, rechts Platz für
+   den dezenten Vorwert in Klammern. */
+.fahrt-feld {
+  display: grid;
+  grid-template-columns: 1fr 72px 44px;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+
+.fahrt-feld input {
+  width: 100%;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.fahrt-feld output {
+  width: 100%;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.fahrt-feld__vorwert {
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Info-Kacheln (Lotsen aktuell / Seestation) */
+.fahrt-info__zeilen {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Info-Zeilen haben keinen Vorwert — die dritte Spalte entfällt. */
+.fahrt-info .fahrt-feld {
+  grid-template-columns: 1fr 72px;
+}
+
+.fahrt-info__gesamt {
+  color: var(--ink-faint);
+  font-weight: 400;
+  font-size: 0.8rem;
+}
+
+/* iPad Hochformat: Kacheln stapeln statt quetschen */
+@media (max-width: 900px) {
+  .fahrt-reihe {
+    grid-template-columns: 1fr;
+  }
+}
