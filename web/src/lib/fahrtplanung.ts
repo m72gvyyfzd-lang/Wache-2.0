@@ -10,15 +10,8 @@
 import type { AbteilzeitSettings } from "@wache/core";
 import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag, SeeAbteilung, SeeSchiff, SeestationLotse } from "../data/types";
 import { abteilzeitVon, benoetigteLotsenAnzahl, istAgJob, istBunkernPausiert, istCuxVergabe } from "./coreJob";
-import {
-  planungsEta,
-  vorschauAbtZeiten,
-  zeilenAusAbteilungen,
-  zeilenAusSeestationLotsen,
-  type SeestationZeile,
-} from "./seestation";
+import { planungsEta, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "./seestation";
 import { seeLotsenAnzahl } from "./seestationAbteilen";
-import { vorschauZeilen } from "./vorschau";
 
 /** Wählbare Fahrten der Planung — ohne "Bereitschaft". */
 export const PLANBARE_FAHRTEN: AktuelleFahrt[] = ["MoFa", "MiFa", "AFA"];
@@ -163,73 +156,4 @@ export function zaehleSeestation(
     lotsenBedarf: imFenster.reduce((summe, s) => summe + s.fehlt, 0),
     lotsenBedarfGesamt: offene.reduce((summe, s) => summe + s.fehlt, 0),
   };
-}
-
-/** Datenbasis der Seestations-Bilanz — dieselben Listen, aus denen auch
- *  die Dashboard-Kachel rechnet. */
-export interface BilanzDaten {
-  jobs: JobEintrag[];
-  lotsen: LotsenEintrag[];
-  aktuelleFahrt: AktuelleFahrt;
-  abteilungen: Abteilung[];
-  seestationLotsen: SeestationLotse[];
-  seeSchiffe: SeeSchiff[];
-  seeAbteilungen: SeeAbteilung[];
-  vNrStart: number;
-  verbrauchteVNrn: number[];
-}
-
-/**
- * Seestations-Bilanz zum Planungsende — exakt die Rechnung der
- * Bilanz-Zeile in der Dashboard-Kachel (dort für jetzt +3/+6/+12 Std.),
- * nur für den Zeitpunkt "Ende der nächsten Fahrt + Puffer" (siehe
- * SEESTATION_PUFFER_MS) und IMMER mit Vorschau-Projektion, unabhängig
- * vom Vorschau-Schalter:
- *
- *   verfügbare Lotsen + projizierte Lotsen der Einsatzplanung − Bedarf
- *
- * Verfügbar/projiziert zählt, wer bis dahin auf der Seestation ist oder
- * dort eintrifft; der Bedarf sind die bis dahin noch fehlenden Lotsen
- * aller offenen Schiffe (E3/St-Verbund eingerechnet, wie in der
- * Vorschau). Negativ = so viele Lotsen fehlen, positiv = Überschuss.
- */
-export function seestationsBilanzBis(
-  daten: BilanzDaten,
-  settings: AbteilzeitSettings,
-  jetzt: Date,
-  endeNaechste: Date,
-): number {
-  const grenze = endeNaechste.getTime() + SEESTATION_PUFFER_MS;
-
-  const abgeteiltProSchiff = new Map<number, number>();
-  for (const sa of daten.seeAbteilungen)
-    abgeteiltProSchiff.set(sa.seeSchiffId, (abgeteiltProSchiff.get(sa.seeSchiffId) ?? 0) + 1);
-
-  // Bedarf mit den Vorschau-Abt.Zeiten (E3/St-Verbund) — wie im Dashboard
-  // bei aktivierter Vorschau.
-  const vorschauAbt = vorschauAbtZeiten(daten.seeSchiffe);
-  const bedarf = daten.seeSchiffe
-    .map((s) => ({
-      eta: (vorschauAbt.get(s.id)?.abtZeit ?? planungsEta(s)).getTime(),
-      fehlt: seeLotsenAnzahl(s) - (abgeteiltProSchiff.get(s.id) ?? 0),
-    }))
-    .filter((s) => s.fehlt > 0 && s.eta <= grenze)
-    .reduce((summe, s) => summe + s.fehlt, 0);
-
-  const verfuegbarBis = (zeilen: SeestationZeile[]) =>
-    zeilen.filter((z) => z.aufStation || (z.etaStn !== undefined && z.etaStn.getTime() <= grenze)).length;
-
-  const echte = [...zeilenAusAbteilungen(daten.abteilungen), ...zeilenAusSeestationLotsen(daten.seestationLotsen)];
-  const { verplante } = vorschauZeilen(
-    daten.jobs,
-    daten.lotsen,
-    daten.aktuelleFahrt,
-    daten.abteilungen,
-    settings,
-    daten.vNrStart,
-    daten.verbrauchteVNrn,
-    jetzt,
-  );
-
-  return verfuegbarBis(echte) + verfuegbarBis(verplante) - bedarf;
 }

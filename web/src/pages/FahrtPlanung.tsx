@@ -16,7 +16,6 @@ import {
   endeNaechsterFahrt,
   folgeFahrt,
   PLANBARE_FAHRTEN,
-  seestationsBilanzBis,
   zaehleJobsBrb,
   zaehleLotsenAktuell,
   zaehleSeestation,
@@ -99,8 +98,6 @@ export function FahrtPlanung() {
     seeAbteilungen,
     seestationLotsen,
     aktuelleFahrt,
-    vNrStart,
-    verbrauchteVNrn,
   } = useData();
 
   const [gespeichert] = useState<Gespeichert>(() => ladeGespeichert());
@@ -168,16 +165,15 @@ export function FahrtPlanung() {
   const anforderungAusgehend = Math.max(0, bedarfAusgehend - lotsenAktuell.inFahrt);
 
   // einkommend — Bedarf sind die bis zum Planungsende benötigten Lotsen
-  // (dieselbe Zahl wie in der Seestations-Kachel). Daneben die Bilanz:
-  // exakt die Bilanz-Zeile der Dashboard-Seestations-Kachel, nur für das
-  // Planungsende statt +3/+6/+12 Std. und immer mit Vorschau — negativ
-  // heißt, so viele Lotsen fehlen.
-  const bilanzEinkommend = seestationsBilanzBis(
-    { jobs, lotsen, aktuelleFahrt, abteilungen, seestationLotsen, seeSchiffe, seeAbteilungen, vNrStart, verbrauchteVNrn },
-    settings,
-    jetzt,
-    endeNaechste,
-  );
+  // (dieselbe Zahl wie in der Seestations-Kachel). Die Anforderung zieht
+  // davon ab, was bis dahin ohnehin zur Verfügung steht: alle Lotsen der
+  // Kachel "Lotsen aktuell" (in der Fahrt, im Fahrwasser, auf Seestation)
+  // plus die für ausgehend bereits angeforderten Lotsen — die kommen mit
+  // ihrem Job zur Seestation und stehen dort anschließend bereit. Deckt
+  // das den Bedarf, ist nichts anzufordern (0 statt negativ).
+  const vorhandenEinkommend =
+    lotsenAktuell.inFahrt + lotsenAktuell.fahrwasser + lotsenAktuell.aufSeestation + anforderungAusgehend;
+  const anforderungEinkommend = Math.max(0, seestation.lotsenBedarf - vorhandenEinkommend);
 
   function feldZeile(feld: FeldDef) {
     return (
@@ -313,21 +309,8 @@ export function FahrtPlanung() {
                   <span className="zahlen-tile__zahl">{seestation.lotsenBedarf}</span>
                 </div>
                 <div className="zahlen-tile__spalte">
-                  <span className="zahlen-tile__kuerzel">Bilanz</span>
-                  {/* Farbgebung und Vorzeichen wie in der Dashboard-Kachel:
-                      Fehlbestand rot, Überschuss grün mit "+". */}
-                  <span
-                    className={
-                      "zahlen-tile__zahl" +
-                      (bilanzEinkommend < 0
-                        ? " zahlen-tile__zahl--fehlt"
-                        : bilanzEinkommend > 0
-                          ? " zahlen-tile__zahl--ueberschuss"
-                          : "")
-                    }
-                  >
-                    {bilanzEinkommend > 0 ? `+${bilanzEinkommend}` : bilanzEinkommend}
-                  </span>
+                  <span className="zahlen-tile__kuerzel">Anforderung</span>
+                  <span className="zahlen-tile__zahl">{anforderungEinkommend}</span>
                 </div>
               </div>
             </fieldset>

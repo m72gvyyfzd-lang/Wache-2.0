@@ -98,20 +98,21 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
   }
   const meldungenAktiv = offenesPanel?.typ === "meldungen" ? offenesPanel.art : null;
 
-  // Alarm-Ton: einmaliger Ton pro NEUEM Alarm (stabile Meldungs-IDs). Das
-  // Entsperren des AudioContext geschieht zentral in TopBar; hier nur noch
-  // das Abspielen bei neuen Alarmen.
-  const alarmSchluessel = meldungen
-    .filter((m) => m.stufe === "alarm")
+  // Warn-Ton: einmaliger Ton pro NEUER Meldung der Stufen "alarm" und
+  // "warnung" (stabile Meldungs-IDs). Vorschläge und Infos bleiben still —
+  // sie sind Hinweise, keine Handlungsaufforderung. Das Entsperren des
+  // AudioContext geschieht zentral in TopBar; hier nur das Abspielen.
+  const tonSchluessel = meldungen
+    .filter((m) => m.stufe === "alarm" || m.stufe === "warnung")
     .map((m) => m.id)
     .join("|");
-  const bekannteAlarme = useRef<Set<string>>(new Set());
+  const bekannteMeldungen = useRef<Set<string>>(new Set());
   useEffect(() => {
-    const aktuelle = alarmSchluessel === "" ? [] : alarmSchluessel.split("|");
-    const neue = aktuelle.filter((id) => !bekannteAlarme.current.has(id));
-    bekannteAlarme.current = new Set(aktuelle);
+    const aktuelle = tonSchluessel === "" ? [] : tonSchluessel.split("|");
+    const neue = aktuelle.filter((id) => !bekannteMeldungen.current.has(id));
+    bekannteMeldungen.current = new Set(aktuelle);
     if (neue.length > 0 && tonAn) spieleAlarmTon();
-  }, [alarmSchluessel, tonAn]);
+  }, [tonSchluessel, tonAn]);
 
   // Nur noch nicht (vollständig) abgeteilte Jobs zählen — dieselbe
   // Sichtbarkeits-Regel wie auf Tafel Brb selbst (siehe Jobs.tsx::sichtbar).
