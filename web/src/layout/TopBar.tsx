@@ -12,25 +12,42 @@ export function TopBar() {
   const [tonAn, setTonAn] = useState(() => ladeAlarmTonAktiv());
 
   // Browser erlauben Ton erst nach einer Nutzer-Interaktion — das
-  // Einschalten des Schalters entsperrt den AudioContext direkt; war der
-  // Ton schon beim Laden aktiv, entsperrt die erste beliebige Berührung.
+  // Einschalten des Schalters schaltet ihn direkt frei; war der Ton schon
+  // beim Laden aktiv, übernimmt das die erste beliebige Berührung.
+  //
+  // Bewusst NICHT nur einmalig: iOS entzieht die Freigabe wieder, sobald
+  // die Seite länger im Hintergrund war oder der Bildschirm gesperrt hat.
+  // Ein Wach-Dashboard läuft stundenlang — deshalb bei jeder Berührung
+  // und bei jeder Rückkehr in den Vordergrund neu freischalten. Der
+  // Aufruf ist billig und bei bereits freigeschaltetem Ton wirkungslos.
   useEffect(() => {
     if (!tonAn) return;
     const entsperren = () => tonEntsperren();
-    document.addEventListener("pointerdown", entsperren, { once: true });
-    return () => document.removeEventListener("pointerdown", entsperren);
+    const beiSichtbar = () => {
+      if (document.visibilityState === "visible") tonEntsperren();
+    };
+    document.addEventListener("pointerdown", entsperren);
+    document.addEventListener("keydown", entsperren);
+    document.addEventListener("visibilitychange", beiSichtbar);
+    entsperren();
+    return () => {
+      document.removeEventListener("pointerdown", entsperren);
+      document.removeEventListener("keydown", entsperren);
+      document.removeEventListener("visibilitychange", beiSichtbar);
+    };
   }, [tonAn]);
 
+  // Seiteneffekte bewusst NEBEN dem State-Update, nicht in der
+  // Updater-Funktion: React ruft die im Entwicklungsmodus doppelt auf,
+  // der Probeton erklang dadurch zweimal.
   function handleTonToggle() {
-    setTonAn((an) => {
-      const neu = !an;
-      speichereAlarmTonAktiv(neu);
-      if (neu) {
-        tonEntsperren();
-        spieleAlarmTon();
-      }
-      return neu;
-    });
+    const neu = !tonAn;
+    setTonAn(neu);
+    speichereAlarmTonAktiv(neu);
+    if (neu) {
+      tonEntsperren();
+      spieleAlarmTon();
+    }
   }
 
   return (

@@ -188,9 +188,12 @@
   align-items: stretch;
 }
 
+/* Zwei gleich hohe Zeilen: Grid-Items strecken sich von sich aus auf die
+   Zeilenhöhe. Bewusst Grid statt flex:1 — ein <fieldset> als Flex-Item
+   nimmt in Safari nicht zuverlässig die zugewiesene Höhe an. */
 .fahrt-bilanz__gruppen {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
   gap: 12px;
 }
 
@@ -198,19 +201,23 @@
   padding: 0 10px 8px;
 }
 
-/* Gesamt-Anforderung: nur eine Zahl, mittig über die ganze Rahmenhöhe.
-   Die Zelle ist der Höhenbezug — der Rahmen darin liegt absolut und
-   trägt damit NICHT zur Zeilenhöhe bei. Sonst würde die große Zahl den
-   rechten Block höher machen als die beiden linken zusammen (auf dem
-   iPad fallen die linken Rahmen zusätzlich kompakter aus). */
+/* Gleiche Unterkante links wie rechts — unabhängig davon, welche Seite
+   mehr Höhe braucht: BEIDE Spalten füllen die Zeilenhöhe aus. Links
+   wachsen dafür die zwei Rahmen mit (flex: 1), rechts der eine. Eine
+   feste Höhe oder absolute Positionierung wäre zerbrechlich: je nach
+   Gerät und Schriftgröße ist mal die große Zahl, mal das linke Paar der
+   höhere Block. */
+.fahrt-bilanz__gruppen > .zahlen-tile__gruppe {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 .fahrt-bilanz__gesamt-zelle {
-  position: relative;
-  min-height: 100%;
+  display: grid;
 }
 
 .fahrt-bilanz__gesamt {
-  position: absolute;
-  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -269,14 +276,13 @@
     grid-template-columns: 1fr;
   }
 
-  /* gestapelt gibt es keine Nachbarspalte mehr, die die Höhe vorgibt —
-     der Rahmen läuft wieder im normalen Fluss mit. */
-  .fahrt-bilanz__gesamt-zelle {
-    min-height: 0;
+  .fahrt-bilanz__gruppen {
+    grid-template-rows: auto auto;
   }
 
+  /* gestapelt braucht der Rahmen eine eigene Mindesthöhe — er hat sonst
+     nur die Höhe der einen Zahl. */
   .fahrt-bilanz__gesamt {
-    position: static;
-    padding: 0 10px 8px;
+    min-height: 84px;
   }
 }

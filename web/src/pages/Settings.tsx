@@ -9,6 +9,7 @@ import {
   ladeAlarmTonWahl,
   speichereAlarmTonWahl,
   spieleAlarmTon,
+  spieleAlarmTonGeprueft,
   tonEntsperren,
   type AlarmTonName,
 } from "../lib/alarmTon";
@@ -27,14 +28,28 @@ export function Settings() {
   const [resetMeldung, setResetMeldung] = useState("");
 
   const [alarmTon, setAlarmTon] = useState<AlarmTonName>(() => ladeAlarmTonWahl());
+  /** Rückmeldung des Probehörens — ohne sie bleibt unklar, ob der Ton
+   *  stumm ist, weil der Browser ihn blockiert, oder weil das Gerät leise
+   *  gestellt ist. */
+  const [tonMeldung, setTonMeldung] = useState("");
 
   /** Auswahl speichern und sofort vorspielen — der Klick ins Dropdown ist
-   *  zugleich die Nutzer-Interaktion, die den AudioContext entsperrt. */
+   *  zugleich die Nutzer-Interaktion, die den Ton freischaltet. */
   function handleAlarmTon(name: AlarmTonName) {
     setAlarmTon(name);
     speichereAlarmTonWahl(name);
     tonEntsperren();
     spieleAlarmTon(name);
+  }
+
+  async function handleTonTest() {
+    tonEntsperren();
+    const gespielt = await spieleAlarmTonGeprueft(alarmTon);
+    setTonMeldung(
+      gespielt
+        ? "Ton läuft — hörst du nichts, ist das Gerät leise oder stumm geschaltet."
+        : "Der Browser blockiert den Ton. Bitte die Seite einmal antippen und erneut probieren.",
+    );
   }
 
   const [hw1Datum, setHw1Datum] = useState(toLocalDateInput(hwBrb.hw1));
@@ -107,18 +122,11 @@ export function Settings() {
                   </option>
                 ))}
               </select>
-              <button
-                type="button"
-                className="btn btn--small"
-                title="Alarmton probehören"
-                onClick={() => {
-                  tonEntsperren();
-                  spieleAlarmTon(alarmTon);
-                }}
-              >
+              <button type="button" className="btn btn--small" title="Alarmton probehören" onClick={handleTonTest}>
                 ▶
               </button>
             </label>
+            {tonMeldung !== "" && <p className="settings-ton-hinweis">{tonMeldung}</p>}
           </div>
         </Panel>
         <Panel title="HW Brunsbüttel" className="settings-row__hw">

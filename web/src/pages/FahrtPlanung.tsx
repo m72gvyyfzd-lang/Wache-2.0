@@ -326,10 +326,9 @@ export function FahrtPlanung() {
               </fieldset>
             </div>
             {/* Gesamtanforderung beider Richtungen — ein Rahmen im selben
-                Stil, so hoch wie die beiden links zusammen. Der Rahmen ist
-                in seiner Zelle absolut gesetzt (siehe CSS), damit die
-                LINKE Spalte die Höhe vorgibt und beide Blöcke unten bündig
-                abschließen — sonst zieht die große Zahl die Kachel auf. */}
+                Stil, so hoch wie die beiden links zusammen. Beide Spalten
+                füllen die Zeilenhöhe aus (siehe CSS), damit sie unabhängig
+                von Gerät und Schriftgröße bündig abschließen. */}
             <div className="fahrt-bilanz__gesamt-zelle">
               <fieldset className="zahlen-tile__gruppe fahrt-bilanz__gesamt" data-testid="fahrt-anforderung">
                 <legend className="zahlen-tile__titel">Fahrtanforderung</legend>

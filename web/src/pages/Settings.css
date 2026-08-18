@@ -102,3 +102,11 @@
     grid-column: 1;
   }
 }
+
+/* Rückmeldung des Ton-Probehörens (Settings > Allgemein) */
+.settings-ton-hinweis {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  max-width: 42ch;
+}
