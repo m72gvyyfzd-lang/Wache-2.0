@@ -16,10 +16,10 @@ import {
   endeNaechsterFahrt,
   folgeFahrt,
   PLANBARE_FAHRTEN,
+  seestationsBilanzBis,
   zaehleJobsBrb,
   zaehleLotsenAktuell,
   zaehleSeestation,
-  zaehleVerfuegbareSeeLotsen,
 } from "../lib/fahrtplanung";
 import { formatUhrzeit } from "../lib/format";
 import { useData } from "../state/DataContext";
@@ -91,7 +91,17 @@ function ladeGespeichert(): Gespeichert {
 }
 
 export function FahrtPlanung() {
-  const { jobs, lotsen, abteilungen, seeSchiffe, seeAbteilungen, seestationLotsen, aktuelleFahrt } = useData();
+  const {
+    jobs,
+    lotsen,
+    abteilungen,
+    seeSchiffe,
+    seeAbteilungen,
+    seestationLotsen,
+    aktuelleFahrt,
+    vNrStart,
+    verbrauchteVNrn,
+  } = useData();
 
   const [gespeichert] = useState<Gespeichert>(() => ladeGespeichert());
   const [aktuelle, setAktuelle] = useState<AktuelleFahrt>(gespeichert.aktuelle ?? aktuelleFahrt);
@@ -158,11 +168,16 @@ export function FahrtPlanung() {
   const anforderungAusgehend = Math.max(0, bedarfAusgehend - lotsenAktuell.inFahrt);
 
   // einkommend — Bedarf sind die bis zum Planungsende benötigten Lotsen
-  // (dieselbe Zahl wie in der Seestations-Kachel). Dem stehen die Lotsen
-  // gegenüber, die bis dahin auf der Seestation sind bzw. dort eintreffen;
-  // die Anforderung ist der Rest (nie negativ).
-  const seeVerfuegbar = zaehleVerfuegbareSeeLotsen(abteilungen, seestationLotsen, endeNaechste);
-  const anforderungEinkommend = Math.max(0, seestation.lotsenBedarf - seeVerfuegbar);
+  // (dieselbe Zahl wie in der Seestations-Kachel). Daneben die Bilanz:
+  // exakt die Bilanz-Zeile der Dashboard-Seestations-Kachel, nur für das
+  // Planungsende statt +3/+6/+12 Std. und immer mit Vorschau — negativ
+  // heißt, so viele Lotsen fehlen.
+  const bilanzEinkommend = seestationsBilanzBis(
+    { jobs, lotsen, aktuelleFahrt, abteilungen, seestationLotsen, seeSchiffe, seeAbteilungen, vNrStart, verbrauchteVNrn },
+    settings,
+    jetzt,
+    endeNaechste,
+  );
 
   function feldZeile(feld: FeldDef) {
     return (
@@ -298,8 +313,21 @@ export function FahrtPlanung() {
                   <span className="zahlen-tile__zahl">{seestation.lotsenBedarf}</span>
                 </div>
                 <div className="zahlen-tile__spalte">
-                  <span className="zahlen-tile__kuerzel">Anforderung</span>
-                  <span className="zahlen-tile__zahl">{anforderungEinkommend}</span>
+                  <span className="zahlen-tile__kuerzel">Bilanz</span>
+                  {/* Farbgebung und Vorzeichen wie in der Dashboard-Kachel:
+                      Fehlbestand rot, Überschuss grün mit "+". */}
+                  <span
+                    className={
+                      "zahlen-tile__zahl" +
+                      (bilanzEinkommend < 0
+                        ? " zahlen-tile__zahl--fehlt"
+                        : bilanzEinkommend > 0
+                          ? " zahlen-tile__zahl--ueberschuss"
+                          : "")
+                    }
+                  >
+                    {bilanzEinkommend > 0 ? `+${bilanzEinkommend}` : bilanzEinkommend}
+                  </span>
                 </div>
               </div>
             </fieldset>
