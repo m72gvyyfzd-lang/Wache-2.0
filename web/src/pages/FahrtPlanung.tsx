@@ -19,6 +19,7 @@ import {
   zaehleJobsBrb,
   zaehleLotsenAktuell,
   zaehleSeestation,
+  zaehleVerfuegbareSeeLotsen,
 } from "../lib/fahrtplanung";
 import { formatUhrzeit } from "../lib/format";
 import { useData } from "../state/DataContext";
@@ -143,16 +144,25 @@ export function FahrtPlanung() {
   const lotsenAktuell = zaehleLotsenAktuell(lotsen, abteilungen, seestationLotsen, aktuelle);
   const seestation = zaehleSeestation(seeSchiffe, seeAbteilungen, endeNaechste);
 
-  // "Fahrt"-Kachel: die beiden Richtungen gegenübergestellt.
-  // ausgehend — alle Zählfelder der Jobs-Brb-Kachel zusammen (leere Felder
-  // zählen als 0; das AG-Feld enthält bereits Lotsen, nicht Jobs). Der
-  // Bedarf zieht die Lotsen ab, die schon in der laufenden Fahrt sind:
-  // negativ = Überschuss, positiv = so viele Lotsen fehlen noch.
-  const jobsAusgehend = (Object.keys(LEERE_WERTE) as FeldKey[]).reduce(
+  // "Fahrt"-Kachel: je Richtung Bedarf und Anforderung.
+  //
+  // ausgehend — Bedarf ist die Summe aller Zählfelder der Jobs-Brb-Kachel
+  // (leere Felder zählen als 0; das AG-Feld enthält bereits Lotsen, nicht
+  // Jobs). Die Anforderung zieht davon die Lotsen ab, die noch in der
+  // laufenden Fahrt sind: sie deckt nur, was darüber hinaus gebraucht
+  // wird — reichen sie aus, ist nichts anzufordern (0 statt negativ).
+  const bedarfAusgehend = (Object.keys(LEERE_WERTE) as FeldKey[]).reduce(
     (summe, key) => summe + (Number(werte[key]) || 0),
     0,
   );
-  const bedarfAusgehend = jobsAusgehend - lotsenAktuell.inFahrt;
+  const anforderungAusgehend = Math.max(0, bedarfAusgehend - lotsenAktuell.inFahrt);
+
+  // einkommend — Bedarf sind die bis zum Planungsende benötigten Lotsen
+  // (dieselbe Zahl wie in der Seestations-Kachel). Dem stehen die Lotsen
+  // gegenüber, die bis dahin auf der Seestation sind bzw. dort eintreffen;
+  // die Anforderung ist der Rest (nie negativ).
+  const seeVerfuegbar = zaehleVerfuegbareSeeLotsen(abteilungen, seestationLotsen, endeNaechste);
+  const anforderungEinkommend = Math.max(0, seestation.lotsenBedarf - seeVerfuegbar);
 
   function feldZeile(feld: FeldDef) {
     return (
@@ -271,12 +281,12 @@ export function FahrtPlanung() {
               <legend className="zahlen-tile__titel">ausgehend</legend>
               <div className="zahlen-tile__werte">
                 <div className="zahlen-tile__spalte">
-                  <span className="zahlen-tile__kuerzel">Jobs</span>
-                  <span className="zahlen-tile__zahl">{jobsAusgehend}</span>
-                </div>
-                <div className="zahlen-tile__spalte">
                   <span className="zahlen-tile__kuerzel">Bedarf</span>
                   <span className="zahlen-tile__zahl">{bedarfAusgehend}</span>
+                </div>
+                <div className="zahlen-tile__spalte">
+                  <span className="zahlen-tile__kuerzel">Anforderung</span>
+                  <span className="zahlen-tile__zahl">{anforderungAusgehend}</span>
                 </div>
               </div>
             </fieldset>
@@ -284,12 +294,12 @@ export function FahrtPlanung() {
               <legend className="zahlen-tile__titel">einkommend</legend>
               <div className="zahlen-tile__werte">
                 <div className="zahlen-tile__spalte">
-                  <span className="zahlen-tile__kuerzel">Jobs</span>
-                  <span className="zahlen-tile__zahl">{seestation.etasBis}</span>
-                </div>
-                <div className="zahlen-tile__spalte">
                   <span className="zahlen-tile__kuerzel">Bedarf</span>
                   <span className="zahlen-tile__zahl">{seestation.lotsenBedarf}</span>
+                </div>
+                <div className="zahlen-tile__spalte">
+                  <span className="zahlen-tile__kuerzel">Anforderung</span>
+                  <span className="zahlen-tile__zahl">{anforderungEinkommend}</span>
                 </div>
               </div>
             </fieldset>

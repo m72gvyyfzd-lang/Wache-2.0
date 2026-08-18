@@ -157,3 +157,25 @@ export function zaehleSeestation(
     lotsenBedarfGesamt: offene.reduce((summe, s) => summe + s.fehlt, 0),
   };
 }
+
+/**
+ * Lotsen, die bis zum Planungsende auf der Seestation zur Verfügung
+ * stehen: die bereits dort sind plus die, die im Revier unterwegs sind
+ * und rechtzeitig ankommen (geplante Ankunft ≤ Planungsende). Quellen
+ * wie überall — Versetzliste (Abteilungen) UND die manuell/per
+ * Wachbeginn angelegten Seestation-Lotsen.
+ *
+ * Maßgeblich ist dieselbe Grenze wie beim Bedarf (siehe
+ * zaehleSeestation: Ende der nächsten Fahrt + Puffer) — sonst stünde ein
+ * Bedarf bis kurz nach Fahrtende einer Verfügbarkeit nur bis Fahrtende
+ * gegenüber, und die Anforderung fiele systematisch zu hoch aus.
+ */
+export function zaehleVerfuegbareSeeLotsen(
+  abteilungen: Abteilung[],
+  seestationLotsen: SeestationLotse[],
+  endeNaechste: Date,
+): number {
+  const grenze = endeNaechste.getTime() + SEESTATION_PUFFER_MS;
+  const zeilen = [...zeilenAusAbteilungen(abteilungen), ...zeilenAusSeestationLotsen(seestationLotsen)];
+  return zeilen.filter((z) => z.aufStation || (z.etaStn !== undefined && z.etaStn.getTime() <= grenze)).length;
+}
