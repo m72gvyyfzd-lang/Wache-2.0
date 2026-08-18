@@ -44,9 +44,9 @@ export function planungsEta(schiff: Pick<SeeSchiff, "eta" | "e3st" | "angemeldet
 }
 
 /** E3/St-Verbund (nur Vorschau-Rechnung): Liegen die ETAs mehrerer
- *  E3/St-Schiffe höchstens 3 Std. nach dem FRÜHESTEN Schiff der Gruppe,
+ *  E3/St-Schiffe höchstens 2,5 Std. nach dem FRÜHESTEN Schiff der Gruppe,
  *  teilen sie sich eine Lotsenboot-Tour. */
-export const E3ST_VERBUND_FENSTER_MS = 3 * 3_600_000;
+export const E3ST_VERBUND_FENSTER_MS = 2.5 * 3_600_000;
 
 /** Planungshorizont der Projektionen (Vorschau + AG-Planung): geplant wird
  *  höchstens 12 Std. im Voraus — weiter entfernte Schiffe ändern sich
@@ -69,7 +69,7 @@ export interface VorschauAbtZeit {
 }
 
 /** Wirksame Abt.Zeiten für die VORSCHAU-Zuteilung: E3/St-Schiffe im
- *  3-Std.-Fenster (siehe E3ST_VERBUND_FENSTER_MS) bilden einen Verbund und
+ *  2,5-Std.-Fenster (siehe E3ST_VERBUND_FENSTER_MS) bilden einen Verbund und
  *  übernehmen gemeinsam die Abt.Zeit des führenden Schiffs — jedes weitere
  *  reiht sich mit +1 Minute ein (dieselbe Bootstour, die Minute hält nur
  *  die Reihenfolge eindeutig). Alle übrigen Schiffe behalten ihre

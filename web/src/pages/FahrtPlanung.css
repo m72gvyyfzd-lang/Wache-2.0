@@ -174,8 +174,20 @@
   font-size: 0.8rem;
 }
 
-/* --- Kachel "Fahrt": zwei Gruppenrahmen untereinander (ausgehend /
-   einkommend) im Stil der Dashboard-Kacheln. */
+/* --- Kachel "Fahrt" (2/4 breit): links die Gruppenrahmen "ausgehend" und
+   "einkommend" untereinander, rechts die Gesamt-Anforderung über die volle
+   Höhe beider — alle im Stil der Dashboard-Kacheln. */
+.fahrt-bilanz {
+  grid-column: span 2;
+}
+
+.fahrt-bilanz__inhalt {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 14px;
+  align-items: stretch;
+}
+
 .fahrt-bilanz__gruppen {
   display: flex;
   flex-direction: column;
@@ -186,9 +198,62 @@
   padding: 0 10px 8px;
 }
 
+/* Gesamt-Anforderung: nur eine Zahl, mittig über die ganze Rahmenhöhe. */
+.fahrt-bilanz__gesamt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fahrt-bilanz__gesamt-zahl {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+}
+
+/* iPad Querformat (1024 px): die Kacheln behalten ihre Aufteilung, die
+   Feldzeilen rücken dafür enger zusammen — sonst laufen die Zahlenfelder
+   des rechten Jobs-Brb-Blocks über den Kachelrand hinaus. */
+@media (max-width: 1100px) {
+  .fahrt-kachel {
+    padding: 12px 12px;
+  }
+
+  .fahrt-feld {
+    grid-template-columns: 1fr 56px 30px;
+    gap: 6px;
+    font-size: 0.78rem;
+  }
+
+  .fahrt-info .fahrt-feld {
+    grid-template-columns: 1fr 56px;
+  }
+
+  .fahrt-feld input,
+  .fahrt-feld output {
+    padding: 6px 4px;
+    font-size: 0.85rem;
+  }
+
+  .fahrt-jobs__gruppen {
+    gap: 8px 12px;
+  }
+
+  .fahrt-jobs__rahmen {
+    padding: 8px 6px;
+  }
+}
+
 /* iPad Hochformat: Kacheln stapeln statt quetschen */
 @media (max-width: 900px) {
   .fahrt-reihe {
+    grid-template-columns: 1fr;
+  }
+
+  .fahrt-bilanz__inhalt {
     grid-template-columns: 1fr;
   }
 }

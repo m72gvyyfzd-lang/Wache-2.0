@@ -10,7 +10,7 @@
 import type { AbteilzeitSettings } from "@wache/core";
 import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag, SeeAbteilung, SeeSchiff, SeestationLotse } from "../data/types";
 import { abteilzeitVon, benoetigteLotsenAnzahl, istAgJob, istBunkernPausiert, istCuxVergabe } from "./coreJob";
-import { planungsEta, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "./seestation";
+import { planungsEta, vorschauAbtZeiten, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "./seestation";
 import { seeLotsenAnzahl } from "./seestationAbteilen";
 
 /** Wählbare Fahrten der Planung — ohne "Bereitschaft". */
@@ -144,9 +144,19 @@ export function zaehleSeestation(
   const abgeteiltProSchiff = new Map<number, number>();
   for (const sa of seeAbteilungen)
     abgeteiltProSchiff.set(sa.seeSchiffId, (abgeteiltProSchiff.get(sa.seeSchiffId) ?? 0) + 1);
-  // Abt.Zeit-Basis wie überall: planungsEta (E3/St 1,5 Std. vor der ETA).
+  // Abt.Zeit-Basis: planungsEta (E3/St 1,5 Std. vor der ETA) und darauf die
+  // Verbund-Regel — mehrere E3/St-Schiffe im Verbund-Fenster teilen sich
+  // eine Bootstour und übernehmen die Abt.Zeit des führenden Schiffs
+  // (siehe seestation.ts::vorschauAbtZeiten). Ein Folgeschiff kann dadurch
+  // in das Planungsfenster rutschen, obwohl seine eigene ETA später liegt:
+  // abgeteilt wird es ja mit dem Verbund. Dieselbe Rechnung wie die
+  // Vorschau der Seestations-Seite und der Dashboard-Kachel.
+  const verbundAbt = vorschauAbtZeiten(seeSchiffe);
   const offene = seeSchiffe
-    .map((s) => ({ eta: planungsEta(s).getTime(), fehlt: seeLotsenAnzahl(s) - (abgeteiltProSchiff.get(s.id) ?? 0) }))
+    .map((s) => ({
+      eta: (verbundAbt.get(s.id)?.abtZeit ?? planungsEta(s)).getTime(),
+      fehlt: seeLotsenAnzahl(s) - (abgeteiltProSchiff.get(s.id) ?? 0),
+    }))
     .filter((s) => s.fehlt > 0);
   const grenze = endeNaechste.getTime() + SEESTATION_PUFFER_MS;
   const imFenster = offene.filter((s) => s.eta <= grenze);

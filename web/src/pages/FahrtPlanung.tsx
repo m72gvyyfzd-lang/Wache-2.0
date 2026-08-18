@@ -158,10 +158,8 @@ export function FahrtPlanung() {
   // Jobs). Die Anforderung zieht davon die Lotsen ab, die noch in der
   // laufenden Fahrt sind: sie deckt nur, was darüber hinaus gebraucht
   // wird — reichen sie aus, ist nichts anzufordern (0 statt negativ).
-  const bedarfAusgehend = (Object.keys(LEERE_WERTE) as FeldKey[]).reduce(
-    (summe, key) => summe + (Number(werte[key]) || 0),
-    0,
-  );
+  const zahl = (key: FeldKey) => Number(werte[key]) || 0;
+  const bedarfAusgehend = (Object.keys(LEERE_WERTE) as FeldKey[]).reduce((summe, key) => summe + zahl(key), 0);
   const anforderungAusgehend = Math.max(0, bedarfAusgehend - lotsenAktuell.inFahrt);
 
   // einkommend — Bedarf sind die bis zum Planungsende benötigten Lotsen
@@ -171,9 +169,20 @@ export function FahrtPlanung() {
   // plus die für ausgehend bereits angeforderten Lotsen — die kommen mit
   // ihrem Job zur Seestation und stehen dort anschließend bereit. Deckt
   // das den Bedarf, ist nichts anzufordern (0 statt negativ).
+  //
+  // Nicht jeder ausgehend angeforderte Lotse landet aber auf der
+  // Seestation: Listenvergaben und Radar-Jobs enden im Revier. Für die
+  // einkommende Rechnung zählt deshalb nur die Anforderung ohne diese
+  // beiden Felder.
+  const seestationsWirksamerBedarf = bedarfAusgehend - zahl("vergaben") - zahl("radar");
+  const anforderungAusgehendSeestation = Math.max(0, seestationsWirksamerBedarf - lotsenAktuell.inFahrt);
   const vorhandenEinkommend =
-    lotsenAktuell.inFahrt + lotsenAktuell.fahrwasser + lotsenAktuell.aufSeestation + anforderungAusgehend;
+    lotsenAktuell.inFahrt + lotsenAktuell.fahrwasser + lotsenAktuell.aufSeestation + anforderungAusgehendSeestation;
   const anforderungEinkommend = Math.max(0, seestation.lotsenBedarf - vorhandenEinkommend);
+
+  // Was insgesamt für die nächste Fahrt anzufordern ist: beide Richtungen
+  // zusammen.
+  const fahrtAnforderung = anforderungAusgehend + anforderungEinkommend;
 
   function feldZeile(feld: FeldDef) {
     return (
@@ -287,32 +296,40 @@ export function FahrtPlanung() {
             Dashboard-Kacheln (siehe components/ZahlenTile.css). */}
         <section className="fahrt-kachel fahrt-bilanz" data-testid="kachel-fahrt">
           <h3 className="fahrt-kachel__titel">Fahrt</h3>
-          <div className="fahrt-bilanz__gruppen">
-            <fieldset className="zahlen-tile__gruppe" data-testid="fahrt-ausgehend">
-              <legend className="zahlen-tile__titel">ausgehend</legend>
-              <div className="zahlen-tile__werte">
-                <div className="zahlen-tile__spalte">
-                  <span className="zahlen-tile__kuerzel">Bedarf</span>
-                  <span className="zahlen-tile__zahl">{bedarfAusgehend}</span>
+          <div className="fahrt-bilanz__inhalt">
+            <div className="fahrt-bilanz__gruppen">
+              <fieldset className="zahlen-tile__gruppe" data-testid="fahrt-ausgehend">
+                <legend className="zahlen-tile__titel">ausgehend</legend>
+                <div className="zahlen-tile__werte">
+                  <div className="zahlen-tile__spalte">
+                    <span className="zahlen-tile__kuerzel">Bedarf</span>
+                    <span className="zahlen-tile__zahl">{bedarfAusgehend}</span>
+                  </div>
+                  <div className="zahlen-tile__spalte">
+                    <span className="zahlen-tile__kuerzel">Anforderung</span>
+                    <span className="zahlen-tile__zahl">{anforderungAusgehend}</span>
+                  </div>
                 </div>
-                <div className="zahlen-tile__spalte">
-                  <span className="zahlen-tile__kuerzel">Anforderung</span>
-                  <span className="zahlen-tile__zahl">{anforderungAusgehend}</span>
+              </fieldset>
+              <fieldset className="zahlen-tile__gruppe" data-testid="fahrt-einkommend">
+                <legend className="zahlen-tile__titel">einkommend</legend>
+                <div className="zahlen-tile__werte">
+                  <div className="zahlen-tile__spalte">
+                    <span className="zahlen-tile__kuerzel">Bedarf</span>
+                    <span className="zahlen-tile__zahl">{seestation.lotsenBedarf}</span>
+                  </div>
+                  <div className="zahlen-tile__spalte">
+                    <span className="zahlen-tile__kuerzel">Anforderung</span>
+                    <span className="zahlen-tile__zahl">{anforderungEinkommend}</span>
+                  </div>
                 </div>
-              </div>
-            </fieldset>
-            <fieldset className="zahlen-tile__gruppe" data-testid="fahrt-einkommend">
-              <legend className="zahlen-tile__titel">einkommend</legend>
-              <div className="zahlen-tile__werte">
-                <div className="zahlen-tile__spalte">
-                  <span className="zahlen-tile__kuerzel">Bedarf</span>
-                  <span className="zahlen-tile__zahl">{seestation.lotsenBedarf}</span>
-                </div>
-                <div className="zahlen-tile__spalte">
-                  <span className="zahlen-tile__kuerzel">Anforderung</span>
-                  <span className="zahlen-tile__zahl">{anforderungEinkommend}</span>
-                </div>
-              </div>
+              </fieldset>
+            </div>
+            {/* Gesamtanforderung beider Richtungen — ein Rahmen im selben
+                Stil, so hoch wie die beiden links zusammen. */}
+            <fieldset className="zahlen-tile__gruppe fahrt-bilanz__gesamt" data-testid="fahrt-anforderung">
+              <legend className="zahlen-tile__titel">Fahrtanforderung</legend>
+              <span className="fahrt-bilanz__gesamt-zahl">{fahrtAnforderung}</span>
             </fieldset>
           </div>
         </section>
