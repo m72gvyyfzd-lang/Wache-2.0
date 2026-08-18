@@ -198,11 +198,23 @@
   padding: 0 10px 8px;
 }
 
-/* Gesamt-Anforderung: nur eine Zahl, mittig über die ganze Rahmenhöhe. */
+/* Gesamt-Anforderung: nur eine Zahl, mittig über die ganze Rahmenhöhe.
+   Die Zelle ist der Höhenbezug — der Rahmen darin liegt absolut und
+   trägt damit NICHT zur Zeilenhöhe bei. Sonst würde die große Zahl den
+   rechten Block höher machen als die beiden linken zusammen (auf dem
+   iPad fallen die linken Rahmen zusätzlich kompakter aus). */
+.fahrt-bilanz__gesamt-zelle {
+  position: relative;
+  min-height: 100%;
+}
+
 .fahrt-bilanz__gesamt {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 .fahrt-bilanz__gesamt-zahl {
@@ -255,5 +267,16 @@
 
   .fahrt-bilanz__inhalt {
     grid-template-columns: 1fr;
+  }
+
+  /* gestapelt gibt es keine Nachbarspalte mehr, die die Höhe vorgibt —
+     der Rahmen läuft wieder im normalen Fluss mit. */
+  .fahrt-bilanz__gesamt-zelle {
+    min-height: 0;
+  }
+
+  .fahrt-bilanz__gesamt {
+    position: static;
+    padding: 0 10px 8px;
   }
 }

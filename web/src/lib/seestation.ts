@@ -48,10 +48,17 @@ export function planungsEta(schiff: Pick<SeeSchiff, "eta" | "e3st" | "angemeldet
  *  teilen sie sich eine Lotsenboot-Tour. */
 export const E3ST_VERBUND_FENSTER_MS = 2.5 * 3_600_000;
 
-/** Planungshorizont der Projektionen (Vorschau + AG-Planung): geplant wird
- *  höchstens 12 Std. im Voraus — weiter entfernte Schiffe ändern sich
- *  erfahrungsgemäß noch zu stark, als dass sich eine Vorplanung lohnte. */
+/** Planungshorizont der AG-Planung: eine AG wird höchstens 12 Std. im
+ *  Voraus vorgeschlagen — weiter entfernte Schiffe ändern sich
+ *  erfahrungsgemäß noch zu stark, als dass sich eine Vorplanung lohnte.
+ *  Die Vorschau-Zuteilung schaut weiter (siehe VORSCHAU_HORIZONT_MS): sie
+ *  ordnet nur vorhandene Lotsen zu, statt eine Fahrt zu empfehlen. */
 export const PLANUNGS_HORIZONT_MS = 12 * 3_600_000;
+
+/** Planungshorizont der Vorschau-Zuteilung auf der Seestations-Seite:
+ *  18 Std. — bewusst weiter als die AG-Planung, damit die Lage über eine
+ *  ganze Fahrt hinaus sichtbar wird. */
+export const VORSCHAU_HORIZONT_MS = 18 * 3_600_000;
 
 export interface VorschauAbtZeit {
   /** wirksame Abt.Zeit der Vorschau-Rechnung (bei Verbund-Folgeschiffen

@@ -17,7 +17,7 @@ import { formatUhrzeit } from "../lib/format";
 import {
   ANMELDUNG_ESKALATION_MS,
   ANMELDUNG_VORWARNUNG_MS,
-  PLANUNGS_HORIZONT_MS,
+  VORSCHAU_HORIZONT_MS,
   planungsEta,
   sortiereSeestation,
   vergleicheVorschauAbt,
@@ -195,8 +195,10 @@ export function Seestation() {
     : { verplante: [], freie: [] };
   // Die Vorschau-Zuteilung nutzt die Vorschau-Zusatzregeln: Verbund-
   // Abt.Zeiten und E3/St-Vorrang (siehe schiffeVorschauSortiert oben).
-  // Vorgeplant wird höchstens 12 Std. im Voraus (PLANUNGS_HORIZONT_MS):
+  // Vorgeplant wird höchstens 18 Std. im Voraus (VORSCHAU_HORIZONT_MS):
   // Schiffe jenseits des Horizonts bekommen nur echte Lotsen zugeteilt.
+  // Die AG-Planung bleibt bewusst bei 12 Std. (PLANUNGS_HORIZONT_MS) —
+  // sie empfiehlt eine Fahrt, das lohnt sich nicht so weit im Voraus.
   const vorschauZuteilung = vorschau
     ? planeSeestation(
         schiffeVorschauSortiert,
@@ -204,7 +206,7 @@ export function Seestation() {
         abgeteiltProSchiff,
         VORLAUF_AUF_STATION_MS,
         vorschauAbtZeitVon,
-        new Date(jetzt.getTime() + PLANUNGS_HORIZONT_MS),
+        new Date(jetzt.getTime() + VORSCHAU_HORIZONT_MS),
       )
     : undefined;
   const aktiveZuteilung = vorschauZuteilung ?? basisZuteilung;
@@ -437,11 +439,11 @@ export function Seestation() {
               type="button"
               className={"btn btn--small" + (vorschau ? " btn--accent" : "")}
               onClick={() => setVorschau(!vorschau)}
-              title="Vorschau plant max. 12 Std. im Voraus"
+              title="Vorschau plant max. 18 Std. im Voraus"
             >
               Vorschau
             </button>
-            {vorschau && <span className="seestation-vorschau-hinweis">plant max. 12 Std. voraus</span>}
+            {vorschau && <span className="seestation-vorschau-hinweis">plant max. 18 Std. voraus</span>}
           </div>
         }
         action={
