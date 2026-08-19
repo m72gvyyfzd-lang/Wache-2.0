@@ -1,8 +1,15 @@
+/* Feste Höhe statt min-height + kein eigener Scroll: TopBar (Uhr/Meldungen/
+   .../Seestation) und die Navi bleiben stehen, nur .app-content und
+   .app-nav__karte scrollen intern (siehe dort). Ohne diese Deckelung würde
+   .app-root bei langen Seiten (z.B. Fahrt-Planung mit Bört-Vorschau) über
+   die Viewport-Höhe hinauswachsen und die ganze Seite inkl. Dashboard mit
+   scrollen lassen. */
 .app-root {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 100svh;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
 }
 
 .app-shell {

@@ -11,12 +11,24 @@
  * natürliche Vorschlag für die nächste Fahrt (analog zur WR-Gruppe der
  * Listenvergaben, siehe listenvergabe.ts).
  *
- * Der bestätigte Zustand ist eine reine Ableitung aus drei Eingaben: den
- * Kandidaten, der Zielanzahl (Fahrtanforderung) und zwei User-Overrides
- * (forciert rein / forciert raus). Das macht "abwählen → nächster rutscht
- * nach" zu einer einfachen Neuberechnung statt einer eigenen Nachrück-Logik.
+ * Das "Fenster" (boertFenster) ist der aktuell vorgeschlagene Bereich: die
+ * ersten `fensterLaenge` Kandidaten ab der Grenze — rein positionsbasiert
+ * (ein Ausschnitt der Kandidatenliste), nicht als Menge von IDs geführt.
+ * Das macht zwei Automatiken zu einem einzeiligen Nebeneffekt statt einer
+ * eigenen Nachrück-/Verdrängungs-Logik:
+ * - Ablehnen (Häkchen weg bei einem Fenster-Mitglied): Fenster wird um 1
+ *   länger — der dadurch neu ins Fenster rutschende Kandidat ist automatisch
+ *   bestätigt (er steht nicht in "abgelehnt").
+ * - Einfügen (neuer "Einzufügen"-Kandidat LANDET im Fenster): die Kandidaten
+ *   ab da verschieben sich um 1 nach hinten — bei GLEICHBLEIBENDER
+ *   Fensterlänge fällt der bisher letzte Fenster-Kandidat automatisch aus
+ *   dem Fenster (ganz normale, unmarkierte Zeile — siehe boertFenster).
+ * Häkchen AUSSERHALB des Fensters (manuelle Extra-Bestätigung) sind rein
+ * additiv: sie zählen zur Bilanz, lösen aber nie ein automatisches
+ * Nachrücken/Verdrängen aus und werden nie durchgestrichen dargestellt.
  */
-import type { AktuelleFahrt, LotsenEintrag } from "../data/types";
+import type { AktuelleFahrt, Fahrt, LotsenEintrag } from "../data/types";
+import { FAHRT_ZEILE_KLASSE } from "./lotsenOrdnung";
 import type { LotseMitOrdnung } from "./lotsenOrdnung";
 
 export interface EinzufuegenEintrag {
@@ -64,27 +76,46 @@ export function boertGrenze(kandidaten: KandidatZeile[], aktuelleFahrt: Aktuelle
   return i;
 }
 
+/** Das aktuell vorgeschlagene Fenster: die ersten `fensterLaenge`
+ *  Kandidaten ab der Grenze (Positions-Ausschnitt, keine ID-Menge — siehe
+ *  Modulkommentar für die Konsequenzen bei Ablehnen/Einfügen). */
+export function boertFenster(kandidaten: KandidatZeile[], grenze: number, fensterLaenge: number): KandidatZeile[] {
+  return kandidaten.slice(grenze, grenze + fensterLaenge);
+}
+
 /**
- * Leitet die Menge der bestätigten Kandidaten-IDs ab: erst die forciert
- * hinzugefügten (zählen immer, unabhängig von Position/Zielanzahl), dann
- * ab der Grenze der Reihe nach auffüllen bis zur Zielanzahl — forciert
- * abgewählte werden dabei übersprungen. Wird ein Kandidat abgewählt
- * (forciertRaus), rückt bei der nächsten Berechnung automatisch der
- * nächste in der Reihe nach — "Nachrücken" ist damit kein Sonderfall,
- * sondern folgt allein aus der Neuberechnung dieser reinen Funktion.
+ * Leitet die Menge der bestätigten Kandidaten-IDs ab: alle Fenster-
+ * Mitglieder außer den abgelehnten, plus die manuellen Extra-Bestätigungen
+ * außerhalb des Fensters.
  */
 export function berechneBestaetigt(
-  kandidaten: KandidatZeile[],
-  grenze: number,
-  zielAnzahl: number,
-  forciertRein: ReadonlySet<string>,
-  forciertRaus: ReadonlySet<string>,
+  fenster: KandidatZeile[],
+  abgelehnt: ReadonlySet<string>,
+  manuelleExtras: ReadonlySet<string>,
 ): Set<string> {
-  const ergebnis = new Set<string>(forciertRein);
-  for (let i = grenze; i < kandidaten.length && ergebnis.size < zielAnzahl; i += 1) {
-    const id = kandidaten[i].id;
-    if (forciertRaus.has(id) || ergebnis.has(id)) continue;
-    ergebnis.add(id);
+  const ergebnis = new Set<string>(manuelleExtras);
+  for (const zeile of fenster) {
+    if (!abgelehnt.has(zeile.id)) ergebnis.add(zeile.id);
   }
   return ergebnis;
+}
+
+/**
+ * Zeilenfarbe der Bört-Vorschau-Tabelle: rein visuelle Vorschau, ändert
+ * nichts an der echten Fahrt-Zuweisung. Bestätigte Kandidaten zeigen die
+ * Farbe der NÄCHSTEN Fahrt (Vorschau, wohin sie wechseln würden);
+ * abgelehnte Fenster-Mitglieder zeigen "Bereitschaft" (keine Farbe, das
+ * Fahrt-Feld würde dort zurückgesetzt); alle anderen zeigen unverändert
+ * ihre eigene, echte Fahrt-Farbe.
+ */
+export function vorschauFahrtKlasse(
+  zeile: KandidatZeile,
+  bestaetigt: ReadonlySet<string>,
+  istAbgelehntImFenster: boolean,
+  naechste: AktuelleFahrt,
+): string {
+  if (bestaetigt.has(zeile.id)) return FAHRT_ZEILE_KLASSE[naechste] ?? "";
+  if (istAbgelehntImFenster) return "";
+  const fahrt: Fahrt = zeile.art === "lotse" ? zeile.eintrag.fahrt : "";
+  return FAHRT_ZEILE_KLASSE[fahrt] ?? "";
 }

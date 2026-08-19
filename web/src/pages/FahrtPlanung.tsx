@@ -22,7 +22,14 @@ import { useEffect, useMemo, useState } from "react";
 import { getAbteilzeitSettings, LOTSEN_KATEGORIEN } from "@wache/core";
 import { PageHeader } from "../components/PageHeader";
 import type { AktuelleFahrt } from "../data/types";
-import { berechneBestaetigt, boertGrenze, mergeKandidaten, type EinzufuegenEintrag } from "../lib/boertVorschau";
+import {
+  berechneBestaetigt,
+  boertFenster,
+  boertGrenze,
+  mergeKandidaten,
+  vorschauFahrtKlasse,
+  type EinzufuegenEintrag,
+} from "../lib/boertVorschau";
 import {
   endeNaechsterFahrt,
   folgeFahrt,
@@ -32,7 +39,7 @@ import {
   zaehleSeestation,
 } from "../lib/fahrtplanung";
 import { formatUhrzeit } from "../lib/format";
-import { FAHRT_ZEILE_KLASSE, formatAbrufzeit, sortiereUndNummeriere } from "../lib/lotsenOrdnung";
+import { formatAbrufzeit, sortiereUndNummeriere } from "../lib/lotsenOrdnung";
 import { useData } from "../state/DataContext";
 // Gruppenrahmen der "Fahrt"-Kachel nutzen die Dashboard-Klassen; die
 // Bört-Vorschau-Tabelle nutzt Tabellen-/Fahrt-Farb-Klassen der Einsatzstation.
@@ -94,8 +101,9 @@ interface Gespeichert {
   werte?: Partial<Werte>;
   vorherige?: Partial<Werte>;
   einfuegungen?: EinzufuegenEintrag[];
-  forciertRein?: string[];
-  forciertRaus?: string[];
+  fensterLaenge?: number;
+  abgelehnt?: string[];
+  manuelleExtras?: string[];
   generiert?: boolean;
 }
 
@@ -126,12 +134,14 @@ export function FahrtPlanung() {
 
   // --- Bört-Vorschau (Phase 2) — siehe lib/boertVorschau.ts. Reine Vorschau:
   // "generiert" schaltet die Ableitung überhaupt erst scharf (vor dem
-  // ersten Klick auf "Vorschau generieren" sind alle Häkchen leer), die
-  // beiden "forciert"-Mengen sind die einzigen User-Overrides gegenüber dem
-  // natürlichen Vorschlag.
+  // ersten Klick auf "Vorschau generieren" ist das Fenster leer).
+  // "fensterLaenge" ist die einzige automatisch wachsende Größe (bei
+  // Ablehnung innerhalb des Fensters); "abgelehnt" und "manuelleExtras"
+  // sind die einzigen User-Overrides.
   const [einfuegungen, setEinfuegungen] = useState<EinzufuegenEintrag[]>(gespeichert.einfuegungen ?? []);
-  const [forciertRein, setForciertRein] = useState<Set<string>>(new Set(gespeichert.forciertRein ?? []));
-  const [forciertRaus, setForciertRaus] = useState<Set<string>>(new Set(gespeichert.forciertRaus ?? []));
+  const [fensterLaenge, setFensterLaenge] = useState(gespeichert.fensterLaenge ?? 0);
+  const [abgelehnt, setAbgelehnt] = useState<Set<string>>(new Set(gespeichert.abgelehnt ?? []));
+  const [manuelleExtras, setManuelleExtras] = useState<Set<string>>(new Set(gespeichert.manuelleExtras ?? []));
   const [generiert, setGeneriert] = useState(gespeichert.generiert ?? false);
   const [neuName, setNeuName] = useState("");
   const [neuKat, setNeuKat] = useState("");
@@ -152,12 +162,13 @@ export function FahrtPlanung() {
       werte,
       vorherige,
       einfuegungen,
-      forciertRein: [...forciertRein],
-      forciertRaus: [...forciertRaus],
+      fensterLaenge,
+      abgelehnt: [...abgelehnt],
+      manuelleExtras: [...manuelleExtras],
       generiert,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(daten));
-  }, [aktuelle, naechste, werte, vorherige, einfuegungen, forciertRein, forciertRaus, generiert]);
+  }, [aktuelle, naechste, werte, vorherige, einfuegungen, fensterLaenge, abgelehnt, manuelleExtras, generiert]);
 
   function handleAktuelle(fahrt: AktuelleFahrt) {
     setAktuelle(fahrt);
@@ -228,29 +239,59 @@ export function FahrtPlanung() {
 
   // --- Bört-Vorschau: Kandidaten = sortierte Lotsenliste (bezogen auf die
   // hier gewählte "aktuelle Fahrt") plus die "Einzufügen"-Platzhalter an
-  // ihrer gewählten Position. "bestaetigt" ist eine reine Ableitung — siehe
-  // lib/boertVorschau.ts.
+  // ihrer gewählten Position. Das "Fenster" ist ein Positions-Ausschnitt
+  // (siehe lib/boertVorschau.ts) — Ablehnen verlängert es um 1, ein neuer
+  // "Einzufügen"-Kandidat INNERHALB des Fensters verdrängt dadurch bei
+  // gleichbleibender Länge automatisch den bisher letzten. "bestaetigt"
+  // ist eine reine Ableitung aus Fenster + abgelehnt + manuelleExtras.
   const geordnet = useMemo(() => sortiereUndNummeriere(lotsen, aktuelle), [lotsen, aktuelle]);
   const kandidaten = useMemo(() => mergeKandidaten(geordnet, einfuegungen), [geordnet, einfuegungen]);
   const grenze = useMemo(() => boertGrenze(kandidaten, aktuelle), [kandidaten, aktuelle]);
+  const fenster = useMemo(
+    () => (generiert ? boertFenster(kandidaten, grenze, fensterLaenge) : []),
+    [generiert, kandidaten, grenze, fensterLaenge],
+  );
+  const fensterIds = useMemo(() => new Set(fenster.map((z) => z.id)), [fenster]);
+  // Positions-Auswahl für "Einzufügen" (Punkt 4.1): nur echte Lotsen aus dem
+  // aktuellen Fenster, durchgestrichene (abgelehnte) ausgenommen.
+  const fensterLotsenOptionen = useMemo(() => {
+    const optionen: { index: number; name: string }[] = [];
+    for (const z of fenster) {
+      if (z.art === "lotse" && !abgelehnt.has(z.id)) optionen.push({ index: z.index, name: z.eintrag.name });
+    }
+    return optionen;
+  }, [fenster, abgelehnt]);
   const bestaetigt = useMemo(
-    () => (generiert ? berechneBestaetigt(kandidaten, grenze, fahrtAnforderung, forciertRein, forciertRaus) : new Set<string>()),
-    [generiert, kandidaten, grenze, fahrtAnforderung, forciertRein, forciertRaus],
+    () => berechneBestaetigt(fenster, abgelehnt, manuelleExtras),
+    [fenster, abgelehnt, manuelleExtras],
   );
 
   function handleVorschauGenerieren() {
-    setForciertRein(new Set());
-    setForciertRaus(new Set());
+    setFensterLaenge(fahrtAnforderung);
+    setAbgelehnt(new Set());
+    setManuelleExtras(new Set());
     setGeneriert(true);
   }
 
+  /** Häkchen innerhalb des Fensters: ablehnen verlängert das Fenster um 1
+   *  (nächster rückt automatisch nach), erneutes Bestätigen hebt nur die
+   *  Ablehnung auf (kein Verkürzen — mehr Bestätigte sind erlaubt, Punkt
+   *  1.1). Häkchen außerhalb des Fensters sind reine manuelle Extras ohne
+   *  jeden automatischen Nebeneffekt. */
   function toggleHaekchen(id: string) {
-    if (bestaetigt.has(id)) {
-      setForciertRaus((s) => new Set(s).add(id));
-      setForciertRein((s) => (s.has(id) ? new Set([...s].filter((x) => x !== id)) : s));
+    const inFenster = fensterIds.has(id);
+    const istBestaetigt = bestaetigt.has(id);
+    if (istBestaetigt) {
+      if (inFenster) {
+        setAbgelehnt((s) => new Set(s).add(id));
+        setFensterLaenge((n) => n + 1);
+      } else {
+        setManuelleExtras((s) => (s.has(id) ? new Set([...s].filter((x) => x !== id)) : s));
+      }
+    } else if (inFenster) {
+      setAbgelehnt((s) => (s.has(id) ? new Set([...s].filter((x) => x !== id)) : s));
     } else {
-      setForciertRein((s) => new Set(s).add(id));
-      setForciertRaus((s) => (s.has(id) ? new Set([...s].filter((x) => x !== id)) : s));
+      setManuelleExtras((s) => new Set(s).add(id));
     }
   }
 
@@ -272,8 +313,8 @@ export function FahrtPlanung() {
   function handleEinfuegenEntfernen(id: string) {
     setEinfuegungen((liste) => liste.filter((e) => e.id !== id));
     const kid = `n${id}`;
-    setForciertRein((s) => (s.has(kid) ? new Set([...s].filter((x) => x !== kid)) : s));
-    setForciertRaus((s) => (s.has(kid) ? new Set([...s].filter((x) => x !== kid)) : s));
+    setAbgelehnt((s) => (s.has(kid) ? new Set([...s].filter((x) => x !== kid)) : s));
+    setManuelleExtras((s) => (s.has(kid) ? new Set([...s].filter((x) => x !== kid)) : s));
   }
 
   function feldZeile(feld: FeldDef) {
@@ -468,10 +509,14 @@ export function FahrtPlanung() {
                 {kandidaten.map((zeile) => {
                   const istEingefuegt = zeile.art === "einfuegung";
                   const eintrag = zeile.eintrag;
-                  const fahrtKlasse = zeile.art === "lotse" ? FAHRT_ZEILE_KLASSE[zeile.eintrag.fahrt] ?? "" : "";
-                  const abgelehnt = forciertRaus.has(zeile.id);
+                  // Durchgestrichen nur, solange die Ablehnung noch innerhalb
+                  // des aktuellen Fensters liegt (Punkt 1.2) — verschiebt ein
+                  // späteres Einfügen die Person aus dem Fenster hinaus, ist
+                  // die Zeile wieder ganz normal.
+                  const istAbgelehntImFenster = abgelehnt.has(zeile.id) && fensterIds.has(zeile.id);
+                  const fahrtKlasse = vorschauFahrtKlasse(zeile, bestaetigt, istAbgelehntImFenster, naechste);
                   return (
-                    <tr key={zeile.id} className={`${fahrtKlasse} ${abgelehnt ? "boert-zeile--abgelehnt" : ""}`}>
+                    <tr key={zeile.id} className={`${fahrtKlasse} ${istAbgelehntImFenster ? "boert-zeile--abgelehnt" : ""}`}>
                       <td className="num muted">{zeile.art === "lotse" ? zeile.fahrtNr ?? "·" : "–"}</td>
                       <td className="cell-name">
                         {eintrag.name}
@@ -509,64 +554,62 @@ export function FahrtPlanung() {
               </tbody>
             </table>
           </div>
+        </section>
 
-          <div className="boert-einfuegen">
-            <h4 className="boert-einfuegen__titel">Einzufügen</h4>
-            <div className="boert-einfuegen__formular">
-              <input
-                type="text"
-                placeholder="Name"
-                value={neuName}
-                onChange={(e) => setNeuName(e.target.value)}
-                className="boert-einfuegen__name"
-              />
-              <select value={neuKat} onChange={(e) => setNeuKat(e.target.value)}>
-                {LOTSEN_KATEGORIEN.map((kat) => (
-                  <option key={kat} value={kat}>
-                    {kat === "" ? "Volllotse" : kat}
-                  </option>
-                ))}
-              </select>
-              <select value={neuNachIndex} onChange={(e) => setNeuNachIndex(e.target.value)}>
-                <option value="">am Ende</option>
-                {geordnet.map(({ eintrag, index }) => (
-                  <option key={index} value={index}>
-                    nach {eintrag.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="text"
-                placeholder="Bemerkung (z.B. aus Urlaub)"
-                value={neuBemerkung}
-                onChange={(e) => setNeuBemerkung(e.target.value)}
-                className="boert-einfuegen__bemerkung"
-              />
-              <button type="button" className="btn btn--accent" onClick={handleEinfuegenHinzufuegen} disabled={!neuName.trim()}>
-                Hinzufügen
-              </button>
-            </div>
-
-            {einfuegungen.length > 0 && (
-              <ul className="boert-einfuegen__liste">
-                {einfuegungen.map((e) => (
-                  <li key={e.id}>
-                    <span className="boert-einfuegen__eintrag-name">{e.name}</span>
-                    <span className="muted">
-                      {e.kategorie === "" ? "Volllotse" : e.kategorie} ·{" "}
-                      {e.nachIndex === undefined
-                        ? "am Ende"
-                        : `nach ${lotsen[e.nachIndex]?.name ?? "?"}`}
-                      {e.bemerkung ? ` · ${e.bemerkung}` : ""}
-                    </span>
-                    <button type="button" className="btn btn--small btn--danger" onClick={() => handleEinfuegenEntfernen(e.id)}>
-                      Entfernen
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+        {/* Eigene Karte (1/4 Breite, siehe CSS) statt Unterabschnitt — Punkt
+            3+4: Bört-Vorschau bleibt bei 3/4. */}
+        <section className="fahrt-kachel boert-einfuegen">
+          <h3 className="fahrt-kachel__titel">Einzufügen</h3>
+          <div className="boert-einfuegen__formular">
+            <input
+              type="text"
+              placeholder="Name"
+              value={neuName}
+              onChange={(e) => setNeuName(e.target.value)}
+            />
+            <select value={neuKat} onChange={(e) => setNeuKat(e.target.value)}>
+              {LOTSEN_KATEGORIEN.map((kat) => (
+                <option key={kat} value={kat}>
+                  {kat === "" ? "Volllotse" : kat}
+                </option>
+              ))}
+            </select>
+            <select value={neuNachIndex} onChange={(e) => setNeuNachIndex(e.target.value)}>
+              <option value="">am Ende</option>
+              {fensterLotsenOptionen.map(({ index, name }) => (
+                <option key={index} value={index}>
+                  nach {name}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              placeholder="Bemerkung (z.B. aus Urlaub)"
+              value={neuBemerkung}
+              onChange={(e) => setNeuBemerkung(e.target.value)}
+            />
+            <button type="button" className="btn btn--accent" onClick={handleEinfuegenHinzufuegen} disabled={!neuName.trim()}>
+              Hinzufügen
+            </button>
           </div>
+
+          {einfuegungen.length > 0 && (
+            <ul className="boert-einfuegen__liste">
+              {einfuegungen.map((e) => (
+                <li key={e.id}>
+                  <span className="boert-einfuegen__eintrag-name">{e.name}</span>
+                  <span className="muted">
+                    {e.kategorie === "" ? "Volllotse" : e.kategorie} ·{" "}
+                    {e.nachIndex === undefined ? "am Ende" : `nach ${lotsen[e.nachIndex]?.name ?? "?"}`}
+                    {e.bemerkung ? ` · ${e.bemerkung}` : ""}
+                  </span>
+                  <button type="button" className="btn btn--small btn--danger" onClick={() => handleEinfuegenEntfernen(e.id)}>
+                    Entfernen
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </div>
     </div>

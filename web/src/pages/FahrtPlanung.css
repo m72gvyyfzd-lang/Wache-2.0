@@ -359,43 +359,21 @@ tr.boert-zeile--abgelehnt.fahrt-zeile--afa td {
   color: var(--ink-faint);
 }
 
-/* --- "Einzufügen": kompaktes Formular + Liste der erstellten Platzhalter */
-.boert-einfuegen {
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
-}
-
-.boert-einfuegen__titel {
-  margin: 0 0 10px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-muted);
-}
-
+/* --- "Einzufügen": eigene, schmale Karte (1/4 Breite, rechts neben
+   Bört-Vorschau — siehe .boert-reihe) mit senkrecht gestapeltem Formular,
+   dafür knapper Platz statt der nebeneinander laufenden Felder einer
+   breiten Kachel. */
 .boert-einfuegen__formular {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
 }
 
 .boert-einfuegen__formular input,
 .boert-einfuegen__formular select {
+  width: 100%;
   font-size: 0.85rem;
   padding: 7px 10px;
-}
-
-.boert-einfuegen__name {
-  flex: 1 1 160px;
-  min-width: 120px;
-}
-
-.boert-einfuegen__bemerkung {
-  flex: 2 1 220px;
-  min-width: 160px;
 }
 
 .boert-einfuegen__liste {
@@ -407,23 +385,25 @@ tr.boert-zeile--abgelehnt.fahrt-zeile--afa td {
   gap: 6px;
 }
 
+/* Schmale Karte: Name, Info und Entfernen-Knopf untereinander statt in
+   einer Zeile (die läuft bei 1/4 Breite schnell über). */
 .boert-einfuegen__liste li {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.85rem;
-  padding: 6px 10px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  font-size: 0.82rem;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
 }
 
 .boert-einfuegen__eintrag-name {
   font-weight: 600;
-  min-width: 100px;
 }
 
-.boert-einfuegen__liste .muted {
-  flex: 1;
+.boert-einfuegen__liste .btn {
+  align-self: flex-end;
 }
 
 /* iPad Querformat (1024 px): die Kacheln behalten ihre Aufteilung, die
