@@ -76,11 +76,14 @@
    und sind damit gleich breit. */
 .see-aktion {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  /* Datum und Zeit bekommen feste, kompakte Breiten statt sich über die
+     ganze Zeile zu strecken — gestreckt stießen sie fast aneinander und
+     wirkten wie ein einziger Block. Im Schiffs-Fenster stehen dieselben
+     Eingaben ebenso kompakt mit Luft dazwischen. Der Knopf füllt den
+     Rest der Zeile. */
+  grid-template-columns: auto 170px 118px minmax(130px, 1fr);
   align-items: center;
-  /* derselbe Abstand wie in .job-form__row (Schiffs-Fenster) — die Felder
-     standen sonst sichtbar dichter beieinander als dort. */
-  gap: 12px;
+  gap: 16px;
 }
 
 .see-aktion__label {
@@ -99,6 +102,7 @@
 .see-aktion__datum,
 .see-aktion__zeit {
   width: 100%;
+  text-align: center;
 }
 
 /* Über Beschriftung + Datum + Zeit hinweg — endet damit bündig unter der
@@ -126,6 +130,7 @@
 @media (max-width: 560px) {
   .see-aktion {
     grid-template-columns: 1fr 1fr;
+    gap: 12px;
   }
 
   .see-aktion__label {
