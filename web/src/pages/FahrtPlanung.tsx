@@ -11,21 +11,23 @@
  * Lotsen der Einsatzstations-Liste der nächsten Fahrt zugeordnet werden
  * sollen — nichts davon verändert echte Lotsen-Datensätze (siehe
  * lib/boertVorschau.ts für die Ableitungslogik). "Vorschau generieren"
- * schlägt die ersten `fahrtAnforderung` Kandidaten ab der aktuellen
- * Fahrt-Gruppe vor; der User bestätigt/verwirft per Häkchen, ein
- * verworfener Kandidat wird dezent durchgestrichen und der nächste rückt
- * automatisch nach (reine Neuberechnung, kein Sonderfall). "Einzufügen"
- * ergänzt die Vorschau um neue, noch nicht in der Einsatzstation
- * geführte Lotsen (z.B. aus Urlaub) an einer frei wählbaren Position.
+ * schlägt einmalig die ersten `fahrtAnforderung` Kandidaten ab der
+ * aktuellen Fahrt-Gruppe vor; danach ist jedes Häkchen rein manuell — kein
+ * automatisches Nachrücken oder Verdrängen. Ein unbestätigter Kandidat
+ * zwischen dem ersten und letzten bestätigten wird dezent durchgestrichen
+ * dargestellt (reine Ableitung aus der aktuellen Bestätigung, nicht an
+ * einer festen Anzahl festgemacht). "Einzufügen" ergänzt die Vorschau um
+ * neue, noch nicht in der Einsatzstation geführte Lotsen (z.B. aus
+ * Urlaub) an einer frei wählbaren Position.
  */
 import { useEffect, useMemo, useState } from "react";
 import { getAbteilzeitSettings, LOTSEN_KATEGORIEN } from "@wache/core";
 import { PageHeader } from "../components/PageHeader";
 import type { AktuelleFahrt } from "../data/types";
 import {
-  berechneBestaetigt,
-  boertFenster,
+  berechneDurchgestrichen,
   boertGrenze,
+  boertVorschlag,
   mergeKandidaten,
   vorschauFahrtKlasse,
   type EinzufuegenEintrag,
@@ -101,10 +103,7 @@ interface Gespeichert {
   werte?: Partial<Werte>;
   vorherige?: Partial<Werte>;
   einfuegungen?: EinzufuegenEintrag[];
-  fensterLaenge?: number;
-  abgelehnt?: string[];
-  manuelleExtras?: string[];
-  generiert?: boolean;
+  bestaetigt?: string[];
 }
 
 function ladeGespeichert(): Gespeichert {
@@ -132,17 +131,11 @@ export function FahrtPlanung() {
   const [werte, setWerte] = useState<Werte>({ ...LEERE_WERTE, ...gespeichert.werte });
   const [vorherige, setVorherige] = useState<Partial<Werte>>(gespeichert.vorherige ?? {});
 
-  // --- Bört-Vorschau (Phase 2) — siehe lib/boertVorschau.ts. Reine Vorschau:
-  // "generiert" schaltet die Ableitung überhaupt erst scharf (vor dem
-  // ersten Klick auf "Vorschau generieren" ist das Fenster leer).
-  // "fensterLaenge" ist die einzige automatisch wachsende Größe (bei
-  // Ablehnung innerhalb des Fensters); "abgelehnt" und "manuelleExtras"
-  // sind die einzigen User-Overrides.
+  // --- Bört-Vorschau (Phase 2) — siehe lib/boertVorschau.ts. Reine Vorschau,
+  // "bestaetigt" ist der einzige Zustand: ein Häkchen betrifft ausschließlich
+  // die eigene Zeile, keine automatische Nachpflege anderer Zeilen.
   const [einfuegungen, setEinfuegungen] = useState<EinzufuegenEintrag[]>(gespeichert.einfuegungen ?? []);
-  const [fensterLaenge, setFensterLaenge] = useState(gespeichert.fensterLaenge ?? 0);
-  const [abgelehnt, setAbgelehnt] = useState<Set<string>>(new Set(gespeichert.abgelehnt ?? []));
-  const [manuelleExtras, setManuelleExtras] = useState<Set<string>>(new Set(gespeichert.manuelleExtras ?? []));
-  const [generiert, setGeneriert] = useState(gespeichert.generiert ?? false);
+  const [bestaetigt, setBestaetigt] = useState<Set<string>>(new Set(gespeichert.bestaetigt ?? []));
   const [neuName, setNeuName] = useState("");
   const [neuKat, setNeuKat] = useState("");
   const [neuBemerkung, setNeuBemerkung] = useState("");
@@ -162,13 +155,10 @@ export function FahrtPlanung() {
       werte,
       vorherige,
       einfuegungen,
-      fensterLaenge,
-      abgelehnt: [...abgelehnt],
-      manuelleExtras: [...manuelleExtras],
-      generiert,
+      bestaetigt: [...bestaetigt],
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(daten));
-  }, [aktuelle, naechste, werte, vorherige, einfuegungen, fensterLaenge, abgelehnt, manuelleExtras, generiert]);
+  }, [aktuelle, naechste, werte, vorherige, einfuegungen, bestaetigt]);
 
   function handleAktuelle(fahrt: AktuelleFahrt) {
     setAktuelle(fahrt);
@@ -239,60 +229,38 @@ export function FahrtPlanung() {
 
   // --- Bört-Vorschau: Kandidaten = sortierte Lotsenliste (bezogen auf die
   // hier gewählte "aktuelle Fahrt") plus die "Einzufügen"-Platzhalter an
-  // ihrer gewählten Position. Das "Fenster" ist ein Positions-Ausschnitt
-  // (siehe lib/boertVorschau.ts) — Ablehnen verlängert es um 1, ein neuer
-  // "Einzufügen"-Kandidat INNERHALB des Fensters verdrängt dadurch bei
-  // gleichbleibender Länge automatisch den bisher letzten. "bestaetigt"
-  // ist eine reine Ableitung aus Fenster + abgelehnt + manuelleExtras.
+  // ihrer gewählten Position. "bestaetigt" ist reiner, direkt getoggelter
+  // Zustand — "durchgestrichen" eine reine Ableitung daraus (siehe
+  // lib/boertVorschau.ts): jeder Unbestätigte zwischen dem ersten und
+  // letzten Bestätigten, unabhängig von einer festen Anzahl.
   const geordnet = useMemo(() => sortiereUndNummeriere(lotsen, aktuelle), [lotsen, aktuelle]);
   const kandidaten = useMemo(() => mergeKandidaten(geordnet, einfuegungen), [geordnet, einfuegungen]);
   const grenze = useMemo(() => boertGrenze(kandidaten, aktuelle), [kandidaten, aktuelle]);
-  const fenster = useMemo(
-    () => (generiert ? boertFenster(kandidaten, grenze, fensterLaenge) : []),
-    [generiert, kandidaten, grenze, fensterLaenge],
-  );
-  const fensterIds = useMemo(() => new Set(fenster.map((z) => z.id)), [fenster]);
-  // Positions-Auswahl für "Einzufügen" (Punkt 4.1): nur echte Lotsen aus dem
-  // aktuellen Fenster, durchgestrichene (abgelehnte) ausgenommen.
+  const durchgestrichen = useMemo(() => berechneDurchgestrichen(kandidaten, bestaetigt), [kandidaten, bestaetigt]);
+  // Positions-Auswahl für "Einzufügen" (Punkt 4.1): nur echte, bestätigte
+  // Lotsen ("die vorgeschlagene nächste Fahrt"), Durchgestrichene sind per
+  // Definition nicht bestätigt und damit schon ausgenommen.
   const fensterLotsenOptionen = useMemo(() => {
     const optionen: { index: number; name: string }[] = [];
-    for (const z of fenster) {
-      if (z.art === "lotse" && !abgelehnt.has(z.id)) optionen.push({ index: z.index, name: z.eintrag.name });
+    for (const z of kandidaten) {
+      if (z.art === "lotse" && bestaetigt.has(z.id)) optionen.push({ index: z.index, name: z.eintrag.name });
     }
     return optionen;
-  }, [fenster, abgelehnt]);
-  const bestaetigt = useMemo(
-    () => berechneBestaetigt(fenster, abgelehnt, manuelleExtras),
-    [fenster, abgelehnt, manuelleExtras],
-  );
+  }, [kandidaten, bestaetigt]);
 
   function handleVorschauGenerieren() {
-    setFensterLaenge(fahrtAnforderung);
-    setAbgelehnt(new Set());
-    setManuelleExtras(new Set());
-    setGeneriert(true);
+    setBestaetigt(boertVorschlag(kandidaten, grenze, fahrtAnforderung));
   }
 
-  /** Häkchen innerhalb des Fensters: ablehnen verlängert das Fenster um 1
-   *  (nächster rückt automatisch nach), erneutes Bestätigen hebt nur die
-   *  Ablehnung auf (kein Verkürzen — mehr Bestätigte sind erlaubt, Punkt
-   *  1.1). Häkchen außerhalb des Fensters sind reine manuelle Extras ohne
-   *  jeden automatischen Nebeneffekt. */
+  /** Ein Häkchen betrifft ausschließlich die eigene Zeile — keine
+   *  automatische Auffüll- oder Verdrängungslogik. */
   function toggleHaekchen(id: string) {
-    const inFenster = fensterIds.has(id);
-    const istBestaetigt = bestaetigt.has(id);
-    if (istBestaetigt) {
-      if (inFenster) {
-        setAbgelehnt((s) => new Set(s).add(id));
-        setFensterLaenge((n) => n + 1);
-      } else {
-        setManuelleExtras((s) => (s.has(id) ? new Set([...s].filter((x) => x !== id)) : s));
-      }
-    } else if (inFenster) {
-      setAbgelehnt((s) => (s.has(id) ? new Set([...s].filter((x) => x !== id)) : s));
-    } else {
-      setManuelleExtras((s) => new Set(s).add(id));
-    }
+    setBestaetigt((s) => {
+      const neu = new Set(s);
+      if (neu.has(id)) neu.delete(id);
+      else neu.add(id);
+      return neu;
+    });
   }
 
   function handleEinfuegenHinzufuegen() {
@@ -313,8 +281,7 @@ export function FahrtPlanung() {
   function handleEinfuegenEntfernen(id: string) {
     setEinfuegungen((liste) => liste.filter((e) => e.id !== id));
     const kid = `n${id}`;
-    setAbgelehnt((s) => (s.has(kid) ? new Set([...s].filter((x) => x !== kid)) : s));
-    setManuelleExtras((s) => (s.has(kid) ? new Set([...s].filter((x) => x !== kid)) : s));
+    setBestaetigt((s) => (s.has(kid) ? new Set([...s].filter((x) => x !== kid)) : s));
   }
 
   function feldZeile(feld: FeldDef) {
@@ -509,14 +476,10 @@ export function FahrtPlanung() {
                 {kandidaten.map((zeile) => {
                   const istEingefuegt = zeile.art === "einfuegung";
                   const eintrag = zeile.eintrag;
-                  // Durchgestrichen nur, solange die Ablehnung noch innerhalb
-                  // des aktuellen Fensters liegt (Punkt 1.2) — verschiebt ein
-                  // späteres Einfügen die Person aus dem Fenster hinaus, ist
-                  // die Zeile wieder ganz normal.
-                  const istAbgelehntImFenster = abgelehnt.has(zeile.id) && fensterIds.has(zeile.id);
-                  const fahrtKlasse = vorschauFahrtKlasse(zeile, bestaetigt, istAbgelehntImFenster, naechste);
+                  const istDurchgestrichen = durchgestrichen.has(zeile.id);
+                  const fahrtKlasse = vorschauFahrtKlasse(zeile, bestaetigt, istDurchgestrichen, naechste);
                   return (
-                    <tr key={zeile.id} className={`${fahrtKlasse} ${istAbgelehntImFenster ? "boert-zeile--abgelehnt" : ""}`}>
+                    <tr key={zeile.id} className={`${fahrtKlasse} ${istDurchgestrichen ? "boert-zeile--abgelehnt" : ""}`}>
                       <td className="num muted">{zeile.art === "lotse" ? zeile.fahrtNr ?? "·" : "–"}</td>
                       <td className="cell-name">
                         {eintrag.name}

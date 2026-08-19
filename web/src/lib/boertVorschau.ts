@@ -11,21 +11,16 @@
  * natürliche Vorschlag für die nächste Fahrt (analog zur WR-Gruppe der
  * Listenvergaben, siehe listenvergabe.ts).
  *
- * Das "Fenster" (boertFenster) ist der aktuell vorgeschlagene Bereich: die
- * ersten `fensterLaenge` Kandidaten ab der Grenze — rein positionsbasiert
- * (ein Ausschnitt der Kandidatenliste), nicht als Menge von IDs geführt.
- * Das macht zwei Automatiken zu einem einzeiligen Nebeneffekt statt einer
- * eigenen Nachrück-/Verdrängungs-Logik:
- * - Ablehnen (Häkchen weg bei einem Fenster-Mitglied): Fenster wird um 1
- *   länger — der dadurch neu ins Fenster rutschende Kandidat ist automatisch
- *   bestätigt (er steht nicht in "abgelehnt").
- * - Einfügen (neuer "Einzufügen"-Kandidat LANDET im Fenster): die Kandidaten
- *   ab da verschieben sich um 1 nach hinten — bei GLEICHBLEIBENDER
- *   Fensterlänge fällt der bisher letzte Fenster-Kandidat automatisch aus
- *   dem Fenster (ganz normale, unmarkierte Zeile — siehe boertFenster).
- * Häkchen AUSSERHALB des Fensters (manuelle Extra-Bestätigung) sind rein
- * additiv: sie zählen zur Bilanz, lösen aber nie ein automatisches
- * Nachrücken/Verdrängen aus und werden nie durchgestrichen dargestellt.
+ * Keine automatische Auffüll-/Nachrück-Logik: Häkchen setzen/entfernen
+ * betrifft ausschließlich die angeklickte Zeile, nie eine andere. Die
+ * Bestätigung ist reiner, direkt getoggelter Zustand (eine Menge von IDs).
+ *
+ * Durchgestrichen wird rein aus der aktuellen Bestätigung abgeleitet
+ * (berechneDurchgestrichen) — jeder unbestätigte Kandidat, der POSITIONELL
+ * zwischen dem ersten und dem letzten bestätigten Kandidaten liegt (nicht
+ * an einer festen Anzahl/Fensterlänge festgemacht). Ändert sich die
+ * Bestätigung, verschiebt sich diese Spanne automatisch mit — ohne eigenen
+ * gespeicherten Zustand dafür.
  */
 import type { AktuelleFahrt, Fahrt, LotsenEintrag } from "../data/types";
 import { FAHRT_ZEILE_KLASSE } from "./lotsenOrdnung";
@@ -76,26 +71,30 @@ export function boertGrenze(kandidaten: KandidatZeile[], aktuelleFahrt: Aktuelle
   return i;
 }
 
-/** Das aktuell vorgeschlagene Fenster: die ersten `fensterLaenge`
- *  Kandidaten ab der Grenze (Positions-Ausschnitt, keine ID-Menge — siehe
- *  Modulkommentar für die Konsequenzen bei Ablehnen/Einfügen). */
-export function boertFenster(kandidaten: KandidatZeile[], grenze: number, fensterLaenge: number): KandidatZeile[] {
-  return kandidaten.slice(grenze, grenze + fensterLaenge);
+/** Erst-Vorschlag für "Vorschau generieren": die ersten `anzahl` Kandidaten
+ *  ab der Grenze — nur ein Startpunkt, danach rein manuell per Häkchen
+ *  gepflegt (keine automatische Nachpflege). */
+export function boertVorschlag(kandidaten: KandidatZeile[], grenze: number, anzahl: number): Set<string> {
+  return new Set(kandidaten.slice(grenze, grenze + anzahl).map((z) => z.id));
 }
 
 /**
- * Leitet die Menge der bestätigten Kandidaten-IDs ab: alle Fenster-
- * Mitglieder außer den abgelehnten, plus die manuellen Extra-Bestätigungen
- * außerhalb des Fensters.
+ * Durchgestrichen sind alle NICHT bestätigten Kandidaten, die positionell
+ * zwischen dem ersten und dem letzten bestätigten Kandidaten liegen —
+ * unabhängig von einer festen Anzahl. Ohne mindestens zwei bestätigte
+ * Kandidaten gibt es keine Spanne und damit nichts Durchgestrichenes.
  */
-export function berechneBestaetigt(
-  fenster: KandidatZeile[],
-  abgelehnt: ReadonlySet<string>,
-  manuelleExtras: ReadonlySet<string>,
-): Set<string> {
-  const ergebnis = new Set<string>(manuelleExtras);
-  for (const zeile of fenster) {
-    if (!abgelehnt.has(zeile.id)) ergebnis.add(zeile.id);
+export function berechneDurchgestrichen(kandidaten: KandidatZeile[], bestaetigt: ReadonlySet<string>): Set<string> {
+  let erste = -1;
+  let letzte = -1;
+  for (let i = 0; i < kandidaten.length; i += 1) {
+    if (!bestaetigt.has(kandidaten[i].id)) continue;
+    if (erste === -1) erste = i;
+    letzte = i;
+  }
+  const ergebnis = new Set<string>();
+  for (let i = erste + 1; i < letzte; i += 1) {
+    if (!bestaetigt.has(kandidaten[i].id)) ergebnis.add(kandidaten[i].id);
   }
   return ergebnis;
 }
@@ -104,18 +103,18 @@ export function berechneBestaetigt(
  * Zeilenfarbe der Bört-Vorschau-Tabelle: rein visuelle Vorschau, ändert
  * nichts an der echten Fahrt-Zuweisung. Bestätigte Kandidaten zeigen die
  * Farbe der NÄCHSTEN Fahrt (Vorschau, wohin sie wechseln würden);
- * abgelehnte Fenster-Mitglieder zeigen "Bereitschaft" (keine Farbe, das
- * Fahrt-Feld würde dort zurückgesetzt); alle anderen zeigen unverändert
- * ihre eigene, echte Fahrt-Farbe.
+ * durchgestrichene (siehe berechneDurchgestrichen) zeigen "Bereitschaft"
+ * (keine Farbe); alle anderen zeigen unverändert ihre eigene, echte
+ * Fahrt-Farbe.
  */
 export function vorschauFahrtKlasse(
   zeile: KandidatZeile,
   bestaetigt: ReadonlySet<string>,
-  istAbgelehntImFenster: boolean,
+  istDurchgestrichen: boolean,
   naechste: AktuelleFahrt,
 ): string {
   if (bestaetigt.has(zeile.id)) return FAHRT_ZEILE_KLASSE[naechste] ?? "";
-  if (istAbgelehntImFenster) return "";
+  if (istDurchgestrichen) return "";
   const fahrt: Fahrt = zeile.art === "lotse" ? zeile.eintrag.fahrt : "";
   return FAHRT_ZEILE_KLASSE[fahrt] ?? "";
 }
