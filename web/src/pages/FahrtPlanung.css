@@ -24,13 +24,20 @@
   text-align: center;
 }
 
-/* --- Steuerleiste: alles in einer Ebene nebeneinander, keine Überschrift */
+/* --- Steuerleiste: alles in einer Ebene nebeneinander, keine Überschrift.
+   Enge Abstände, damit Dropdowns, Fenster-Hinweis und die vier
+   Ablauf-Knöpfe zusammen einzeilig bleiben. */
 .fahrt-steuer {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
   margin-bottom: 14px;
   flex-wrap: wrap;
+  /* schmaleres Seiten-Padding als die übrigen Kacheln — die Zeile trägt
+     mit Dropdowns, Fenster-Hinweis und vier Knöpfen viel Inhalt und soll
+     bei 1280 px einzeilig bleiben */
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
 .fahrt-steuer__feld {
@@ -56,6 +63,15 @@
   font-size: 0.75rem;
   color: var(--ink-faint);
   white-space: nowrap;
+}
+
+/* Ablauf-Knöpfe (Daten ermitteln → Vorschau generieren → Fahrt erstellen
+   → Rückgängig) rechts neben dem Fenster-Hinweis: kompakt gehalten, damit
+   die ganze Steuerleiste einzeilig bleibt. */
+.fahrt-steuer .btn {
+  white-space: nowrap;
+  padding: 6px 8px;
+  font-size: 0.78rem;
 }
 
 /* --- Kachel-Raster: zwei gleich breite, gleich hohe Spalten (Grid-
@@ -351,32 +367,6 @@ tr.boert-zeile--abgelehnt.fahrt-zeile--afa td {
 .boert-entfernen {
   margin-left: 6px;
   color: var(--ink-faint);
-}
-
-/* --- rechte Spalte neben der Bört-Vorschau: oben die Ablauf-Kachel mit
-   den vier untereinander gestapelten Knöpfen (Daten ermitteln → Vorschau
-   generieren → Fahrt erstellen → Rückgängig), darunter "Aus Verhinderung". */
-.boert-rechts {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.boert-erstellen {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.boert-erstellen .btn {
-  width: 100%;
-  white-space: nowrap;
-  padding: 7px 10px;
-  font-size: 0.85rem;
-}
-
-.boert-einfuegen {
-  flex: 1;
 }
 
 /* --- "Einzufügen": eigene, schmale Karte (1/4 Breite, rechts neben

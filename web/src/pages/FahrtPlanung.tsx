@@ -471,6 +471,27 @@ export function FahrtPlanung() {
         )}
         <span className="fahrt-steuer__spacer" />
         <span className="fahrt-steuer__fenster">Fenster bis {formatUhrzeit(endeNaechste)}</span>
+        {/* Ablauf-Kette: die Knöpfe schalten sich der Reihe nach frei —
+            Daten ermitteln → Vorschau generieren → Fahrt erstellen →
+            Rückgängig. */}
+        <button type="button" className="btn btn--accent" onClick={handleErmitteln}>
+          Daten ermitteln
+        </button>
+        <button type="button" className="btn btn--accent" disabled={!datenErmittelt} onClick={handleVorschauGenerieren}>
+          Vorschau generieren
+        </button>
+        <button type="button" className="btn btn--accent" disabled={!generiert} onClick={() => setFahrtDialogOffen(true)}>
+          Fahrt erstellen
+        </button>
+        <button
+          type="button"
+          className="btn"
+          disabled={!rueckgaengigDa}
+          onClick={handleRueckgaengig}
+          title="Letztes 'Fahrt erstellen' rückgängig machen"
+        >
+          Rückgängig
+        </button>
       </div>
 
       <div className="fahrt-reihe">
@@ -648,34 +669,10 @@ export function FahrtPlanung() {
           </div>
         </section>
 
-        {/* Rechte Spalte (1/4 Breite): oben die Ablauf-Kachel mit allen vier
-            Knöpfen — sie schalten sich der Reihe nach frei: Daten ermitteln
-            → Vorschau generieren → Fahrt erstellen → Rückgängig. Darunter
-            "Aus Verhinderung". */}
-        <div className="boert-rechts">
-          <section className="fahrt-kachel boert-erstellen">
-            <button type="button" className="btn btn--accent" onClick={handleErmitteln}>
-              Daten ermitteln
-            </button>
-            <button type="button" className="btn btn--accent" disabled={!datenErmittelt} onClick={handleVorschauGenerieren}>
-              Vorschau generieren
-            </button>
-            <button type="button" className="btn btn--accent" disabled={!generiert} onClick={() => setFahrtDialogOffen(true)}>
-              Fahrt erstellen
-            </button>
-            <button
-              type="button"
-              className="btn"
-              disabled={!rueckgaengigDa}
-              onClick={handleRueckgaengig}
-              title="Letztes 'Fahrt erstellen' rückgängig machen"
-            >
-              Rückgängig
-            </button>
-          </section>
-
-          <section className="fahrt-kachel boert-einfuegen">
-            <h3 className="fahrt-kachel__titel">Aus Verhinderung</h3>
+        {/* Eigene Karte (1/4 Breite, rechts neben der Bört-Vorschau) — die
+            Ablauf-Knöpfe sitzen oben in der Steuerleiste. */}
+        <section className="fahrt-kachel boert-einfuegen">
+          <h3 className="fahrt-kachel__titel">Aus Verhinderung</h3>
           <div className="boert-einfuegen__formular">
             <input
               type="text"
@@ -726,8 +723,7 @@ export function FahrtPlanung() {
                 ))}
               </ul>
             )}
-          </section>
-        </div>
+        </section>
       </div>
 
       {fahrtDialogOffen && (
