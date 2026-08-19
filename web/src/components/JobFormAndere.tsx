@@ -238,7 +238,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
           </>
         )}
         {typ === "BHF" && (
-          <label className="job-form__abtzeit-eingabe">
+          <label className="job-form__bhf-besetz">
             Besetz-Zeit
             <input type="datetime-local" value={bhfBesetzZeit} onChange={(e) => handleBesetzZeit(e.target.value)} required />
           </label>

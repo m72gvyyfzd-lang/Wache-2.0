@@ -61,22 +61,36 @@ export function sortiereUndNummeriere(lotsen: LotsenEintrag[], aktuelleFahrt: Ak
   });
 }
 
+/** Kürzeste Abrufzeit: 20 Minuten. Gerechnet wird überall in Stunden,
+ *  deshalb als Drittelstunde — angezeigt wird sie in Minuten, weil "0,3"
+ *  auf der Tafel niemand liest. */
+export const ABRUF_20_MIN = 1 / 3;
+
+/** true, wenn der Wert die 20-Minuten-Option ist (Fließkomma-Toleranz:
+ *  1/3 lässt sich nicht exakt speichern). */
+function ist20Min(stunden: number): boolean {
+  return Math.abs(stunden - ABRUF_20_MIN) < 0.01;
+}
+
 /** Anzeige der Abrufzeit: undefined und 1,0 Std. (der Standardwert für die
  *  Berechnung) werden beide als leer dargestellt. */
 export function formatAbrufzeit(stunden: number | undefined): string {
   if (stunden === undefined || stunden === 1) return "";
+  if (ist20Min(stunden)) return "20 m";
   return stunden.toFixed(1).replace(".", ",");
 }
 
-/** Auswählbare Abrufzeiten (0,5er-Schritte); undefined = Standard 1,0 Std.
- *  Geteilt zwischen dem Lotsen-Formular und dem Quick-Edit der
- *  Einsatzstation, damit beide dieselben Werte anbieten. */
-export const ABRUF_OPTIONEN = [undefined, 0.5, 1, 1.5, 2, 2.5] as const;
+/** Auswählbare Abrufzeiten (20 Min., danach 0,5er-Schritte); undefined =
+ *  Standard 1,0 Std. Geteilt zwischen dem Lotsen-Formular und dem
+ *  Quick-Edit der Einsatzstation, damit beide dieselben Werte anbieten. */
+export const ABRUF_OPTIONEN = [undefined, ABRUF_20_MIN, 0.5, 1, 1.5, 2, 2.5] as const;
 
 /** Beschriftung einer Abruf-Option im Auswahlfeld (dort wird auch der
  *  Standard 1,0 Std. ausgeschrieben — anders als in der Listenanzeige). */
 export function formatAbrufOption(stunden: number | undefined): string {
-  return stunden === undefined ? "–" : `${stunden.toFixed(1).replace(".", ",")} Std`;
+  if (stunden === undefined) return "–";
+  if (ist20Min(stunden)) return "20 min";
+  return `${stunden.toFixed(1).replace(".", ",")} Std`;
 }
 
 /** Auswählbare Fahrt-Zuweisungen inkl. Bereitschaft ("") — Reihenfolge der

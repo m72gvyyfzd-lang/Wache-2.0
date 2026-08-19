@@ -101,6 +101,18 @@
 .job-form__abtzeit-eingabe input {
   text-align: right;
 }
+
+/* BHF-Besetz-Zeit: als einziges Feld seiner Zeile würde es sich über die
+   ganze Breite strecken. Es bekommt deshalb dieselbe Breite wie das
+   "best. Abgang"-Feld der EHF-Zeile (dort ein flex:1-Label neben zwei
+   Schaltern) und steht wie dieses linksbündig. */
+.job-form__row > .job-form__bhf-besetz {
+  flex: 0 0 192px;
+}
+
+.job-form__bhf-besetz input {
+  text-align: left;
+}
 /* Gemeinsames Zeitraster (HH/NOK): Ebene 1 (Schiffsname/Kat./Speed/ggf.
    Bütz), Ebene 2 (Zeiten) und Ebene 3 (Datum) teilen sich exakt dieselben
    fünf Spalten — Schiffsname über die ersten beiden, Kat. und Speed gleich

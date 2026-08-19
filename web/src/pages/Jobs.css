@@ -42,3 +42,15 @@ tr.zeile-cux td.muted,
 tr.zeile-cux td.cell-name {
   color: #2e8b57;
 }
+
+/* Letzter Checkpoint erreicht (Hamburg: Stade, NOK: Kuden) — das Schiff
+   steht kurz vor der Übergabe, die Zeile wird hervorgehoben. */
+.job-letzter-checkpoint td {
+  font-weight: 700;
+}
+
+/* Ein pausiertes Schiff (gepl. Bunkern) bleibt dezent, auch wenn sein
+   letzter Checkpoint gesetzt ist. */
+.job-bunkert.job-letzter-checkpoint td {
+  font-weight: 400;
+}

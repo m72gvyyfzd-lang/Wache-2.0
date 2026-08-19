@@ -68,3 +68,41 @@
 .job-form__row > .job-form__eta-zeit {
   flex: 0 0 100px;
 }
+
+/* Aktions-Fenster eines noch nicht angekommenen Seestations-Lotsen:
+   ein Raster über beide Zeilen, damit die Knöpfe an den Eingabefeldern
+   ausgerichtet sind — "Abbrechen" endet am rechten Rand der Zeit-Eingabe,
+   "Übernehmen" und "Auf Seestation" teilen sich dieselbe letzte Spalte
+   und sind damit gleich breit. */
+.see-aktion {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.see-aktion__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.see-aktion__datum,
+.see-aktion__zeit {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  width: 100%;
+}
+
+/* Über Beschriftung + Datum + Zeit hinweg — endet damit bündig unter der
+   rechten Kante der Zeit-Eingabe. */
+.see-aktion__abbrechen {
+  grid-column: 1 / 4;
+}
+
+/* Die Knopf-Spalte richtet sich am breiteren der beiden Knöpfe aus. */
+.see-aktion .btn {
+  width: 100%;
+}

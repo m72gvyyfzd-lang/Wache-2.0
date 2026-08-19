@@ -176,3 +176,20 @@
 .einsatz-table td.fahrt-zeile--afa {
   background: rgba(34, 197, 94, 0.12);
 }
+
+/* Gruppen-Kopf "Lotsen" mit Aktions-Knopf: der Titel bleibt mittig, der
+   Knopf sitzt rechts (eigene Rasterspalten gleicher Breite). */
+.einsatz-kopf-gruppe {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+.einsatz-kopf-gruppe__titel {
+  grid-column: 2;
+}
+
+.einsatz-kopf-gruppe__aktion {
+  grid-column: 3;
+  justify-self: end;
+}

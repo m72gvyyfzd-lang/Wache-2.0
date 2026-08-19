@@ -198,14 +198,20 @@ export function SeestationLotseAktionModal({
   onAbbrechen,
 }: SeestationLotseAktionModalProps) {
   const [basis] = useState(() => initialEtaStn ?? new Date());
+  const [datum, setDatum] = useState(toLocalDateInput(initialEtaStn ?? new Date()));
   const [zeit, setZeit] = useState(toLocalTimeInput(initialEtaStn));
   const [verschiebenOffen, setVerschiebenOffen] = useState(false);
   const [ziel, setZiel] = useState("");
 
   function neueEta(): Date | undefined {
-    // Leeres Feld ist eine bewusste Eingabe (iOS-Zeitrad: "Zurücksetzen"):
-    // die ETA Stn wird gelöscht.
+    // Leeres Zeitfeld ist eine bewusste Eingabe (iOS-Zeitrad:
+    // "Zurücksetzen"): die ETA Stn wird gelöscht.
     if (zeit === "") return undefined;
+    // Das Datum steht in einem eigenen Feld — ein Lotse kann über
+    // Mitternacht hinaus unterwegs sein. Fehlt es (geleert), bleibt der
+    // Tag der bisherigen ETA bzw. heute.
+    const ausFeldern = ausDatumUndZeit(datum, zeit);
+    if (ausFeldern !== undefined) return ausFeldern;
     const [stunden, minuten] = zeit.split(":").map(Number);
     const ergebnis = new Date(basis);
     ergebnis.setHours(stunden, minuten, 0, 0);
@@ -265,26 +271,33 @@ export function SeestationLotseAktionModal({
     );
   }
 
+  // Ein Raster über beide Zeilen: Beschriftung | Datum | Zeit | Knopf.
+  // Dadurch schließt "Abbrechen" (über drei Spalten) genau am rechten Rand
+  // der Zeit-Eingabe ab, und "Übernehmen" ist so breit wie "Auf Seestation".
   return (
-    <div className="job-form">
-      <div className="job-form__row">
-        <label className="abtzeit-feld">
-          ETA Stn:
-          <input type="time" value={zeit} onChange={(e) => setZeit(e.target.value)} />
-        </label>
-        <button type="button" className="btn" onClick={() => onUebernehmen(neueEta())}>
-          Übernehmen
-        </button>
-      </div>
-      <div className="job-form__actions">
-        <button type="button" className="btn btn--ghost" onClick={onAbbrechen}>
-          Abbrechen
-        </button>
-        <span className="job-form__spacer" />
-        <button type="button" className="btn btn--accent" onClick={onAufStation}>
-          Auf Seestation
-        </button>
-      </div>
+    <div className="job-form see-aktion">
+      <span className="see-aktion__label">ETA Stn:</span>
+      <input
+        className="see-aktion__datum"
+        type="date"
+        value={datum}
+        onChange={(e) => setDatum(e.target.value)}
+      />
+      <input
+        className="see-aktion__zeit"
+        type="time"
+        value={zeit}
+        onChange={(e) => setZeit(e.target.value)}
+      />
+      <button type="button" className="btn" onClick={() => onUebernehmen(neueEta())}>
+        Übernehmen
+      </button>
+      <button type="button" className="btn btn--ghost see-aktion__abbrechen" onClick={onAbbrechen}>
+        Abbrechen
+      </button>
+      <button type="button" className="btn btn--accent" onClick={onAufStation}>
+        Auf Seestation
+      </button>
     </div>
   );
 }

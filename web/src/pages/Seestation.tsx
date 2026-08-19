@@ -13,6 +13,7 @@ import {
   SeestationLotseNeuModal,
 } from "../components/SeestationModals";
 import type { SeeSchiff } from "../data/types";
+import { gekoppelteAgAbteilungen } from "../lib/agKopplung";
 import { formatUhrzeit } from "../lib/format";
 import {
   ANMELDUNG_ESKALATION_MS,
@@ -252,6 +253,8 @@ export function Seestation() {
   const [editSchiff, setEditSchiff] = useState<SeeSchiff | null>(null);
   const [loeschenSchiff, setLoeschenSchiff] = useState<SeeSchiff | null>(null);
   const [aktionLotse, setAktionLotse] = useState<SeestationZeile | null>(null);
+  /** offene Rückfrage "AG-Lotsen mitnehmen?" — siehe handleAufSeestation */
+  const [agFrage, setAgFrage] = useState<{ traegerId: number; agLotsen: { id: number; name: string }[] } | null>(null);
   const [abschoepfenLotse, setAbschoepfenLotse] = useState<SeestationZeile | null>(null);
   const [neuerLotseOffen, setNeuerLotseOffen] = useState(false);
   // "Abteilen": Rückfrage vor dem Verbinden von Schiff + Lotse
@@ -354,14 +357,35 @@ export function Seestation() {
     setAktionLotse(null);
   }
 
+  function setzeAufSeestation(ids: number[]) {
+    for (const id of ids) updateAbteilung(id, { aufSeestation: true });
+    setLotseAuswahl([]);
+    setAktionLotse(null);
+    setAgFrage(null);
+  }
+
   function handleAufSeestation() {
     if (!aktionLotse) return;
-    if (aktionLotse.quelle === "abteilung") {
-      updateAbteilung(aktionLotse.id, { aufSeestation: true });
-    } else {
+    if (aktionLotse.quelle !== "abteilung") {
       updateSeestationLotse(aktionLotse.id, { aufStation: true });
+      setLotseAuswahl([]);
+      setAktionLotse(null);
+      return;
     }
-    setLotseAuswahl([]);
+    // Fahren AG-Lotsen auf demselben Schiff mit, vorher nachfragen — sie
+    // können auch an Bord bleiben (siehe lib/agKopplung.ts).
+    const traeger = abteilungen.find((a) => a.id === aktionLotse.id);
+    const agLotsen = traeger
+      ? gekoppelteAgAbteilungen(traeger, jobs, abteilungen).filter((a) => !a.aufSeestation)
+      : [];
+    if (agLotsen.length === 0) {
+      setzeAufSeestation([aktionLotse.id]);
+      return;
+    }
+    setAgFrage({
+      traegerId: aktionLotse.id,
+      agLotsen: agLotsen.map((a) => ({ id: a.id, name: a.lotsenName })),
+    });
     setAktionLotse(null);
   }
 
@@ -725,6 +749,17 @@ export function Seestation() {
             zentriert
             onJa={handleSchiffLoeschenJa}
             onNein={() => setLoeschenSchiff(null)}
+          />
+        </Modal>
+      )}
+
+      {agFrage && (
+        <Modal title="Auf Seestation" onClose={() => setAgFrage(null)} maxWidth="380px" titelZentriert>
+          <FrageModal
+            zentriert
+            frage={`Sollen die AG-Lotsen (${agFrage.agLotsen.map((a) => a.name).join(", ")}) mit ausgeholt werden?`}
+            onJa={() => setzeAufSeestation([agFrage.traegerId, ...agFrage.agLotsen.map((a) => a.id)])}
+            onNein={() => setzeAufSeestation([agFrage.traegerId])}
           />
         </Modal>
       )}

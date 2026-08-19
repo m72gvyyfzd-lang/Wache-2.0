@@ -14,6 +14,7 @@ import { Switch } from "../components/SeestationModals";
 import type { Abteilung } from "../data/types";
 import { formatUhrzeit } from "../lib/format";
 import { etaSeestation } from "../lib/seestation";
+import { gekoppelteAgAbteilungen } from "../lib/agKopplung";
 import { useData } from "../state/DataContext";
 import "./Versetzliste.css";
 
@@ -91,6 +92,7 @@ function LeereZeile({ spalten }: { spalten: number }) {
 
 export function Versetzlisten() {
   const {
+    jobs,
     abteilungen,
     macheAbteilungRueckgaengig,
     updateAbteilung,
@@ -107,6 +109,9 @@ export function Versetzlisten() {
   // wieder ab.
   const [auswahl, setAuswahl] = useState<number | null>(null);
   const [seeAuswahl, setSeeAuswahl] = useState<SeeAuswahl | null>(null);
+  /** offene Rückfrage "AG-Lotsen mitnehmen?" beim Melden eines Trägers als
+   *  auf der Seestation angekommen */
+  const [agFrage, setAgFrage] = useState<{ traeger: Abteilung; agLotsen: Abteilung[] } | null>(null);
 
   // ---- Reiter 1: Einsatzstation ----
   // Lotsen, die schon auf der Seestation angekommen sind ("Auf Station"),
@@ -185,6 +190,27 @@ export function Versetzlisten() {
           ? `Soll das Abschöpfen von ${ausgewaehlterAbgeschoepfte.name} rückgängig gemacht werden?`
           : "";
 
+  // ---- "Auf Seestation": derselbe Schritt wie im Aktionsfenster der
+  // Seestations-Seite. Fahren AG-Lotsen auf demselben Schiff mit, fragt
+  // die App vorher nach — sie können an Bord bleiben.
+  const kannAufSeestation = ausgewaehlt !== null && ausgewaehlt.vNr !== undefined && !ausgewaehlt.aufSeestation;
+
+  function setzeAufSeestation(ids: number[]) {
+    for (const id of ids) updateAbteilung(id, { aufSeestation: true });
+    setAuswahl(null);
+    setAgFrage(null);
+  }
+
+  function handleAufSeestation() {
+    if (!ausgewaehlt) return;
+    const agLotsen = gekoppelteAgAbteilungen(ausgewaehlt, jobs, abteilungen).filter((a) => !a.aufSeestation);
+    if (agLotsen.length === 0) {
+      setzeAufSeestation([ausgewaehlt.id]);
+      return;
+    }
+    setAgFrage({ traeger: ausgewaehlt, agLotsen });
+  }
+
   function handleRueckgaengigJa() {
     if (reiter === "einsatzstation") {
       if (ausgewaehlt) macheAbteilungRueckgaengig(ausgewaehlt.id);
@@ -228,6 +254,17 @@ export function Versetzlisten() {
               Versetzliste Seestation
             </button>
           </div>
+          {reiter === "einsatzstation" && (
+            <button
+              type="button"
+              className="btn btn--accent"
+              disabled={!kannAufSeestation}
+              onClick={handleAufSeestation}
+              data-testid="auf-seestation"
+            >
+              Auf Seestation
+            </button>
+          )}
           <button
             type="button"
             className="btn btn--accent"
@@ -383,6 +420,19 @@ export function Versetzlisten() {
         </Modal>
       )}
 
+      {agFrage && (
+        <Modal title="Auf Seestation" onClose={() => setAgFrage(null)} maxWidth="380px" titelZentriert>
+          <FrageModal
+            zentriert
+            frage={`${agFrage.traeger.lotsenName} kommt auf der Seestation an. Sollen die AG-Lotsen (${agFrage.agLotsen
+              .map((a) => a.lotsenName)
+              .join(", ")}) mit ausgeholt werden?`}
+            onJa={() => setzeAufSeestation([agFrage.traeger.id, ...agFrage.agLotsen.map((a) => a.id)])}
+            onNein={() => setzeAufSeestation([agFrage.traeger.id])}
+          />
+        </Modal>
+      )}
+
       {bearbeiteAbteilung && (
         <Modal
           title={bearbeiteAbteilung.schiffsname ?? "Abteilung"}
@@ -400,6 +450,15 @@ export function Versetzlisten() {
                 ankert: wert.ankert,
                 geschwindigkeitsklasse: wert.geschwindigkeitsklasse,
               });
+              // AG-Lotsen fahren auf demselben Schiff mit: Speed und
+              // Ankert-Status gelten für sie genauso, sonst liefen ihre
+              // Ankunftszeiten auseinander (siehe lib/agKopplung.ts).
+              for (const ag of gekoppelteAgAbteilungen(bearbeiteAbteilung, jobs, abteilungen)) {
+                updateAbteilung(ag.id, {
+                  ankert: wert.ankert,
+                  geschwindigkeitsklasse: wert.geschwindigkeitsklasse,
+                });
+              }
               setBearbeiteAbteilung(null);
             }}
             onAbbrechen={() => setBearbeiteAbteilung(null)}

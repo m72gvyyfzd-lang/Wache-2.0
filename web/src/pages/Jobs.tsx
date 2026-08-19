@@ -40,7 +40,6 @@ interface ZeitFeld {
 interface CheckpointListeProps {
   titel: string;
   zeilen: EintragMitAbteilzeit[];
-  abgeteiltProJob: Map<number, number>;
   checkpointLabels: [string, string, string];
   checkpoints: (job: JobEintrag) => [ZeitFeld, ZeitFeld, ZeitFeld];
   onNeu: () => void;
@@ -49,14 +48,15 @@ interface CheckpointListeProps {
 }
 
 /** Hamburg- und NOK-Liste haben identische Spalten, nur die drei
- *  Checkpoint-Bezeichnungen und -Felder unterscheiden sich. Feste
+ *  Checkpoint-Bezeichnungen und -Felder unterscheiden sich. Ist der
+ *  LETZTE Checkpoint gesetzt (Hamburg: Stade, NOK: Kuden), steht das
+ *  Schiff kurz vor der Übergabe — die Zeile wird dann fett gesetzt. Feste
  *  Spaltenbreiten (colgroup) statt inhaltsbasierter Breite, damit beide
  *  Listen exakt symmetrisch untereinanderstehen (bei gleicher Panel-Breite
  *  ergeben identische Prozentwerte identische Pixelbreiten). */
 function CheckpointListe({
   titel,
   zeilen,
-  abgeteiltProJob,
   checkpointLabels,
   checkpoints,
   onNeu,
@@ -75,16 +75,17 @@ function CheckpointListe({
       }
     >
       <table className="jobs-table">
+        {/* ohne "Lots."-Spalte: die verbleibende Breite geht an Schiff
+            und Bemerkung. */}
         <colgroup>
           <col style={{ width: "6%" }} />
+          <col style={{ width: "24%" }} />
           <col style={{ width: "20%" }} />
-          <col style={{ width: "15%" }} />
           <col style={{ width: "8%" }} />
           <col style={{ width: "10%" }} />
           <col style={{ width: "10%" }} />
           <col style={{ width: "10%" }} />
           <col style={{ width: "12%" }} />
-          <col style={{ width: "9%" }} />
         </colgroup>
         <thead>
           <tr>
@@ -96,21 +97,25 @@ function CheckpointListe({
             <th className="num">{label2}</th>
             <th className="num">{label3}</th>
             <th className="num">Abt. Zeit</th>
-            <th className="num">Lots.</th>
           </tr>
         </thead>
         <tbody>
           {zeilen.map(({ eintrag, abteilzeit }, i) => {
             const [cp1, cp2, cp3] = checkpoints(eintrag);
-            const abgeteilt = abgeteiltProJob.get(eintrag.id) ?? 0;
-            const rest = benoetigteLotsenAnzahl(eintrag) - abgeteilt;
             const zeilenKlick = () => onZeile(eintrag);
             // NOK-Schiffe mit gepl. Bunkern: aus der Planung genommen (keine
             // Abt.Zeit, kein Lotse) — die Zeile steht dezent am Listenende,
             // bis der Haken wieder raus ist (siehe istBunkernPausiert).
             const pausiert = istBunkernPausiert(eintrag);
+            // Letzter Checkpoint gesetzt (Stade bzw. Kuden): das Schiff
+            // steht kurz vor der Übergabe — Zeile hervorheben.
+            const letzterCheckpoint = cp3.wert !== undefined;
+            const zeilenKlasse =
+              [pausiert ? "job-bunkert" : "", letzterCheckpoint ? "job-letzter-checkpoint" : ""]
+                .filter(Boolean)
+                .join(" ") || undefined;
             return (
-              <tr key={eintrag.id} className={pausiert ? "job-bunkert" : undefined}>
+              <tr key={eintrag.id} className={zeilenKlasse}>
                 <td className="num muted row-click" onClick={zeilenKlick}>
                   {i + 1}
                 </td>
@@ -147,15 +152,12 @@ function CheckpointListe({
                 >
                   {formatUhrzeit(abteilzeit)}
                 </td>
-                <td className={(abgeteilt > 0 ? "num lots-rest" : "num muted") + " row-click"} onClick={zeilenKlick}>
-                  {lotsAnzeige(eintrag, rest)}
-                </td>
               </tr>
             );
           })}
           {zeilen.length === 0 && (
             <tr>
-              <td colSpan={9} className="muted" style={{ textAlign: "center", padding: 20 }}>
+              <td colSpan={8} className="muted" style={{ textAlign: "center", padding: 20 }}>
                 keine Jobs
               </td>
             </tr>
@@ -195,7 +197,6 @@ function AndereListe({ zeilen, alleJobs, abgeteiltProJob, onNeu, onZeile, onWarn
             <th>Schiff</th>
             <th className="num">Kat.</th>
             <th className="num">Abt. Zeit</th>
-            <th className="num">Lots.</th>
           </tr>
         </thead>
         <tbody>
@@ -325,7 +326,6 @@ export function Jobs() {
       <CheckpointListe
         titel="Hamburg"
         zeilen={hamburg}
-        abgeteiltProJob={abgeteiltProJob}
         checkpointLabels={["HH", "FkW", "Stade"]}
         checkpoints={(job) => [
           { wert: job.hh, feld: "hh" },
@@ -339,7 +339,6 @@ export function Jobs() {
       <CheckpointListe
         titel="NOK"
         zeilen={nok}
-        abgeteiltProJob={abgeteiltProJob}
         checkpointLabels={["Holt.", "Ticker", "Kuden"]}
         checkpoints={(job) => [
           { wert: job.holt, feld: "holt" },

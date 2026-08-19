@@ -251,9 +251,7 @@ export function Einsatzplanung() {
   // "Lotsen abrufen": An Stn. = jetzt + Abrufzeit, gepl. Abruf zeigt danach
   // "–". "Abruf zurück": beide Felder zurücksetzen — das entspricht wieder
   // dem berechneten Ausgangszustand.
-  function handleAbrufenToggle() {
-    if (!abrufenLotse) return;
-    const { eintrag, index } = abrufenLotse;
+  function toggleAbruf({ eintrag, index }: LotseMitOrdnung) {
     if (eintrag.abgerufen) {
       updateLotse(index, { ...eintrag, abgerufen: false, anStationZeit: undefined });
     } else {
@@ -263,6 +261,17 @@ export function Einsatzplanung() {
     setLotseAuswahl([]);
     setAbrufenLotse(null);
   }
+
+  function handleAbrufenToggle() {
+    if (abrufenLotse) toggleAbruf(abrufenLotse);
+  }
+
+  // Kopf-Knopf "Abrufen": nur bei GENAU einem markierten, noch nicht
+  // abgerufenen Lotsen — er löst dasselbe aus wie der Doppelklick auf den
+  // Namen und dort "Abrufen".
+  const abrufKandidat =
+    lotseAuswahl.length === 1 ? (lotsenSortiert[lotseAuswahl[0]] ?? undefined) : undefined;
+  const zeigeAbrufKnopf = abrufKandidat !== undefined && !abrufKandidat.eintrag.abgerufen;
 
   function handleAnStationUebernehmen(wert: Date | undefined) {
     if (!anStationLotse) return;
@@ -318,7 +327,20 @@ export function Einsatzplanung() {
             <tr className="einsatz-table__gruppen">
               <th colSpan={6}>Jobs</th>
               <th className="einsatz-table__divider" aria-hidden="true" />
-              <th colSpan={4}>Lotsen</th>
+              <th colSpan={4}>
+                <span className="einsatz-kopf-gruppe">
+                  <span className="einsatz-kopf-gruppe__titel">Lotsen</span>
+                  {zeigeAbrufKnopf && (
+                    <button
+                      type="button"
+                      className="btn btn--small btn--accent einsatz-kopf-gruppe__aktion"
+                      onClick={() => toggleAbruf(abrufKandidat)}
+                    >
+                      Abrufen
+                    </button>
+                  )}
+                </span>
+              </th>
             </tr>
             <tr>
               <th className="num">#</th>
