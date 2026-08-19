@@ -145,6 +145,10 @@ const FAHRT_RUECKGAENGIG_KEY = "wache.fahrtRueckgaengig.v1";
 export interface FahrtRueckgaengig {
   lotsen: LotsenEintrag[];
   aktuelleFahrt: AktuelleFahrt;
+  /** Zeitpunkt des "Fahrt erstellen" (ms). Der Schnappschuss gilt nur
+   *  eine begrenzte Zeit — danach ist die neue Fahrt gelaufen und ein
+   *  Zurückrollen richtete mehr Schaden an als es behebt. */
+  zeit: number;
   /** der komplette localStorage-Zustand der Fahrt-Planungs-Seite vor dem
    *  Umbau (deren eigenes Gespeichert-Format) — die Seite stellt ihn beim
    *  Rückgängig selbst wieder her. */
@@ -159,10 +163,17 @@ export function ladeFahrtRueckgaengig(): FahrtRueckgaengig | undefined {
   const raw = localStorage.getItem(FAHRT_RUECKGAENGIG_KEY);
   if (!raw) return undefined;
   try {
-    const daten = JSON.parse(raw) as { lotsen: unknown; aktuelleFahrt: AktuelleFahrt; fahrtPlanung?: unknown };
+    const daten = JSON.parse(raw) as {
+      lotsen: unknown;
+      aktuelleFahrt: AktuelleFahrt;
+      zeit?: number;
+      fahrtPlanung?: unknown;
+    };
     return {
       lotsen: lotsenAusJson(JSON.stringify(daten.lotsen)),
       aktuelleFahrt: daten.aktuelleFahrt,
+      // Ältere Schnappschüsse ohne Zeitstempel gelten als abgelaufen.
+      zeit: daten.zeit ?? 0,
       fahrtPlanung: daten.fahrtPlanung,
     };
   } catch {

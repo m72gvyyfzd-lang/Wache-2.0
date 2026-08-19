@@ -14,9 +14,9 @@ const NAV_ITEMS = [
 /** Unterpunkte von Settings: nur sichtbar, solange Settings selbst oder
  *  einer der Unterpunkte offen ist — die Navi bleibt sonst kürzer. */
 const UNTER_ITEMS = [
-  { to: "/fahrt-planung", label: "Fahrt-Planung" },
   { to: "/wachbeginn", label: "Wachbeginn" },
   { to: "/eta-update", label: "ETA Update" },
+  { to: "/fahrt-planung", label: "Fahrt-Planung" },
 ];
 
 export function AppShell() {

@@ -7,7 +7,9 @@
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 14px 18px;
+  /* bewusst flach gehalten: die vier Zahlen-Kacheln sind nur der Kopf der
+     Seite, den Platz braucht die Bört-Vorschau darunter */
+  padding: 8px 14px 10px;
   box-shadow:
     0 4px 12px rgba(15, 23, 42, 0.14),
     0 1px 2px rgba(15, 23, 42, 0.1),
@@ -15,8 +17,8 @@
 }
 
 .fahrt-kachel__titel {
-  margin: 0 0 12px;
-  font-size: 0.72rem;
+  margin: 0 0 6px;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -105,7 +107,7 @@
 .fahrt-jobs__gruppe {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   justify-content: space-between;
 }
 
@@ -114,28 +116,28 @@
 .fahrt-jobs__links {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .fahrt-jobs__rahmen {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   justify-content: space-evenly;
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 8px 10px;
+  padding: 6px 10px;
 }
 
 /* Eine Feldzeile: Beschriftung links, Feld fest breit, rechts Platz für
    den dezenten Vorwert in Klammern. */
 .fahrt-feld {
   display: grid;
-  grid-template-columns: 1fr 72px 44px;
+  grid-template-columns: 1fr 66px 44px;
   align-items: center;
-  gap: 10px;
-  font-size: 0.85rem;
+  gap: 8px;
+  font-size: 0.82rem;
   color: var(--ink-muted);
   /* Beschriftungen bewusst nicht fett (globale label-Regel überschreiben) */
   font-weight: 400;
@@ -151,19 +153,20 @@
 .fahrt-feld input {
   width: 100%;
   text-align: center;
+  padding: 4px 8px;
   font-variant-numeric: tabular-nums;
 }
 
 .fahrt-feld output {
   width: 100%;
   text-align: center;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--ink);
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 4px 8px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -200,7 +203,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   justify-content: space-evenly;
 }
 
@@ -240,11 +243,11 @@
 .fahrt-bilanz__gruppen {
   display: grid;
   grid-template-rows: 1fr 1fr;
-  gap: 12px;
+  gap: 8px;
 }
 
 .fahrt-bilanz .zahlen-tile__gruppe {
-  padding: 0 10px 8px;
+  padding: 0 10px 4px;
 }
 
 /* Gleiche Unterkante links wie rechts — unabhängig davon, welche Seite
@@ -273,7 +276,7 @@
 .fahrt-bilanz__gesamt-zahl {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 2.4rem;
+  font-size: 2rem;
   font-weight: 700;
   line-height: 1;
   color: var(--ink);
@@ -288,12 +291,23 @@
   margin-top: 14px;
 }
 
+/* Titel mittig über der Tabelle, die Bilanz sitzt rechts daneben, ohne
+   ihn aus der Mitte zu schieben (eigene Rasterspalten gleicher Breite). */
 .boert-kopf {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 14px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+.boert-kopf__titel {
+  grid-column: 2;
+}
+
+.boert-kopf .boert-bilanz {
+  grid-column: 3;
+  justify-self: end;
 }
 
 .boert-kopf__titel {
@@ -417,6 +431,13 @@ tr.boert-zeile--abgelehnt.fahrt-zeile--afa td {
 }
 
 /* --- Bestätigungsdialog "Fahrt erstellen" */
+.fahrt-dialog__hinweis {
+  margin: 0 0 10px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
 .fahrt-dialog__punkte {
   margin: 0 0 18px;
   padding-left: 20px;

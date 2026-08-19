@@ -15,6 +15,12 @@
  * betrifft ausschließlich die angeklickte Zeile, nie eine andere. Die
  * Bestätigung ist reiner, direkt getoggelter Zustand (eine Menge von IDs).
  *
+ * GESCHÜTZTE Zeilen (siehe geschuetzteKandidaten) sind vom Häkchen
+ * ausgenommen und werden nie durchgestrichen: abgerufene Lotsen stecken
+ * in einem laufenden Einsatz und dürfen nicht aus der Liste fallen,
+ * Lotsen der aktuellen Fahrt wechseln beim "Fahrt erstellen" ohnehin
+ * geschlossen in die nächste Fahrt.
+ *
  * Durchgestrichen wird rein aus der aktuellen Bestätigung abgeleitet
  * (berechneDurchgestrichen) — jeder unbestätigte Kandidat, der POSITIONELL
  * zwischen dem ersten und dem letzten bestätigten Kandidaten liegt (nicht
@@ -71,11 +77,40 @@ export function boertGrenze(kandidaten: KandidatZeile[], aktuelleFahrt: Aktuelle
   return i;
 }
 
+/**
+ * Zeilen, deren Häkchen gesperrt ist und die nie durchgestrichen werden:
+ *  - abgerufene Lotsen: sie sind in einem laufenden Einsatz. Würden sie
+ *    beim "Fahrt erstellen" gelöscht, bliebe ihre Abteilung in der
+ *    Versetzliste ohne zugehörigen Lotsen zurück.
+ *  - Lotsen der aktuellen Fahrt: die wechseln beim "Fahrt erstellen"
+ *    geschlossen in die nächste Fahrt, ein Häkchen ändert daran nichts.
+ * "Aus Verhinderung"-Einträge sind nie geschützt.
+ */
+export function geschuetzteKandidaten(kandidaten: KandidatZeile[], aktuelleFahrt: AktuelleFahrt): Set<string> {
+  const ergebnis = new Set<string>();
+  for (const z of kandidaten) {
+    if (z.art !== "lotse") continue;
+    if (z.eintrag.abgerufen || z.eintrag.fahrt === aktuelleFahrt) ergebnis.add(z.id);
+  }
+  return ergebnis;
+}
+
 /** Erst-Vorschlag für "Vorschau generieren": die ersten `anzahl` Kandidaten
  *  ab der Grenze — nur ein Startpunkt, danach rein manuell per Häkchen
- *  gepflegt (keine automatische Nachpflege). */
-export function boertVorschlag(kandidaten: KandidatZeile[], grenze: number, anzahl: number): Set<string> {
-  return new Set(kandidaten.slice(grenze, grenze + anzahl).map((z) => z.id));
+ *  gepflegt (keine automatische Nachpflege). Geschützte Zeilen werden
+ *  übersprungen (ihr Häkchen ließe sich nachträglich nicht abwählen), der
+ *  nächste freie Kandidat rückt an ihre Stelle. */
+export function boertVorschlag(
+  kandidaten: KandidatZeile[],
+  grenze: number,
+  anzahl: number,
+  geschuetzt: ReadonlySet<string> = new Set(),
+): Set<string> {
+  const ergebnis = new Set<string>();
+  for (let i = grenze; i < kandidaten.length && ergebnis.size < anzahl; i += 1) {
+    if (!geschuetzt.has(kandidaten[i].id)) ergebnis.add(kandidaten[i].id);
+  }
+  return ergebnis;
 }
 
 /**
@@ -83,8 +118,15 @@ export function boertVorschlag(kandidaten: KandidatZeile[], grenze: number, anza
  * zwischen dem ersten und dem letzten bestätigten Kandidaten liegen —
  * unabhängig von einer festen Anzahl. Ohne mindestens zwei bestätigte
  * Kandidaten gibt es keine Spanne und damit nichts Durchgestrichenes.
+ * Geschützte Zeilen bleiben immer außen vor (siehe
+ * geschuetzteKandidaten) — sonst führte gerade die gesperrte Zeile in die
+ * Löschung, vor der die Sperre schützen soll.
  */
-export function berechneDurchgestrichen(kandidaten: KandidatZeile[], bestaetigt: ReadonlySet<string>): Set<string> {
+export function berechneDurchgestrichen(
+  kandidaten: KandidatZeile[],
+  bestaetigt: ReadonlySet<string>,
+  geschuetzt: ReadonlySet<string> = new Set(),
+): Set<string> {
   let erste = -1;
   let letzte = -1;
   for (let i = 0; i < kandidaten.length; i += 1) {
@@ -94,7 +136,8 @@ export function berechneDurchgestrichen(kandidaten: KandidatZeile[], bestaetigt:
   }
   const ergebnis = new Set<string>();
   for (let i = erste + 1; i < letzte; i += 1) {
-    if (!bestaetigt.has(kandidaten[i].id)) ergebnis.add(kandidaten[i].id);
+    const id = kandidaten[i].id;
+    if (!bestaetigt.has(id) && !geschuetzt.has(id)) ergebnis.add(id);
   }
   return ergebnis;
 }

@@ -29,6 +29,7 @@ import {
   berechneDurchgestrichen,
   boertGrenze,
   boertVorschlag,
+  geschuetzteKandidaten,
   mergeKandidaten,
   vorschauFahrtKlasse,
   type EinzufuegenEintrag,
@@ -58,6 +59,12 @@ import "./FahrtPlanung.css";
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
 const STORAGE_KEY = "wache.fahrtplanung.v1";
+
+/** So lange lässt sich ein "Fahrt erstellen" zurücknehmen. Danach ist die
+ *  neue Fahrt im Betrieb angekommen (Lotsen abgerufen, abgeteilt) — ein
+ *  Zurückrollen richtete mehr Schaden an, als es behebt. Der Schnappschuss
+ *  wird dann verworfen. */
+const RUECKGAENGIG_FRIST_MS = 30 * 60_000;
 
 interface FeldDef {
   key: FeldKey;
@@ -117,6 +124,13 @@ interface Gespeichert {
   generiert?: boolean;
 }
 
+/** Anzeige des Vorwerts neben dem Feld: leer bleibt leer, eine 0 wird —
+ *  wie bei allen anderen leeren Werten der App — als "–" gezeigt. */
+function vorwertText(wert: string | undefined): string {
+  if (wert === undefined || wert === "") return "";
+  return Number(wert) === 0 ? "(–)" : `(${wert})`;
+}
+
 function ladeGespeichert(): Gespeichert {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Gespeichert;
@@ -155,7 +169,10 @@ export function FahrtPlanung() {
   // einen localStorage-Schnappschuss (siehe storage.ts) — er überlebt auch
   // ein Neuladen der Seite.
   const [fahrtDialogOffen, setFahrtDialogOffen] = useState(false);
-  const [rueckgaengigDa, setRueckgaengigDa] = useState(() => ladeFahrtRueckgaengig() !== undefined);
+  const [rueckgaengigDa, setRueckgaengigDa] = useState(() => {
+    const snap = ladeFahrtRueckgaengig();
+    return snap !== undefined && Date.now() - snap.zeit <= RUECKGAENGIG_FRIST_MS;
+  });
   const [neuName, setNeuName] = useState("");
   const [neuKat, setNeuKat] = useState("");
   const [neuBemerkung, setNeuBemerkung] = useState("");
@@ -167,6 +184,21 @@ export function FahrtPlanung() {
     const id = setInterval(() => setJetzt(new Date()), 30_000);
     return () => clearInterval(id);
   }, []);
+
+  // Abgelaufene Rückgängig-Schnappschüsse verwerfen — beim Laden der Seite
+  // und danach an jedem Zeit-Tick, damit der Knopf ohne Neuladen ausgeht
+  // und der Schnappschuss nicht liegen bleibt.
+  useEffect(() => {
+    const snap = ladeFahrtRueckgaengig();
+    if (snap === undefined) {
+      if (rueckgaengigDa) setRueckgaengigDa(false);
+      return;
+    }
+    if (jetzt.getTime() - snap.zeit > RUECKGAENGIG_FRIST_MS) {
+      loescheFahrtRueckgaengig();
+      setRueckgaengigDa(false);
+    }
+  }, [jetzt, rueckgaengigDa]);
 
   useEffect(() => {
     const daten: Gespeichert = {
@@ -202,11 +234,12 @@ export function FahrtPlanung() {
       vergaben: String(zaehlung.vergaben),
       ag: String(zaehlung.ag),
     };
-    // Vorwerte nur für die neu eingelesenen Felder merken — und nur, wenn
-    // dort schon etwas stand (beim allerersten Ermitteln gibt es nichts
-    // zu vergleichen).
+    // Vorwerte für ALLE Felder merken, auch für die von Hand gepflegten
+    // (lose Abgänge, im Zulauf, Reserve): beim erneuten Einlesen soll
+    // überall der bisherige Stand zum Vergleich danebenstehen. Nur beim
+    // allerersten Einlesen gibt es nichts zu vergleichen.
     const alteVorwerte: Partial<Werte> = {};
-    for (const key of Object.keys(neu) as FeldKey[]) {
+    for (const key of Object.keys(LEERE_WERTE) as FeldKey[]) {
       if (werte[key] !== "") alteVorwerte[key] = werte[key];
     }
     setVorherige(alteVorwerte);
@@ -260,7 +293,14 @@ export function FahrtPlanung() {
   const geordnet = useMemo(() => sortiereUndNummeriere(lotsen, aktuelle), [lotsen, aktuelle]);
   const kandidaten = useMemo(() => mergeKandidaten(geordnet, einfuegungen), [geordnet, einfuegungen]);
   const grenze = useMemo(() => boertGrenze(kandidaten, aktuelle), [kandidaten, aktuelle]);
-  const durchgestrichen = useMemo(() => berechneDurchgestrichen(kandidaten, bestaetigt), [kandidaten, bestaetigt]);
+  // Gesperrte Zeilen: abgerufene Lotsen (stecken in einem Einsatz) und
+  // alle Lotsen der aktuellen Fahrt (wechseln ohnehin geschlossen mit).
+  // Sie bekommen kein Häkchen und werden nie durchgestrichen.
+  const geschuetzt = useMemo(() => geschuetzteKandidaten(kandidaten, aktuelle), [kandidaten, aktuelle]);
+  const durchgestrichen = useMemo(
+    () => berechneDurchgestrichen(kandidaten, bestaetigt, geschuetzt),
+    [kandidaten, bestaetigt, geschuetzt],
+  );
   // Positions-Auswahl für "Einzufügen" (Punkt 4.1): nur echte, bestätigte
   // Lotsen ("die vorgeschlagene nächste Fahrt"), Durchgestrichene sind per
   // Definition nicht bestätigt und damit schon ausgenommen.
@@ -273,13 +313,14 @@ export function FahrtPlanung() {
   }, [kandidaten, bestaetigt]);
 
   function handleVorschauGenerieren() {
-    setBestaetigt(boertVorschlag(kandidaten, grenze, fahrtAnforderung));
+    setBestaetigt(boertVorschlag(kandidaten, grenze, fahrtAnforderung, geschuetzt));
     setGeneriert(true);
   }
 
   /** Ein Häkchen betrifft ausschließlich die eigene Zeile — keine
    *  automatische Auffüll- oder Verdrängungslogik. */
   function toggleHaekchen(id: string) {
+    if (geschuetzt.has(id)) return;
     setBestaetigt((s) => {
       const neu = new Set(s);
       if (neu.has(id)) neu.delete(id);
@@ -326,7 +367,7 @@ export function FahrtPlanung() {
       datenErmittelt,
       generiert,
     };
-    speichereFahrtRueckgaengig({ lotsen, aktuelleFahrt, fahrtPlanung: vorher });
+    speichereFahrtRueckgaengig({ lotsen, aktuelleFahrt, zeit: Date.now(), fahrtPlanung: vorher });
 
     const geloescht = new Set<number>();
     const uebernommen = new Set<number>();
@@ -379,7 +420,8 @@ export function FahrtPlanung() {
    *  Seite. Einstufig: danach ist der Schnappschuss verbraucht. */
   function handleRueckgaengig() {
     const snap = ladeFahrtRueckgaengig();
-    if (!snap) {
+    if (!snap || Date.now() - snap.zeit > RUECKGAENGIG_FRIST_MS) {
+      loescheFahrtRueckgaengig();
       setRueckgaengigDa(false);
       return;
     }
@@ -432,9 +474,9 @@ export function FahrtPlanung() {
           value={werte[feld.key]}
           onChange={(e) => setWerte((w) => ({ ...w, [feld.key]: e.target.value }))}
         />
-        <span className="fahrt-feld__vorwert">
-          {feld.ermittelt && vorherige[feld.key] !== undefined ? `(${vorherige[feld.key]})` : ""}
-        </span>
+        {/* Vorwert des letzten Einlesens — für ermittelte wie für von
+            Hand gepflegte Felder. Eine 0 steht wie überall sonst als "–". */}
+        <span className="fahrt-feld__vorwert">{vorwertText(vorherige[feld.key])}</span>
       </label>
     );
   }
@@ -472,10 +514,10 @@ export function FahrtPlanung() {
         <span className="fahrt-steuer__spacer" />
         <span className="fahrt-steuer__fenster">Fenster bis {formatUhrzeit(endeNaechste)}</span>
         {/* Ablauf-Kette: die Knöpfe schalten sich der Reihe nach frei —
-            Daten ermitteln → Vorschau generieren → Fahrt erstellen →
+            Daten einlesen → Vorschau generieren → Fahrt erstellen →
             Rückgängig. */}
         <button type="button" className="btn btn--accent" onClick={handleErmitteln}>
-          Daten ermitteln
+          Daten einlesen
         </button>
         <button type="button" className="btn btn--accent" disabled={!datenErmittelt} onClick={handleVorschauGenerieren}>
           Vorschau generieren
@@ -488,7 +530,7 @@ export function FahrtPlanung() {
           className="btn"
           disabled={!rueckgaengigDa}
           onClick={handleRueckgaengig}
-          title="Letztes 'Fahrt erstellen' rückgängig machen"
+          title={`Letztes 'Fahrt erstellen' rückgängig machen (bis ${RUECKGAENGIG_FRIST_MS / 60_000} Min. danach)`}
         >
           Rückgängig
         </button>
@@ -656,7 +698,19 @@ export function FahrtPlanung() {
                       <td className="num muted">{zeile.art === "lotse" ? zeile.bb ?? "·" : "–"}</td>
                       <td className="muted">{eintrag.bemerkung}</td>
                       <td className="num">
-                        <input type="checkbox" checked={bestaetigt.has(zeile.id)} onChange={() => toggleHaekchen(zeile.id)} />
+                        <input
+                          type="checkbox"
+                          checked={bestaetigt.has(zeile.id)}
+                          disabled={geschuetzt.has(zeile.id)}
+                          title={
+                            geschuetzt.has(zeile.id)
+                              ? zeile.art === "lotse" && zeile.eintrag.abgerufen
+                                ? "abgerufen — bleibt in der Liste"
+                                : "in der aktuellen Fahrt — wechselt ohnehin mit"
+                              : undefined
+                          }
+                          onChange={() => toggleHaekchen(zeile.id)}
+                        />
                       </td>
                     </tr>
                   );
@@ -734,9 +788,14 @@ export function FahrtPlanung() {
       {fahrtDialogOffen && (
         <Modal title="Fahrt erstellen" onClose={() => setFahrtDialogOffen(false)} maxWidth="420px" titelZentriert>
           <div className="fahrt-dialog">
+            {/* Die Fahrt-Kürzel (MoFa/MiFa/AFA) tragen das Wort "Fahrt"
+                bereits in sich — deshalb kein "-Fahrt" dahinter. */}
+            <p className="fahrt-dialog__hinweis">
+              Die Fahrt wird von {aktuelle} auf {naechste} umgestellt
+            </p>
             <ul className="fahrt-dialog__punkte">
               <li>
-                {bestaetigt.size} {bestaetigt.size === 1 ? "Lotse" : "Lotsen"} in die {naechste}-Fahrt nehmen
+                {bestaetigt.size} {bestaetigt.size === 1 ? "Lotse" : "Lotsen"} in die {naechste} nehmen
               </li>
               <li>
                 {anzahlGestrichen} {anzahlGestrichen === 1 ? "Lotse fällt" : "Lotsen fallen"} raus
