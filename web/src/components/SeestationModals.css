@@ -78,7 +78,9 @@
   display: grid;
   grid-template-columns: auto 1fr auto auto;
   align-items: center;
-  gap: 10px;
+  /* derselbe Abstand wie in .job-form__row (Schiffs-Fenster) — die Felder
+     standen sonst sichtbar dichter beieinander als dort. */
+  gap: 12px;
 }
 
 .see-aktion__label {
@@ -86,13 +88,16 @@
   font-weight: 600;
   color: var(--ink-muted);
   white-space: nowrap;
+  /* etwas Abstand zum ersten Feld, weil die Beschriftung hier daneben
+     steht statt darüber. */
+  padding-right: 2px;
 }
 
+/* Bewusst KEINE eigene Schriftart: die Datums-/Zeitfelder sehen damit
+   genauso aus wie im Schiffs-Fenster (SeeSchiffEditModal), das dieselben
+   Eingaben ohne Sonderstil zeigt. */
 .see-aktion__datum,
 .see-aktion__zeit {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 1rem;
   width: 100%;
 }
 
@@ -105,4 +110,33 @@
 /* Die Knopf-Spalte richtet sich am breiteren der beiden Knöpfe aus. */
 .see-aktion .btn {
   width: 100%;
+  white-space: nowrap;
+}
+
+/* Die Eingaben dürfen schrumpfen, statt die Zeile über den Fensterrand
+   zu schieben. */
+.see-aktion__datum,
+.see-aktion__zeit {
+  min-width: 0;
+}
+
+/* Schmales Fenster (iPhone/geteilter Bildschirm): die Zeile bricht um —
+   Beschriftung über die volle Breite, darunter Datum und Zeit, dann die
+   Knöpfe. Sonst würde der Inhalt seitlich abgeschnitten. */
+@media (max-width: 560px) {
+  .see-aktion {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .see-aktion__label {
+    grid-column: 1 / 3;
+  }
+
+  .see-aktion .btn {
+    grid-column: 1 / 3;
+  }
+
+  .see-aktion__abbrechen {
+    grid-column: 1 / 3;
+  }
 }

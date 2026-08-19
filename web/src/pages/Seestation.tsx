@@ -765,7 +765,15 @@ export function Seestation() {
       )}
 
       {aktionLotse && (
-        <Modal title={aktionLotse.name} onClose={() => setAktionLotse(null)} maxWidth="440px">
+        // Der ETA-Zweig (Lotse noch nicht vor Ort) braucht mehr Breite:
+        // Beschriftung, Datum, Zeit und der Übernehmen-Knopf stehen dort
+        // in einer Zeile. Für den Vor-Ort-Zweig bleibt es beim schmalen
+        // Fenster.
+        <Modal
+          title={aktionLotse.name}
+          onClose={() => setAktionLotse(null)}
+          maxWidth={aktionLotse.aufStation ? "440px" : "560px"}
+        >
           <SeestationLotseAktionModal
             initialEtaStn={aktionLotse.etaStn}
             aufStation={aktionLotse.aufStation}
