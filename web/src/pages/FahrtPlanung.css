@@ -289,12 +289,6 @@
   color: var(--ink-muted);
 }
 
-.boert-kopf__rechts {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
 .boert-bilanz {
   font-size: 0.85rem;
   font-weight: 600;
@@ -359,12 +353,9 @@ tr.boert-zeile--abgelehnt.fahrt-zeile--afa td {
   color: var(--ink-faint);
 }
 
-/* --- rechte Spalte neben der Bört-Vorschau: oben die schmale "Fahrt
-   erstellen"-Kachel, darunter "Einzufügen". Die Höhe der oberen Kachel ist
-   so bemessen, dass die Einzufügen-Kachel oben mit der Tabelle in der
-   Bört-Vorschau abschließt: links beginnt die Tabelle bei
-   Kachel-Padding (14) + Kopfzeile (~38) + Kopf-Abstand (12) ≈ 64px —
-   rechts ergibt Kachelhöhe 50px + Spalten-Lücke 14px dieselben 64px. */
+/* --- rechte Spalte neben der Bört-Vorschau: oben die Ablauf-Kachel mit
+   den vier untereinander gestapelten Knöpfen (Daten ermitteln → Vorschau
+   generieren → Fahrt erstellen → Rückgängig), darunter "Aus Verhinderung". */
 .boert-rechts {
   display: flex;
   flex-direction: column;
@@ -372,23 +363,16 @@ tr.boert-zeile--abgelehnt.fahrt-zeile--afa td {
 }
 
 .boert-erstellen {
-  height: 50px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
-  padding: 0 14px;
 }
 
-/* Beide Knöpfe einzeilig halten — mit Rückgängig daneben wird es in der
-   1/4-Spalte sonst zweizeilig und der Knopf wächst aus der Kachel. */
 .boert-erstellen .btn {
+  width: 100%;
   white-space: nowrap;
-}
-
-.boert-erstellen__btn {
-  flex: 1;
   padding: 7px 10px;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
 }
 
 .boert-einfuegen {

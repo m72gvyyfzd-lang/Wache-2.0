@@ -110,8 +110,10 @@ interface Gespeichert {
   vorherige?: Partial<Werte>;
   einfuegungen?: EinzufuegenEintrag[];
   bestaetigt?: string[];
-  /** true, sobald "Vorschau generieren" gedrückt wurde — Voraussetzung
-   *  für den "Fahrt erstellen"-Knopf. */
+  /** Aktivierungskette der Ablauf-Knöpfe: "Daten ermitteln" schaltet
+   *  "Vorschau generieren" frei (datenErmittelt), das wiederum
+   *  "Fahrt erstellen" (generiert). */
+  datenErmittelt?: boolean;
   generiert?: boolean;
 }
 
@@ -147,6 +149,7 @@ export function FahrtPlanung() {
   // die eigene Zeile, keine automatische Nachpflege anderer Zeilen.
   const [einfuegungen, setEinfuegungen] = useState<EinzufuegenEintrag[]>(gespeichert.einfuegungen ?? []);
   const [bestaetigt, setBestaetigt] = useState<Set<string>>(new Set(gespeichert.bestaetigt ?? []));
+  const [datenErmittelt, setDatenErmittelt] = useState(gespeichert.datenErmittelt ?? false);
   const [generiert, setGeneriert] = useState(gespeichert.generiert ?? false);
   // --- "Fahrt erstellen": Bestätigungsdialog + einstufiges Rückgängig über
   // einen localStorage-Schnappschuss (siehe storage.ts) — er überlebt auch
@@ -173,10 +176,11 @@ export function FahrtPlanung() {
       vorherige,
       einfuegungen,
       bestaetigt: [...bestaetigt],
+      datenErmittelt,
       generiert,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(daten));
-  }, [aktuelle, naechste, werte, vorherige, einfuegungen, bestaetigt, generiert]);
+  }, [aktuelle, naechste, werte, vorherige, einfuegungen, bestaetigt, datenErmittelt, generiert]);
 
   function handleAktuelle(fahrt: AktuelleFahrt) {
     setAktuelle(fahrt);
@@ -207,6 +211,8 @@ export function FahrtPlanung() {
     }
     setVorherige(alteVorwerte);
     setWerte((w) => ({ ...w, ...neu }));
+    // Schritt 1 der Ablauf-Kette erledigt — schaltet "Vorschau generieren" frei.
+    setDatenErmittelt(true);
   }
 
   const lotsenAktuell = zaehleLotsenAktuell(lotsen, abteilungen, seestationLotsen, aktuelle);
@@ -294,14 +300,20 @@ export function FahrtPlanung() {
 
   /**
    * Überträgt die Vorschau in die echte Einsatzstations-Liste:
-   * - jeder Kandidat mit Häkchen (egal ob aus der alten aktuellen Fahrt
-   *   oder aus dem Vorschlag) bekommt fahrt = nächste Fahrt,
+   * - jeder Kandidat mit Häkchen bekommt fahrt = nächste Fahrt,
+   * - ALLE Lotsen der bisherigen aktuellen Fahrt wechseln ebenfalls in die
+   *   nächste Fahrt (auch abgeteilte) — die alte und die neue Besatzung
+   *   bilden zusammen die neue Fahrt,
    * - Durchgestrichene werden komplett aus der Liste gelöscht,
-   * - bestätigte "Einzufügen"-Einträge werden als neue Lotsen an ihrer
-   *   gewählten Position angelegt (Törn-Zähler 0, per Quick-Edit pflegbar),
-   * - alle übrigen (inkl. abgeteilter) bleiben unverändert,
-   * - die aktuelle Fahrt (global + Seite) springt auf die nächste Fahrt.
-   * Vorher wird der komplette Stand als Rückgängig-Schnappschuss gesichert.
+   * - bestätigte "Aus Verhinderung"-Einträge werden als neue Lotsen an
+   *   ihrer gewählten Position angelegt (Törn-Zähler 0, per Quick-Edit
+   *   pflegbar),
+   * - alle übrigen bleiben unverändert,
+   * - die aktuelle Fahrt (global + Seite) springt auf die nächste Fahrt,
+   * - danach wird die Planung geleert (Zählfelder, Häkchen, Verhinderungs-
+   *   Einträge, Ablauf-Kette) — der Rückgängig-Schnappschuss sichert den
+   *   kompletten Stand von davor, Aufräumen und Rückgängig vertragen sich
+   *   also.
    */
   function handleFahrtErstellen() {
     const vorher: Gespeichert = {
@@ -311,6 +323,7 @@ export function FahrtPlanung() {
       vorherige,
       einfuegungen,
       bestaetigt: [...bestaetigt],
+      datenErmittelt,
       generiert,
     };
     speichereFahrtRueckgaengig({ lotsen, aktuelleFahrt, fahrtPlanung: vorher });
@@ -325,7 +338,8 @@ export function FahrtPlanung() {
     const neu: { origIndex?: number; eintrag: LotsenEintrag }[] = [];
     lotsen.forEach((l, i) => {
       if (geloescht.has(i)) return;
-      neu.push({ origIndex: i, eintrag: uebernommen.has(i) ? { ...l, fahrt: naechste } : l });
+      const wechselt = uebernommen.has(i) || l.fahrt === aktuelle;
+      neu.push({ origIndex: i, eintrag: wechselt ? { ...l, fahrt: naechste } : l });
     });
     for (const e of einfuegungen) {
       if (!bestaetigt.has(`n${e.id}`)) continue;
@@ -349,8 +363,12 @@ export function FahrtPlanung() {
     setAktuelleFahrt(naechste);
     setAktuelle(naechste);
     setNaechste(folgeFahrt(naechste));
-    setEinfuegungen((liste) => liste.filter((e) => !bestaetigt.has(`n${e.id}`)));
+    // Planung aufräumen: alles zurück auf leer für die nächste Runde.
+    setWerte({ ...LEERE_WERTE });
+    setVorherige({});
+    setEinfuegungen([]);
     setBestaetigt(new Set());
+    setDatenErmittelt(false);
     setGeneriert(false);
     setRueckgaengigDa(true);
     setFahrtDialogOffen(false);
@@ -371,8 +389,11 @@ export function FahrtPlanung() {
     if (fp) {
       if (fp.aktuelle) setAktuelle(fp.aktuelle);
       if (fp.naechste) setNaechste(fp.naechste);
+      setWerte({ ...LEERE_WERTE, ...fp.werte });
+      setVorherige(fp.vorherige ?? {});
       setEinfuegungen(fp.einfuegungen ?? []);
       setBestaetigt(new Set(fp.bestaetigt ?? []));
+      setDatenErmittelt(fp.datenErmittelt ?? false);
       setGeneriert(fp.generiert ?? false);
     }
     loescheFahrtRueckgaengig();
@@ -450,9 +471,6 @@ export function FahrtPlanung() {
         )}
         <span className="fahrt-steuer__spacer" />
         <span className="fahrt-steuer__fenster">Fenster bis {formatUhrzeit(endeNaechste)}</span>
-        <button type="button" className="btn btn--accent" onClick={handleErmitteln}>
-          Daten ermitteln
-        </button>
       </div>
 
       <div className="fahrt-reihe">
@@ -565,14 +583,9 @@ export function FahrtPlanung() {
         <section className="fahrt-kachel boert-vorschau">
           <div className="boert-kopf">
             <h3 className="boert-kopf__titel">Bört-Vorschau</h3>
-            <div className="boert-kopf__rechts">
-              <span className={`boert-bilanz ${bestaetigt.size === fahrtAnforderung ? "boert-bilanz--ok" : "boert-bilanz--fehlt"}`}>
-                bestätigt {bestaetigt.size} / {fahrtAnforderung}
-              </span>
-              <button type="button" className="btn btn--accent" onClick={handleVorschauGenerieren}>
-                Vorschau generieren
-              </button>
-            </div>
+            <span className={`boert-bilanz ${bestaetigt.size === fahrtAnforderung ? "boert-bilanz--ok" : "boert-bilanz--fehlt"}`}>
+              bestätigt {bestaetigt.size} / {fahrtAnforderung}
+            </span>
           </div>
 
           <div className="tabelle-scroll boert-tabelle-scroll">
@@ -635,29 +648,34 @@ export function FahrtPlanung() {
           </div>
         </section>
 
-        {/* Rechte Spalte (1/4 Breite): oben die schmale "Fahrt erstellen"-
-            Kachel — ihre Höhe ist so bemessen, dass die Einzufügen-Kachel
-            darunter oben mit der Tabelle in der Bört-Vorschau abschließt
-            (siehe CSS). */}
+        {/* Rechte Spalte (1/4 Breite): oben die Ablauf-Kachel mit allen vier
+            Knöpfen — sie schalten sich der Reihe nach frei: Daten ermitteln
+            → Vorschau generieren → Fahrt erstellen → Rückgängig. Darunter
+            "Aus Verhinderung". */}
         <div className="boert-rechts">
           <section className="fahrt-kachel boert-erstellen">
-            <button
-              type="button"
-              className="btn btn--accent boert-erstellen__btn"
-              disabled={!generiert}
-              onClick={() => setFahrtDialogOffen(true)}
-            >
+            <button type="button" className="btn btn--accent" onClick={handleErmitteln}>
+              Daten ermitteln
+            </button>
+            <button type="button" className="btn btn--accent" disabled={!datenErmittelt} onClick={handleVorschauGenerieren}>
+              Vorschau generieren
+            </button>
+            <button type="button" className="btn btn--accent" disabled={!generiert} onClick={() => setFahrtDialogOffen(true)}>
               Fahrt erstellen
             </button>
-            {rueckgaengigDa && (
-              <button type="button" className="btn btn--small" onClick={handleRueckgaengig} title="Letztes 'Fahrt erstellen' rückgängig machen">
-                Rückgängig
-              </button>
-            )}
+            <button
+              type="button"
+              className="btn"
+              disabled={!rueckgaengigDa}
+              onClick={handleRueckgaengig}
+              title="Letztes 'Fahrt erstellen' rückgängig machen"
+            >
+              Rückgängig
+            </button>
           </section>
 
           <section className="fahrt-kachel boert-einfuegen">
-            <h3 className="fahrt-kachel__titel">Einzufügen</h3>
+            <h3 className="fahrt-kachel__titel">Aus Verhinderung</h3>
           <div className="boert-einfuegen__formular">
             <input
               type="text"
