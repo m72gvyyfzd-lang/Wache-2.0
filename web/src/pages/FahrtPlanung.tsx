@@ -254,89 +254,95 @@ export function FahrtPlanung() {
           </div>
         </section>
 
-        <section className="fahrt-kachel fahrt-info">
-          <h3 className="fahrt-kachel__titel">Lotsen aktuell</h3>
-          <div className="fahrt-info__zeilen">
-            <div className="fahrt-feld">
-              <span className="fahrt-feld__label">in der Fahrt</span>
-              <output>{lotsenAktuell.inFahrt}</output>
-            </div>
-            <div className="fahrt-feld">
-              <span className="fahrt-feld__label">im Fahrwasser</span>
-              <output>{lotsenAktuell.fahrwasser}</output>
-            </div>
-            <div className="fahrt-feld">
-              <span className="fahrt-feld__label">Auf Seestation</span>
-              <output>{lotsenAktuell.aufSeestation}</output>
-            </div>
-          </div>
-        </section>
-
-        <section className="fahrt-kachel fahrt-info">
-          <h3 className="fahrt-kachel__titel">Seestation</h3>
-          <div className="fahrt-info__zeilen">
-            <div className="fahrt-feld">
-              <span className="fahrt-feld__label">aktuelle ETAs</span>
-              <output>
-                {seestation.etasBis}
-                <span className="fahrt-info__gesamt"> / {seestation.etasGesamt}</span>
-              </output>
-            </div>
-            <div className="fahrt-feld">
-              <span className="fahrt-feld__label">benötigte Lotsen</span>
-              <output>
-                {seestation.lotsenBedarf}
-                <span className="fahrt-info__gesamt"> / {seestation.lotsenBedarfGesamt}</span>
-              </output>
-            </div>
-          </div>
-        </section>
-
-        {/* Zusammenfassung beider Richtungen — Gruppenrahmen im Stil der
-            Dashboard-Kacheln (siehe components/ZahlenTile.css). */}
-        <section className="fahrt-kachel fahrt-bilanz" data-testid="kachel-fahrt">
-          <h3 className="fahrt-kachel__titel">Fahrt</h3>
-          <div className="fahrt-bilanz__inhalt">
-            <div className="fahrt-bilanz__gruppen">
-              <fieldset className="zahlen-tile__gruppe" data-testid="fahrt-ausgehend">
-                <legend className="zahlen-tile__titel">ausgehend</legend>
-                <div className="zahlen-tile__werte">
-                  <div className="zahlen-tile__spalte">
-                    <span className="zahlen-tile__kuerzel">Bedarf</span>
-                    <span className="zahlen-tile__zahl">{bedarfAusgehend}</span>
-                  </div>
-                  <div className="zahlen-tile__spalte">
-                    <span className="zahlen-tile__kuerzel">Anforderung</span>
-                    <span className="zahlen-tile__zahl">{anforderungAusgehend}</span>
-                  </div>
+        <div className="fahrt-rechts">
+          <div className="fahrt-info-reihe">
+            <section className="fahrt-kachel fahrt-info">
+              <h3 className="fahrt-kachel__titel">Lotsen aktuell</h3>
+              <div className="fahrt-info__zeilen">
+                <div className="fahrt-feld">
+                  <span className="fahrt-feld__label">in der Fahrt</span>
+                  <output>{lotsenAktuell.inFahrt}</output>
                 </div>
-              </fieldset>
-              <fieldset className="zahlen-tile__gruppe" data-testid="fahrt-einkommend">
-                <legend className="zahlen-tile__titel">einkommend</legend>
-                <div className="zahlen-tile__werte">
-                  <div className="zahlen-tile__spalte">
-                    <span className="zahlen-tile__kuerzel">Bedarf</span>
-                    <span className="zahlen-tile__zahl">{seestation.lotsenBedarf}</span>
-                  </div>
-                  <div className="zahlen-tile__spalte">
-                    <span className="zahlen-tile__kuerzel">Anforderung</span>
-                    <span className="zahlen-tile__zahl">{anforderungEinkommend}</span>
-                  </div>
+                <div className="fahrt-feld">
+                  <span className="fahrt-feld__label">im Fahrwasser</span>
+                  <output>{lotsenAktuell.fahrwasser}</output>
                 </div>
-              </fieldset>
-            </div>
-            {/* Gesamtanforderung beider Richtungen — ein Rahmen im selben
-                Stil, so hoch wie die beiden links zusammen. Beide Spalten
-                füllen die Zeilenhöhe aus (siehe CSS), damit sie unabhängig
-                von Gerät und Schriftgröße bündig abschließen. */}
-            <div className="fahrt-bilanz__gesamt-zelle">
-              <fieldset className="zahlen-tile__gruppe fahrt-bilanz__gesamt" data-testid="fahrt-anforderung">
-                <legend className="zahlen-tile__titel">Fahrtanforderung</legend>
-                <span className="fahrt-bilanz__gesamt-zahl">{fahrtAnforderung}</span>
-              </fieldset>
-            </div>
+                <div className="fahrt-feld">
+                  <span className="fahrt-feld__label">Auf Seestation</span>
+                  <output>{lotsenAktuell.aufSeestation}</output>
+                </div>
+              </div>
+            </section>
+
+            <section className="fahrt-kachel fahrt-info">
+              <h3 className="fahrt-kachel__titel">Seestation</h3>
+              <div className="fahrt-info__zeilen">
+                <div className="fahrt-feld">
+                  <span className="fahrt-feld__label">aktuelle ETAs</span>
+                  <output>
+                    {seestation.etasBis}
+                    <span className="fahrt-info__gesamt"> / {seestation.etasGesamt}</span>
+                  </output>
+                </div>
+                <div className="fahrt-feld">
+                  <span className="fahrt-feld__label">benötigte Lotsen</span>
+                  <output>
+                    {seestation.lotsenBedarf}
+                    <span className="fahrt-info__gesamt"> / {seestation.lotsenBedarfGesamt}</span>
+                  </output>
+                </div>
+              </div>
+            </section>
           </div>
-        </section>
+
+          {/* Zusammenfassung beider Richtungen — Gruppenrahmen im Stil der
+              Dashboard-Kacheln (siehe components/ZahlenTile.css). Wächst
+              mit (siehe CSS), damit die rechte Spalte insgesamt so hoch
+              wird wie "Jobs Brb" links. */}
+          <section className="fahrt-kachel fahrt-bilanz" data-testid="kachel-fahrt">
+            <h3 className="fahrt-kachel__titel">Fahrt</h3>
+            <div className="fahrt-bilanz__inhalt">
+              <div className="fahrt-bilanz__gruppen">
+                <fieldset className="zahlen-tile__gruppe" data-testid="fahrt-ausgehend">
+                  <legend className="zahlen-tile__titel">ausgehend</legend>
+                  <div className="zahlen-tile__werte">
+                    <div className="zahlen-tile__spalte">
+                      <span className="zahlen-tile__kuerzel">Bedarf</span>
+                      <span className="zahlen-tile__zahl">{bedarfAusgehend}</span>
+                    </div>
+                    <div className="zahlen-tile__spalte">
+                      <span className="zahlen-tile__kuerzel">Anforderung</span>
+                      <span className="zahlen-tile__zahl">{anforderungAusgehend}</span>
+                    </div>
+                  </div>
+                </fieldset>
+                <fieldset className="zahlen-tile__gruppe" data-testid="fahrt-einkommend">
+                  <legend className="zahlen-tile__titel">einkommend</legend>
+                  <div className="zahlen-tile__werte">
+                    <div className="zahlen-tile__spalte">
+                      <span className="zahlen-tile__kuerzel">Bedarf</span>
+                      <span className="zahlen-tile__zahl">{seestation.lotsenBedarf}</span>
+                    </div>
+                    <div className="zahlen-tile__spalte">
+                      <span className="zahlen-tile__kuerzel">Anforderung</span>
+                      <span className="zahlen-tile__zahl">{anforderungEinkommend}</span>
+                    </div>
+                  </div>
+                </fieldset>
+              </div>
+              {/* Gesamtanforderung beider Richtungen — ein Rahmen im selben
+                  Stil, so hoch wie die beiden links zusammen. Beide Spalten
+                  füllen die Zeilenhöhe aus (siehe CSS), damit sie unabhängig
+                  von Gerät und Schriftgröße bündig abschließen. */}
+              <div className="fahrt-bilanz__gesamt-zelle">
+                <fieldset className="zahlen-tile__gruppe fahrt-bilanz__gesamt" data-testid="fahrt-anforderung">
+                  <legend className="zahlen-tile__titel">Fahrtanforderung</legend>
+                  <span className="fahrt-bilanz__gesamt-zahl">{fahrtAnforderung}</span>
+                </fieldset>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );

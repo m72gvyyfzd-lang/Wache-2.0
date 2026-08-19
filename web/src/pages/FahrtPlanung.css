@@ -1,5 +1,7 @@
-/* Fahrt-Planung: Steuerleiste + drei Kacheln (Jobs Brb ½, Lotsen aktuell ¼,
-   Seestation ¼) mit leichtem 3D-Effekt. */
+/* Fahrt-Planung: Steuerleiste + zwei Spalten. Links "Jobs Brb" über die
+   volle Höhe, rechts oben "Lotsen aktuell" + "Seestation" nebeneinander,
+   darunter die Kachel "Fahrt" — beide Spalten gleich hoch (Grid-Stretch),
+   alle Kacheln mit leichtem 3D-Effekt. */
 
 .fahrt-kachel {
   background: var(--surface);
@@ -56,21 +58,28 @@
   white-space: nowrap;
 }
 
-/* --- Kachel-Raster: vier gleiche Spalten. Jobs Brb belegt 2/4, "Lotsen
-   aktuell" und "Seestation" je 1/4 (erste Zeile); die Fahrt-Kachel folgt
-   darunter mit 1/4. Kacheln einer Zeile sind gleich hoch (stretch). */
+/* --- Kachel-Raster: zwei gleich breite, gleich hohe Spalten (Grid-
+   Stretch). Links "Jobs Brb" über die volle Höhe; rechts eine eigene
+   Spalte (.fahrt-rechts), die oben "Lotsen aktuell"/"Seestation"
+   nebeneinander zeigt und darunter die Kachel "Fahrt". */
 .fahrt-reihe {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 14px;
+  align-items: stretch;
 }
 
+/* Jobs Brb füllt die volle Spaltenhöhe — wächst sie über den eigenen
+   Inhalt hinaus (weil die rechte Spalte höher ist), verteilt sich der
+   Zuwachs über die vorhandenen space-evenly-Lücken der Feldgruppen. */
 .fahrt-jobs {
-  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
 }
 
 /* --- Jobs Brb: zwei Feldgruppen nebeneinander, Felder untereinander */
 .fahrt-jobs__gruppen {
+  flex: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px 24px;
@@ -148,6 +157,22 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* --- rechte Spalte: oben Lotsen aktuell/Seestation nebeneinander (eigene
+   natürliche, knappe Höhe), darunter die Fahrt-Kachel — sie wächst
+   (flex: 1), damit die Spalte insgesamt so hoch wird wie Jobs Brb links. */
+.fahrt-rechts {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fahrt-info-reihe {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  align-items: stretch;
+}
+
 /* --- Info-Kacheln (Lotsen aktuell / Seestation): beide gleich hoch
    (Grid-Stretch), die Zeilen verteilen sich über die Kachelhöhe. */
 .fahrt-info {
@@ -174,14 +199,19 @@
   font-size: 0.8rem;
 }
 
-/* --- Kachel "Fahrt" (2/4 breit): links die Gruppenrahmen "ausgehend" und
-   "einkommend" untereinander, rechts die Gesamt-Anforderung über die volle
-   Höhe beider — alle im Stil der Dashboard-Kacheln. */
+/* --- Kachel "Fahrt" (volle Breite der rechten Spalte): links die
+   Gruppenrahmen "ausgehend" und "einkommend" untereinander, rechts die
+   Gesamt-Anforderung über die volle Höhe beider — alle im Stil der
+   Dashboard-Kacheln. flex: 1 lässt die Kachel die restliche Höhe der
+   rechten Spalte übernehmen (siehe .fahrt-rechts). */
 .fahrt-bilanz {
-  grid-column: span 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .fahrt-bilanz__inhalt {
+  flex: 1;
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 14px;
