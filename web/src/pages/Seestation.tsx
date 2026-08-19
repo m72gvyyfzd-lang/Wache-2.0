@@ -772,10 +772,12 @@ export function Seestation() {
         <Modal
           title={aktionLotse.name}
           onClose={() => setAktionLotse(null)}
-          // 640px im ETA-Zweig: iOS rendert die Datums-/Zeitfelder breiter
-          // als Desktop-Browser — mit 560px würde die Zeile dort wieder
-          // eng. Auf schmalen Bildschirmen bricht sie ohnehin um.
-          maxWidth={aktionLotse.aufStation ? "440px" : "640px"}
+          // fit-content im ETA-Zweig: das Fenster ist genau so breit wie
+          // die Feldzeile — iOS rendert die Datums-/Zeitfelder breiter als
+          // Desktop-Browser, eine feste Breite ließe dort entweder die
+          // Zeile überlaufen oder am Desktop Leerraum stehen. Auf schmalen
+          // Bildschirmen begrenzt der Viewport, die Zeile bricht dann um.
+          maxWidth={aktionLotse.aufStation ? "440px" : "fit-content"}
         >
           <SeestationLotseAktionModal
             initialEtaStn={aktionLotse.etaStn}

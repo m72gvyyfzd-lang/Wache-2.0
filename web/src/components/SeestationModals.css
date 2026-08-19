@@ -80,9 +80,11 @@
      (max-content) statt nach festen Pixeln: iOS Safari rendert Datums-/
      Zeitfelder mit eigener Mindestbreite und ignoriert schmalere
      Vorgaben — feste Spalten liefen dort über und fraßen den
-     Zwischenraum auf, die Felder klebten aneinander. Der Knopf füllt
-     den Rest der Zeile. */
-  grid-template-columns: auto max-content max-content minmax(130px, 1fr);
+     Zwischenraum auf, die Felder klebten aneinander. Auch die
+     Knopf-Spalte ist inhaltsbreit ("Auf Seestation" gibt das Maß vor,
+     "Übernehmen" zieht per width:100% gleich); das Fenster passt sich
+     über max-width: fit-content exakt an. */
+  grid-template-columns: auto max-content max-content max-content;
   align-items: center;
   gap: 16px;
 }
