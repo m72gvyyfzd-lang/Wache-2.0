@@ -263,6 +263,169 @@
   color: var(--ink);
 }
 
+/* --- Bört-Vorschau (Phase 2): eigene Reihe unter .fahrt-reihe, Karte
+   nimmt 3 von 4 Breiteneinheiten ein (die vierte bleibt frei). */
+.boert-reihe {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.boert-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.boert-kopf__titel {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+}
+
+.boert-kopf__rechts {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.boert-bilanz {
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.boert-bilanz--ok {
+  color: #2f8a4e;
+}
+
+.boert-bilanz--fehlt {
+  color: #b5432f;
+}
+
+/* Tabelle bleibt innerhalb der Karte scrollbar statt die Kachel beliebig
+   wachsen zu lassen — deutlich niedriger als die seitenfüllende Variante
+   der Einsatzstation. */
+.boert-tabelle-scroll {
+  max-height: 360px;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.boert-tabelle-scroll thead th {
+  background: var(--surface-2);
+}
+
+/* Abgewählter, vormals vorgeschlagener Kandidat: durchgestrichen und
+   deutlich blasser — die Fahrt-Farbe bleibt als leiser Hinweis erhalten,
+   höhere Spezifität (zwei Klassen) übersticht die Fahrt-Zeilen-Regeln aus
+   Einsatzstation.css ohne !important. */
+tr.boert-zeile--abgelehnt td {
+  color: var(--ink-faint);
+  text-decoration: line-through;
+}
+
+tr.boert-zeile--abgelehnt.fahrt-zeile--mofa td {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+tr.boert-zeile--abgelehnt.fahrt-zeile--mifa td {
+  background: rgba(147, 51, 234, 0.05);
+}
+
+tr.boert-zeile--abgelehnt.fahrt-zeile--afa td {
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.boert-neu-badge {
+  margin-left: 8px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+}
+
+.boert-entfernen {
+  margin-left: 6px;
+  color: var(--ink-faint);
+}
+
+/* --- "Einzufügen": kompaktes Formular + Liste der erstellten Platzhalter */
+.boert-einfuegen {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.boert-einfuegen__titel {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+}
+
+.boert-einfuegen__formular {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.boert-einfuegen__formular input,
+.boert-einfuegen__formular select {
+  font-size: 0.85rem;
+  padding: 7px 10px;
+}
+
+.boert-einfuegen__name {
+  flex: 1 1 160px;
+  min-width: 120px;
+}
+
+.boert-einfuegen__bemerkung {
+  flex: 2 1 220px;
+  min-width: 160px;
+}
+
+.boert-einfuegen__liste {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.boert-einfuegen__liste li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.boert-einfuegen__eintrag-name {
+  font-weight: 600;
+  min-width: 100px;
+}
+
+.boert-einfuegen__liste .muted {
+  flex: 1;
+}
+
 /* iPad Querformat (1024 px): die Kacheln behalten ihre Aufteilung, die
    Feldzeilen rücken dafür enger zusammen — sonst laufen die Zahlenfelder
    des rechten Jobs-Brb-Blocks über den Kachelrand hinaus. */
@@ -300,6 +463,15 @@
 @media (max-width: 900px) {
   .fahrt-reihe {
     grid-template-columns: 1fr;
+  }
+
+  /* Bört-Vorschau nimmt dann die volle Breite ein statt 3/4. */
+  .boert-reihe {
+    grid-template-columns: 1fr;
+  }
+
+  .boert-kopf {
+    flex-wrap: wrap;
   }
 
   .fahrt-bilanz__inhalt {

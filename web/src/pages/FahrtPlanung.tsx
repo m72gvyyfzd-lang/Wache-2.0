@@ -1,17 +1,28 @@
 /**
- * Fahrt-Planung (Phase 1): Vorausplanung der nächsten Fahrt.
+ * Fahrt-Planung: Vorausplanung der nächsten Fahrt.
  *
  * Oben die Steuerleiste (aktuelle/nächste Fahrt + "Daten ermitteln"),
  * darunter drei Kacheln: "Jobs Brb" (editierbare Zählfelder, per Knopf
  * aus den Listen befüllt — der vorherige Wert bleibt dezent in Klammern
  * sichtbar), "Lotsen aktuell" und "Seestation" (reine Info, live
- * berechnet). Die Zuordnung der Lotsen zur nächsten Fahrt folgt in
- * Phase 2.
+ * berechnet) sowie "Fahrt" (Bedarf/Anforderung je Richtung).
+ *
+ * Darunter Phase 2, die Karte "Bört-Vorschau": eine reine Vorschau, welche
+ * Lotsen der Einsatzstations-Liste der nächsten Fahrt zugeordnet werden
+ * sollen — nichts davon verändert echte Lotsen-Datensätze (siehe
+ * lib/boertVorschau.ts für die Ableitungslogik). "Vorschau generieren"
+ * schlägt die ersten `fahrtAnforderung` Kandidaten ab der aktuellen
+ * Fahrt-Gruppe vor; der User bestätigt/verwirft per Häkchen, ein
+ * verworfener Kandidat wird dezent durchgestrichen und der nächste rückt
+ * automatisch nach (reine Neuberechnung, kein Sonderfall). "Einzufügen"
+ * ergänzt die Vorschau um neue, noch nicht in der Einsatzstation
+ * geführte Lotsen (z.B. aus Urlaub) an einer frei wählbaren Position.
  */
-import { useEffect, useState } from "react";
-import { getAbteilzeitSettings } from "@wache/core";
+import { useEffect, useMemo, useState } from "react";
+import { getAbteilzeitSettings, LOTSEN_KATEGORIEN } from "@wache/core";
 import { PageHeader } from "../components/PageHeader";
 import type { AktuelleFahrt } from "../data/types";
+import { berechneBestaetigt, boertGrenze, mergeKandidaten, type EinzufuegenEintrag } from "../lib/boertVorschau";
 import {
   endeNaechsterFahrt,
   folgeFahrt,
@@ -21,9 +32,12 @@ import {
   zaehleSeestation,
 } from "../lib/fahrtplanung";
 import { formatUhrzeit } from "../lib/format";
+import { FAHRT_ZEILE_KLASSE, formatAbrufzeit, sortiereUndNummeriere } from "../lib/lotsenOrdnung";
 import { useData } from "../state/DataContext";
-// Gruppenrahmen der "Fahrt"-Kachel nutzen die Dashboard-Klassen.
+// Gruppenrahmen der "Fahrt"-Kachel nutzen die Dashboard-Klassen; die
+// Bört-Vorschau-Tabelle nutzt Tabellen-/Fahrt-Farb-Klassen der Einsatzstation.
 import "../components/ZahlenTile.css";
+import "./Einsatzstation.css";
 import "./FahrtPlanung.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
@@ -79,6 +93,10 @@ interface Gespeichert {
   naechste?: AktuelleFahrt;
   werte?: Partial<Werte>;
   vorherige?: Partial<Werte>;
+  einfuegungen?: EinzufuegenEintrag[];
+  forciertRein?: string[];
+  forciertRaus?: string[];
+  generiert?: boolean;
 }
 
 function ladeGespeichert(): Gespeichert {
@@ -106,6 +124,20 @@ export function FahrtPlanung() {
   const [werte, setWerte] = useState<Werte>({ ...LEERE_WERTE, ...gespeichert.werte });
   const [vorherige, setVorherige] = useState<Partial<Werte>>(gespeichert.vorherige ?? {});
 
+  // --- Bört-Vorschau (Phase 2) — siehe lib/boertVorschau.ts. Reine Vorschau:
+  // "generiert" schaltet die Ableitung überhaupt erst scharf (vor dem
+  // ersten Klick auf "Vorschau generieren" sind alle Häkchen leer), die
+  // beiden "forciert"-Mengen sind die einzigen User-Overrides gegenüber dem
+  // natürlichen Vorschlag.
+  const [einfuegungen, setEinfuegungen] = useState<EinzufuegenEintrag[]>(gespeichert.einfuegungen ?? []);
+  const [forciertRein, setForciertRein] = useState<Set<string>>(new Set(gespeichert.forciertRein ?? []));
+  const [forciertRaus, setForciertRaus] = useState<Set<string>>(new Set(gespeichert.forciertRaus ?? []));
+  const [generiert, setGeneriert] = useState(gespeichert.generiert ?? false);
+  const [neuName, setNeuName] = useState("");
+  const [neuKat, setNeuKat] = useState("");
+  const [neuBemerkung, setNeuBemerkung] = useState("");
+  const [neuNachIndex, setNeuNachIndex] = useState("");
+
   // Minuten-Tick: das Fahrt-Fenster und die Info-Kacheln hängen an der Uhr.
   const [jetzt, setJetzt] = useState(() => new Date());
   useEffect(() => {
@@ -114,8 +146,18 @@ export function FahrtPlanung() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ aktuelle, naechste, werte, vorherige }));
-  }, [aktuelle, naechste, werte, vorherige]);
+    const daten: Gespeichert = {
+      aktuelle,
+      naechste,
+      werte,
+      vorherige,
+      einfuegungen,
+      forciertRein: [...forciertRein],
+      forciertRaus: [...forciertRaus],
+      generiert,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(daten));
+  }, [aktuelle, naechste, werte, vorherige, einfuegungen, forciertRein, forciertRaus, generiert]);
 
   function handleAktuelle(fahrt: AktuelleFahrt) {
     setAktuelle(fahrt);
@@ -183,6 +225,56 @@ export function FahrtPlanung() {
   // Was insgesamt für die nächste Fahrt anzufordern ist: beide Richtungen
   // zusammen.
   const fahrtAnforderung = anforderungAusgehend + anforderungEinkommend;
+
+  // --- Bört-Vorschau: Kandidaten = sortierte Lotsenliste (bezogen auf die
+  // hier gewählte "aktuelle Fahrt") plus die "Einzufügen"-Platzhalter an
+  // ihrer gewählten Position. "bestaetigt" ist eine reine Ableitung — siehe
+  // lib/boertVorschau.ts.
+  const geordnet = useMemo(() => sortiereUndNummeriere(lotsen, aktuelle), [lotsen, aktuelle]);
+  const kandidaten = useMemo(() => mergeKandidaten(geordnet, einfuegungen), [geordnet, einfuegungen]);
+  const grenze = useMemo(() => boertGrenze(kandidaten, aktuelle), [kandidaten, aktuelle]);
+  const bestaetigt = useMemo(
+    () => (generiert ? berechneBestaetigt(kandidaten, grenze, fahrtAnforderung, forciertRein, forciertRaus) : new Set<string>()),
+    [generiert, kandidaten, grenze, fahrtAnforderung, forciertRein, forciertRaus],
+  );
+
+  function handleVorschauGenerieren() {
+    setForciertRein(new Set());
+    setForciertRaus(new Set());
+    setGeneriert(true);
+  }
+
+  function toggleHaekchen(id: string) {
+    if (bestaetigt.has(id)) {
+      setForciertRaus((s) => new Set(s).add(id));
+      setForciertRein((s) => (s.has(id) ? new Set([...s].filter((x) => x !== id)) : s));
+    } else {
+      setForciertRein((s) => new Set(s).add(id));
+      setForciertRaus((s) => (s.has(id) ? new Set([...s].filter((x) => x !== id)) : s));
+    }
+  }
+
+  function handleEinfuegenHinzufuegen() {
+    const name = neuName.trim();
+    if (!name) return;
+    const eintrag: EinzufuegenEintrag = {
+      id: crypto.randomUUID(),
+      name,
+      kategorie: neuKat,
+      bemerkung: neuBemerkung.trim(),
+      nachIndex: neuNachIndex === "" ? undefined : Number(neuNachIndex),
+    };
+    setEinfuegungen((liste) => [...liste, eintrag]);
+    setNeuName("");
+    setNeuBemerkung("");
+  }
+
+  function handleEinfuegenEntfernen(id: string) {
+    setEinfuegungen((liste) => liste.filter((e) => e.id !== id));
+    const kid = `n${id}`;
+    setForciertRein((s) => (s.has(kid) ? new Set([...s].filter((x) => x !== kid)) : s));
+    setForciertRaus((s) => (s.has(kid) ? new Set([...s].filter((x) => x !== kid)) : s));
+  }
 
   function feldZeile(feld: FeldDef) {
     return (
@@ -343,6 +435,139 @@ export function FahrtPlanung() {
             </div>
           </section>
         </div>
+      </div>
+
+      <div className="boert-reihe">
+        <section className="fahrt-kachel boert-vorschau">
+          <div className="boert-kopf">
+            <h3 className="boert-kopf__titel">Bört-Vorschau</h3>
+            <div className="boert-kopf__rechts">
+              <span className={`boert-bilanz ${bestaetigt.size === fahrtAnforderung ? "boert-bilanz--ok" : "boert-bilanz--fehlt"}`}>
+                bestätigt {bestaetigt.size} / {fahrtAnforderung}
+              </span>
+              <button type="button" className="btn btn--accent" onClick={handleVorschauGenerieren}>
+                Vorschau generieren
+              </button>
+            </div>
+          </div>
+
+          <div className="tabelle-scroll boert-tabelle-scroll">
+            <table className="lotsen-table">
+              <thead>
+                <tr>
+                  <th className="num">Fahrt #</th>
+                  <th>Name</th>
+                  <th className="num">Kat.</th>
+                  <th className="num">Abr.</th>
+                  <th className="num">BB</th>
+                  <th>Bemerkungen</th>
+                  <th className="num">Confirm</th>
+                </tr>
+              </thead>
+              <tbody>
+                {kandidaten.map((zeile) => {
+                  const istEingefuegt = zeile.art === "einfuegung";
+                  const eintrag = zeile.eintrag;
+                  const fahrtKlasse = zeile.art === "lotse" ? FAHRT_ZEILE_KLASSE[zeile.eintrag.fahrt] ?? "" : "";
+                  const abgelehnt = forciertRaus.has(zeile.id);
+                  return (
+                    <tr key={zeile.id} className={`${fahrtKlasse} ${abgelehnt ? "boert-zeile--abgelehnt" : ""}`}>
+                      <td className="num muted">{zeile.art === "lotse" ? zeile.fahrtNr ?? "·" : "–"}</td>
+                      <td className="cell-name">
+                        {eintrag.name}
+                        {istEingefuegt && (
+                          <>
+                            <span className="boert-neu-badge">neu</span>
+                            <button
+                              type="button"
+                              className="btn btn--icon boert-entfernen"
+                              title="Einzufügen-Eintrag entfernen"
+                              onClick={() => handleEinfuegenEntfernen((zeile.eintrag as EinzufuegenEintrag).id)}
+                            >
+                              ✕
+                            </button>
+                          </>
+                        )}
+                      </td>
+                      <td className="num">{eintrag.kategorie === "" ? "–" : eintrag.kategorie}</td>
+                      <td className="num muted">{zeile.art === "lotse" ? formatAbrufzeit(zeile.eintrag.abrufStunden) || "·" : "–"}</td>
+                      <td className="num muted">{zeile.art === "lotse" ? zeile.bb ?? "·" : "–"}</td>
+                      <td className="muted">{eintrag.bemerkung}</td>
+                      <td className="num">
+                        <input type="checkbox" checked={bestaetigt.has(zeile.id)} onChange={() => toggleHaekchen(zeile.id)} />
+                      </td>
+                    </tr>
+                  );
+                })}
+                {kandidaten.length === 0 && (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: "center", padding: 20 }} className="muted">
+                      keine Lotsen
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="boert-einfuegen">
+            <h4 className="boert-einfuegen__titel">Einzufügen</h4>
+            <div className="boert-einfuegen__formular">
+              <input
+                type="text"
+                placeholder="Name"
+                value={neuName}
+                onChange={(e) => setNeuName(e.target.value)}
+                className="boert-einfuegen__name"
+              />
+              <select value={neuKat} onChange={(e) => setNeuKat(e.target.value)}>
+                {LOTSEN_KATEGORIEN.map((kat) => (
+                  <option key={kat} value={kat}>
+                    {kat === "" ? "Volllotse" : kat}
+                  </option>
+                ))}
+              </select>
+              <select value={neuNachIndex} onChange={(e) => setNeuNachIndex(e.target.value)}>
+                <option value="">am Ende</option>
+                {geordnet.map(({ eintrag, index }) => (
+                  <option key={index} value={index}>
+                    nach {eintrag.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                placeholder="Bemerkung (z.B. aus Urlaub)"
+                value={neuBemerkung}
+                onChange={(e) => setNeuBemerkung(e.target.value)}
+                className="boert-einfuegen__bemerkung"
+              />
+              <button type="button" className="btn btn--accent" onClick={handleEinfuegenHinzufuegen} disabled={!neuName.trim()}>
+                Hinzufügen
+              </button>
+            </div>
+
+            {einfuegungen.length > 0 && (
+              <ul className="boert-einfuegen__liste">
+                {einfuegungen.map((e) => (
+                  <li key={e.id}>
+                    <span className="boert-einfuegen__eintrag-name">{e.name}</span>
+                    <span className="muted">
+                      {e.kategorie === "" ? "Volllotse" : e.kategorie} ·{" "}
+                      {e.nachIndex === undefined
+                        ? "am Ende"
+                        : `nach ${lotsen[e.nachIndex]?.name ?? "?"}`}
+                      {e.bemerkung ? ` · ${e.bemerkung}` : ""}
+                    </span>
+                    <button type="button" className="btn btn--small btn--danger" onClick={() => handleEinfuegenEntfernen(e.id)}>
+                      Entfernen
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );
