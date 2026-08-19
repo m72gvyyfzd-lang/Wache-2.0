@@ -76,12 +76,13 @@
    und sind damit gleich breit. */
 .see-aktion {
   display: grid;
-  /* Datum und Zeit bekommen feste, kompakte Breiten statt sich über die
-     ganze Zeile zu strecken — gestreckt stießen sie fast aneinander und
-     wirkten wie ein einziger Block. Im Schiffs-Fenster stehen dieselben
-     Eingaben ebenso kompakt mit Luft dazwischen. Der Knopf füllt den
-     Rest der Zeile. */
-  grid-template-columns: auto 170px 118px minmax(130px, 1fr);
+  /* Datum- und Zeit-Spalte richten sich nach der ECHTEN Feldbreite
+     (max-content) statt nach festen Pixeln: iOS Safari rendert Datums-/
+     Zeitfelder mit eigener Mindestbreite und ignoriert schmalere
+     Vorgaben — feste Spalten liefen dort über und fraßen den
+     Zwischenraum auf, die Felder klebten aneinander. Der Knopf füllt
+     den Rest der Zeile. */
+  grid-template-columns: auto max-content max-content minmax(130px, 1fr);
   align-items: center;
   gap: 16px;
 }
@@ -101,7 +102,13 @@
    Eingaben ohne Sonderstil zeigt. */
 .see-aktion__datum,
 .see-aktion__zeit {
-  width: 100%;
+  text-align: center;
+}
+
+/* iOS zentriert den Wert im Datums-/Zeitfeld über dieses Pseudo-Element,
+   text-align am Feld selbst greift dort nicht. */
+.see-aktion__datum::-webkit-date-and-time-value,
+.see-aktion__zeit::-webkit-date-and-time-value {
   text-align: center;
 }
 
@@ -115,13 +122,6 @@
 .see-aktion .btn {
   width: 100%;
   white-space: nowrap;
-}
-
-/* Die Eingaben dürfen schrumpfen, statt die Zeile über den Fensterrand
-   zu schieben. */
-.see-aktion__datum,
-.see-aktion__zeit {
-  min-width: 0;
 }
 
 /* Schmales Fenster (iPhone/geteilter Bildschirm): die Zeile bricht um —

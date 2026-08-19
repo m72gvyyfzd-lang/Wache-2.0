@@ -772,7 +772,10 @@ export function Seestation() {
         <Modal
           title={aktionLotse.name}
           onClose={() => setAktionLotse(null)}
-          maxWidth={aktionLotse.aufStation ? "440px" : "560px"}
+          // 640px im ETA-Zweig: iOS rendert die Datums-/Zeitfelder breiter
+          // als Desktop-Browser — mit 560px würde die Zeile dort wieder
+          // eng. Auf schmalen Bildschirmen bricht sie ohnehin um.
+          maxWidth={aktionLotse.aufStation ? "440px" : "640px"}
         >
           <SeestationLotseAktionModal
             initialEtaStn={aktionLotse.etaStn}
