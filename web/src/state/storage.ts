@@ -136,6 +136,44 @@ export function speichereLotsen(lotsen: LotsenEintrag[]): void {
   localStorage.setItem(LOTSEN_KEY, JSON.stringify(lotsen));
 }
 
+/** Rückgängig-Schnappschuss für "Fahrt erstellen" (Fahrt-Planung): der
+ *  komplette Lotsen-Bestand + die aktuelle Fahrt unmittelbar VOR dem
+ *  Umbau. Eine Stufe tief — ein neues "Fahrt erstellen" überschreibt den
+ *  vorherigen Schnappschuss. */
+const FAHRT_RUECKGAENGIG_KEY = "wache.fahrtRueckgaengig.v1";
+
+export interface FahrtRueckgaengig {
+  lotsen: LotsenEintrag[];
+  aktuelleFahrt: AktuelleFahrt;
+  /** der komplette localStorage-Zustand der Fahrt-Planungs-Seite vor dem
+   *  Umbau (deren eigenes Gespeichert-Format) — die Seite stellt ihn beim
+   *  Rückgängig selbst wieder her. */
+  fahrtPlanung?: unknown;
+}
+
+export function speichereFahrtRueckgaengig(daten: FahrtRueckgaengig): void {
+  localStorage.setItem(FAHRT_RUECKGAENGIG_KEY, JSON.stringify(daten));
+}
+
+export function ladeFahrtRueckgaengig(): FahrtRueckgaengig | undefined {
+  const raw = localStorage.getItem(FAHRT_RUECKGAENGIG_KEY);
+  if (!raw) return undefined;
+  try {
+    const daten = JSON.parse(raw) as { lotsen: unknown; aktuelleFahrt: AktuelleFahrt; fahrtPlanung?: unknown };
+    return {
+      lotsen: lotsenAusJson(JSON.stringify(daten.lotsen)),
+      aktuelleFahrt: daten.aktuelleFahrt,
+      fahrtPlanung: daten.fahrtPlanung,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+export function loescheFahrtRueckgaengig(): void {
+  localStorage.removeItem(FAHRT_RUECKGAENGIG_KEY);
+}
+
 export function ladeAbteilungen(): Abteilung[] {
   const raw = localStorage.getItem(ABTEILUNGEN_KEY);
   if (!raw) return [];

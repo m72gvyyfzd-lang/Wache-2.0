@@ -22,8 +22,9 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { getAbteilzeitSettings, LOTSEN_KATEGORIEN } from "@wache/core";
+import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
-import type { AktuelleFahrt } from "../data/types";
+import type { AktuelleFahrt, LotsenEintrag } from "../data/types";
 import {
   berechneDurchgestrichen,
   boertGrenze,
@@ -43,6 +44,11 @@ import {
 import { formatUhrzeit } from "../lib/format";
 import { formatAbrufzeit, sortiereUndNummeriere } from "../lib/lotsenOrdnung";
 import { useData } from "../state/DataContext";
+import {
+  ladeFahrtRueckgaengig,
+  loescheFahrtRueckgaengig,
+  speichereFahrtRueckgaengig,
+} from "../state/storage";
 // Gruppenrahmen der "Fahrt"-Kachel nutzen die Dashboard-Klassen; die
 // Bört-Vorschau-Tabelle nutzt Tabellen-/Fahrt-Farb-Klassen der Einsatzstation.
 import "../components/ZahlenTile.css";
@@ -104,6 +110,9 @@ interface Gespeichert {
   vorherige?: Partial<Werte>;
   einfuegungen?: EinzufuegenEintrag[];
   bestaetigt?: string[];
+  /** true, sobald "Vorschau generieren" gedrückt wurde — Voraussetzung
+   *  für den "Fahrt erstellen"-Knopf. */
+  generiert?: boolean;
 }
 
 function ladeGespeichert(): Gespeichert {
@@ -123,6 +132,8 @@ export function FahrtPlanung() {
     seeAbteilungen,
     seestationLotsen,
     aktuelleFahrt,
+    setAktuelleFahrt,
+    setLotsenListe,
   } = useData();
 
   const [gespeichert] = useState<Gespeichert>(() => ladeGespeichert());
@@ -136,6 +147,12 @@ export function FahrtPlanung() {
   // die eigene Zeile, keine automatische Nachpflege anderer Zeilen.
   const [einfuegungen, setEinfuegungen] = useState<EinzufuegenEintrag[]>(gespeichert.einfuegungen ?? []);
   const [bestaetigt, setBestaetigt] = useState<Set<string>>(new Set(gespeichert.bestaetigt ?? []));
+  const [generiert, setGeneriert] = useState(gespeichert.generiert ?? false);
+  // --- "Fahrt erstellen": Bestätigungsdialog + einstufiges Rückgängig über
+  // einen localStorage-Schnappschuss (siehe storage.ts) — er überlebt auch
+  // ein Neuladen der Seite.
+  const [fahrtDialogOffen, setFahrtDialogOffen] = useState(false);
+  const [rueckgaengigDa, setRueckgaengigDa] = useState(() => ladeFahrtRueckgaengig() !== undefined);
   const [neuName, setNeuName] = useState("");
   const [neuKat, setNeuKat] = useState("");
   const [neuBemerkung, setNeuBemerkung] = useState("");
@@ -156,9 +173,10 @@ export function FahrtPlanung() {
       vorherige,
       einfuegungen,
       bestaetigt: [...bestaetigt],
+      generiert,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(daten));
-  }, [aktuelle, naechste, werte, vorherige, einfuegungen, bestaetigt]);
+  }, [aktuelle, naechste, werte, vorherige, einfuegungen, bestaetigt, generiert]);
 
   function handleAktuelle(fahrt: AktuelleFahrt) {
     setAktuelle(fahrt);
@@ -250,6 +268,7 @@ export function FahrtPlanung() {
 
   function handleVorschauGenerieren() {
     setBestaetigt(boertVorschlag(kandidaten, grenze, fahrtAnforderung));
+    setGeneriert(true);
   }
 
   /** Ein Häkchen betrifft ausschließlich die eigene Zeile — keine
@@ -261,6 +280,103 @@ export function FahrtPlanung() {
       else neu.add(id);
       return neu;
     });
+  }
+
+  // --- "Fahrt erstellen": Zähler für den Bestätigungsdialog.
+  const anzahlGestrichen = useMemo(
+    () => kandidaten.filter((z) => z.art === "lotse" && durchgestrichen.has(z.id)).length,
+    [kandidaten, durchgestrichen],
+  );
+  const anzahlNeu = useMemo(
+    () => einfuegungen.filter((e) => bestaetigt.has(`n${e.id}`)).length,
+    [einfuegungen, bestaetigt],
+  );
+
+  /**
+   * Überträgt die Vorschau in die echte Einsatzstations-Liste:
+   * - jeder Kandidat mit Häkchen (egal ob aus der alten aktuellen Fahrt
+   *   oder aus dem Vorschlag) bekommt fahrt = nächste Fahrt,
+   * - Durchgestrichene werden komplett aus der Liste gelöscht,
+   * - bestätigte "Einzufügen"-Einträge werden als neue Lotsen an ihrer
+   *   gewählten Position angelegt (Törn-Zähler 0, per Quick-Edit pflegbar),
+   * - alle übrigen (inkl. abgeteilter) bleiben unverändert,
+   * - die aktuelle Fahrt (global + Seite) springt auf die nächste Fahrt.
+   * Vorher wird der komplette Stand als Rückgängig-Schnappschuss gesichert.
+   */
+  function handleFahrtErstellen() {
+    const vorher: Gespeichert = {
+      aktuelle,
+      naechste,
+      werte,
+      vorherige,
+      einfuegungen,
+      bestaetigt: [...bestaetigt],
+      generiert,
+    };
+    speichereFahrtRueckgaengig({ lotsen, aktuelleFahrt, fahrtPlanung: vorher });
+
+    const geloescht = new Set<number>();
+    const uebernommen = new Set<number>();
+    for (const z of kandidaten) {
+      if (z.art !== "lotse") continue;
+      if (bestaetigt.has(z.id)) uebernommen.add(z.index);
+      else if (durchgestrichen.has(z.id)) geloescht.add(z.index);
+    }
+    const neu: { origIndex?: number; eintrag: LotsenEintrag }[] = [];
+    lotsen.forEach((l, i) => {
+      if (geloescht.has(i)) return;
+      neu.push({ origIndex: i, eintrag: uebernommen.has(i) ? { ...l, fahrt: naechste } : l });
+    });
+    for (const e of einfuegungen) {
+      if (!bestaetigt.has(`n${e.id}`)) continue;
+      const neuerLotse: LotsenEintrag = {
+        name: e.name,
+        kategorie: e.kategorie,
+        fahrt: naechste,
+        elbehafen: false,
+        toern2Plus2: 0,
+        toernWb: 0,
+        toernWr: 0,
+        toernHulo: 0,
+        bemerkung: e.bemerkung,
+      };
+      const pos = e.nachIndex === undefined ? -1 : neu.findIndex((n) => n.origIndex === e.nachIndex);
+      if (pos === -1) neu.push({ eintrag: neuerLotse });
+      else neu.splice(pos + 1, 0, { eintrag: neuerLotse });
+    }
+
+    setLotsenListe(neu.map((n) => n.eintrag));
+    setAktuelleFahrt(naechste);
+    setAktuelle(naechste);
+    setNaechste(folgeFahrt(naechste));
+    setEinfuegungen((liste) => liste.filter((e) => !bestaetigt.has(`n${e.id}`)));
+    setBestaetigt(new Set());
+    setGeneriert(false);
+    setRueckgaengigDa(true);
+    setFahrtDialogOffen(false);
+  }
+
+  /** Stellt den Stand von unmittelbar vor dem letzten "Fahrt erstellen"
+   *  wieder her — Lotsen-Liste, aktuelle Fahrt und den Zustand dieser
+   *  Seite. Einstufig: danach ist der Schnappschuss verbraucht. */
+  function handleRueckgaengig() {
+    const snap = ladeFahrtRueckgaengig();
+    if (!snap) {
+      setRueckgaengigDa(false);
+      return;
+    }
+    setLotsenListe(snap.lotsen);
+    setAktuelleFahrt(snap.aktuelleFahrt);
+    const fp = snap.fahrtPlanung as Gespeichert | undefined;
+    if (fp) {
+      if (fp.aktuelle) setAktuelle(fp.aktuelle);
+      if (fp.naechste) setNaechste(fp.naechste);
+      setEinfuegungen(fp.einfuegungen ?? []);
+      setBestaetigt(new Set(fp.bestaetigt ?? []));
+      setGeneriert(fp.generiert ?? false);
+    }
+    loescheFahrtRueckgaengig();
+    setRueckgaengigDa(false);
   }
 
   function handleEinfuegenHinzufuegen() {
@@ -519,10 +635,29 @@ export function FahrtPlanung() {
           </div>
         </section>
 
-        {/* Eigene Karte (1/4 Breite, siehe CSS) statt Unterabschnitt — Punkt
-            3+4: Bört-Vorschau bleibt bei 3/4. */}
-        <section className="fahrt-kachel boert-einfuegen">
-          <h3 className="fahrt-kachel__titel">Einzufügen</h3>
+        {/* Rechte Spalte (1/4 Breite): oben die schmale "Fahrt erstellen"-
+            Kachel — ihre Höhe ist so bemessen, dass die Einzufügen-Kachel
+            darunter oben mit der Tabelle in der Bört-Vorschau abschließt
+            (siehe CSS). */}
+        <div className="boert-rechts">
+          <section className="fahrt-kachel boert-erstellen">
+            <button
+              type="button"
+              className="btn btn--accent boert-erstellen__btn"
+              disabled={!generiert}
+              onClick={() => setFahrtDialogOffen(true)}
+            >
+              Fahrt erstellen
+            </button>
+            {rueckgaengigDa && (
+              <button type="button" className="btn btn--small" onClick={handleRueckgaengig} title="Letztes 'Fahrt erstellen' rückgängig machen">
+                Rückgängig
+              </button>
+            )}
+          </section>
+
+          <section className="fahrt-kachel boert-einfuegen">
+            <h3 className="fahrt-kachel__titel">Einzufügen</h3>
           <div className="boert-einfuegen__formular">
             <input
               type="text"
@@ -556,25 +691,52 @@ export function FahrtPlanung() {
             </button>
           </div>
 
-          {einfuegungen.length > 0 && (
-            <ul className="boert-einfuegen__liste">
-              {einfuegungen.map((e) => (
-                <li key={e.id}>
-                  <span className="boert-einfuegen__eintrag-name">{e.name}</span>
-                  <span className="muted">
-                    {e.kategorie === "" ? "Volllotse" : e.kategorie} ·{" "}
-                    {e.nachIndex === undefined ? "am Ende" : `nach ${lotsen[e.nachIndex]?.name ?? "?"}`}
-                    {e.bemerkung ? ` · ${e.bemerkung}` : ""}
-                  </span>
-                  <button type="button" className="btn btn--small btn--danger" onClick={() => handleEinfuegenEntfernen(e.id)}>
-                    Entfernen
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+            {einfuegungen.length > 0 && (
+              <ul className="boert-einfuegen__liste">
+                {einfuegungen.map((e) => (
+                  <li key={e.id}>
+                    <span className="boert-einfuegen__eintrag-name">{e.name}</span>
+                    <span className="muted">
+                      {e.kategorie === "" ? "Volllotse" : e.kategorie} ·{" "}
+                      {e.nachIndex === undefined ? "am Ende" : `nach ${lotsen[e.nachIndex]?.name ?? "?"}`}
+                      {e.bemerkung ? ` · ${e.bemerkung}` : ""}
+                    </span>
+                    <button type="button" className="btn btn--small btn--danger" onClick={() => handleEinfuegenEntfernen(e.id)}>
+                      Entfernen
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
       </div>
+
+      {fahrtDialogOffen && (
+        <Modal title="Fahrt erstellen" onClose={() => setFahrtDialogOffen(false)} maxWidth="420px" titelZentriert>
+          <div className="fahrt-dialog">
+            <ul className="fahrt-dialog__punkte">
+              <li>
+                {bestaetigt.size} {bestaetigt.size === 1 ? "Lotse" : "Lotsen"} in die {naechste}-Fahrt nehmen
+              </li>
+              <li>
+                {anzahlGestrichen} {anzahlGestrichen === 1 ? "Lotse fällt" : "Lotsen fallen"} raus
+              </li>
+              <li>
+                {anzahlNeu} {anzahlNeu === 1 ? "Lotse kommt" : "Lotsen kommen"} aus Verhinderung dazu
+              </li>
+            </ul>
+            <div className="fahrt-dialog__knoepfe">
+              <button type="button" className="btn" onClick={() => setFahrtDialogOffen(false)}>
+                Abbrechen
+              </button>
+              <button type="button" className="btn btn--accent" onClick={handleFahrtErstellen}>
+                Fahrt erstellen
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

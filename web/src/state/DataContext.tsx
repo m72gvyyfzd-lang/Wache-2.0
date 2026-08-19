@@ -59,6 +59,9 @@ interface DataContextValue {
   tauscheLotsen: (indexA: number, indexB: number) => void;
   /** Verschiebt den Lotsen an quellIndex hinter den an zielIndex (inkl. Fahrt-Übernahme) */
   verschiebeLotse: (quellIndex: number, zielIndex: number) => void;
+  /** Ersetzt die komplette Lotsen-Liste in einem Schritt — für Massen-
+   *  Umbauten wie "Fahrt erstellen" (Fahrt-Planung) und deren Rückgängig. */
+  setLotsenListe: (liste: LotsenEintrag[]) => void;
   aktuelleFahrt: AktuelleFahrt;
   setAktuelleFahrt: (fahrt: AktuelleFahrt) => void;
   /** letzte vergebene V-Nr. (0–999), Settings-Tab */
@@ -221,6 +224,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     (quellIndex: number, zielIndex: number) => setLotsen((prev) => verschiebeHinter(prev, quellIndex, zielIndex)),
     [],
   );
+  const setLotsenListe = useCallback((liste: LotsenEintrag[]) => setLotsen(liste), []);
 
   const teileAb = useCallback((abteilung: Omit<Abteilung, "id">, lotsenIndex: number) => {
     setAbteilungen((prev) => {
@@ -410,6 +414,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         deleteLotse,
         tauscheLotsen,
         verschiebeLotse,
+        setLotsenListe,
         aktuelleFahrt,
         setAktuelleFahrt,
         letzteVNr,

@@ -359,6 +359,42 @@ tr.boert-zeile--abgelehnt.fahrt-zeile--afa td {
   color: var(--ink-faint);
 }
 
+/* --- rechte Spalte neben der Bört-Vorschau: oben die schmale "Fahrt
+   erstellen"-Kachel, darunter "Einzufügen". Die Höhe der oberen Kachel ist
+   so bemessen, dass die Einzufügen-Kachel oben mit der Tabelle in der
+   Bört-Vorschau abschließt: links beginnt die Tabelle bei
+   Kachel-Padding (14) + Kopfzeile (~38) + Kopf-Abstand (12) ≈ 64px —
+   rechts ergibt Kachelhöhe 50px + Spalten-Lücke 14px dieselben 64px. */
+.boert-rechts {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.boert-erstellen {
+  height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+}
+
+/* Beide Knöpfe einzeilig halten — mit Rückgängig daneben wird es in der
+   1/4-Spalte sonst zweizeilig und der Knopf wächst aus der Kachel. */
+.boert-erstellen .btn {
+  white-space: nowrap;
+}
+
+.boert-erstellen__btn {
+  flex: 1;
+  padding: 7px 10px;
+  font-size: 0.82rem;
+}
+
+.boert-einfuegen {
+  flex: 1;
+}
+
 /* --- "Einzufügen": eigene, schmale Karte (1/4 Breite, rechts neben
    Bört-Vorschau — siehe .boert-reihe) mit senkrecht gestapeltem Formular,
    dafür knapper Platz statt der nebeneinander laufenden Felder einer
@@ -404,6 +440,22 @@ tr.boert-zeile--abgelehnt.fahrt-zeile--afa td {
 
 .boert-einfuegen__liste .btn {
   align-self: flex-end;
+}
+
+/* --- Bestätigungsdialog "Fahrt erstellen" */
+.fahrt-dialog__punkte {
+  margin: 0 0 18px;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.92rem;
+}
+
+.fahrt-dialog__knoepfe {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 /* iPad Querformat (1024 px): die Kacheln behalten ihre Aufteilung, die
