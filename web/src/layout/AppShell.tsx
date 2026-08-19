@@ -8,13 +8,13 @@ const NAV_ITEMS = [
   { to: "/versetzlisten", label: "Versetzlisten" },
   { to: "/seestation", label: "Seestation" },
   { to: "/einsatzstation", label: "Einsatzstation" },
-  { to: "/fahrt-planung", label: "Fahrt-Planung" },
   { to: "/settings", label: "Settings" },
 ];
 
 /** Unterpunkte von Settings: nur sichtbar, solange Settings selbst oder
  *  einer der Unterpunkte offen ist — die Navi bleibt sonst kürzer. */
 const UNTER_ITEMS = [
+  { to: "/fahrt-planung", label: "Fahrt-Planung" },
   { to: "/wachbeginn", label: "Wachbeginn" },
   { to: "/eta-update", label: "ETA Update" },
 ];

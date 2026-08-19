@@ -600,6 +600,10 @@ export function FahrtPlanung() {
         </div>
       </div>
 
+      {/* Bört-Vorschau und Aus Verhinderung erst zeigen, wenn "Vorschau
+          generieren" gelaufen ist — vorher gibt es nichts zu bestätigen
+          und die Positions-Auswahl in "Aus Verhinderung" wäre leer. */}
+      {generiert && (
       <div className="boert-reihe">
         <section className="fahrt-kachel boert-vorschau">
           <div className="boert-kopf">
@@ -725,6 +729,7 @@ export function FahrtPlanung() {
             )}
         </section>
       </div>
+      )}
 
       {fahrtDialogOffen && (
         <Modal title="Fahrt erstellen" onClose={() => setFahrtDialogOffen(false)} maxWidth="420px" titelZentriert>
