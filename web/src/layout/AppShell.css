@@ -126,6 +126,18 @@
 /* Unterpunkt von Settings: schmaler und rechtsbündig unter dem
    Settings-Knopf, davor eine dezente gewinkelte Verbindungslinie
    (senkrecht herunter, dann waagerecht zum Knopf). */
+/* Untermenü eines Hauptpunkts (z.B. ETA Update unter Seestation): eigene
+   Liste im selben Raster wie die Hauptliste — margin-top übernimmt die
+   Lücke zum Hauptknopf, die der list-gap dort nicht mehr liefert. */
+.app-nav__unterliste {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .app-nav__unterpunkt {
   position: relative;
   display: flex;
@@ -235,8 +247,16 @@
     display: none;
   }
 
-  /* In der Tab-Leiste reiht sich der Unterpunkt normal ein — eine
-     Einrückung mit Verbindungslinie ergibt nebeneinander keinen Sinn. */
+  /* In der Tab-Leiste reihen sich die Unterpunkte normal ein — eine
+     Einrückung mit Verbindungslinie ergibt nebeneinander keinen Sinn.
+     display: contents löst die Verschachtelung auf: alle Links werden
+     direkte Flex-Kinder der Zeile. */
+  .app-nav__list > li,
+  .app-nav__unterliste,
+  .app-nav__unterpunkt {
+    display: contents;
+  }
+
   .app-nav__unterpunkt::before {
     display: none;
   }
