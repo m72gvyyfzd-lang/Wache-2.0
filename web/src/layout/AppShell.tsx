@@ -1,4 +1,6 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { routeFuerMeldungsArt, type MeldungsStufe } from "../lib/meldungen";
+import { useMeldungen } from "../state/useMeldungen";
 import { TopBar } from "./TopBar";
 import "./AppShell.css";
 
@@ -23,6 +25,23 @@ export function AppShell() {
   const { pathname } = useLocation();
   const untermenueOffen = pathname === "/settings" || UNTER_ITEMS.some((u) => u.to === pathname);
 
+  // Alarm-Ränder: je Nav-Ziel die höchste anliegende Meldungsstufe (alarm
+  // sticht warnung; Vorschläge/Infos färben nicht). Der betroffene Knopf
+  // bekommt einen dezenten roten bzw. orangen Rand.
+  const { gruppen } = useMeldungen();
+  const stufeProRoute = new Map<string, MeldungsStufe>();
+  for (const g of gruppen) {
+    if (g.stufe !== "alarm" && g.stufe !== "warnung") continue;
+    const route = routeFuerMeldungsArt(g.art);
+    if (!route) continue;
+    const bisher = stufeProRoute.get(route);
+    if (bisher !== "alarm") stufeProRoute.set(route, bisher === undefined ? g.stufe : g.stufe === "alarm" ? "alarm" : bisher);
+  }
+  const stufenKlasse = (route: string) => {
+    const stufe = stufeProRoute.get(route);
+    return stufe ? ` app-nav__link--${stufe}` : "";
+  };
+
   return (
     <div className="app-root">
       <TopBar />
@@ -42,7 +61,9 @@ export function AppShell() {
                 <li key={item.to}>
                   <NavLink
                     to={item.to}
-                    className={({ isActive }) => "app-nav__link" + (isActive ? " app-nav__link--active" : "")}
+                    className={({ isActive }) =>
+                      "app-nav__link" + (isActive ? " app-nav__link--active" : "") + stufenKlasse(item.to)
+                    }
                   >
                     {item.label}
                   </NavLink>

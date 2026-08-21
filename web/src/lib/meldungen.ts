@@ -447,6 +447,32 @@ export interface MeldungsGruppe {
   frueheste?: Date;
 }
 
+/** Auf welcher Seite eine Meldungs-Art behandelt wird: Klick auf die
+ *  Gruppenzeile der Alarm-Kachel springt dorthin, und der zugehörige
+ *  Nav-Knopf bekommt einen roten/orangen Rand (siehe AppShell). Die
+ *  Schlüssel sind die `art`-Texte der Meldungs-Erzeuger oben. */
+const MELDUNGS_ROUTEN: Record<string, string> = {
+  "Abruf überfällig": "/einsatzplanung",
+  "Abruf bald fällig": "/einsatzplanung",
+  "Abteilung überfällig": "/einsatzplanung",
+  "Listenvergabe überfällig": "/einsatzplanung",
+  "Listenvergabe bald abteilen": "/einsatzplanung",
+  "Listenvergabe unterbesetzt": "/einsatzplanung",
+  "Listenvergaben zeitgleich": "/einsatzplanung",
+  "WR-Zeit falsch eingetragen": "/jobs",
+  "Ankunft Seestation überfällig": "/versetzlisten",
+  "Abteilung Seestation überfällig": "/seestation",
+  "Anmeldung überfällig": "/seestation",
+  "Anmeldung bald fällig": "/seestation",
+  "Seestation: Lotse fehlt": "/seestation",
+  "Vorlauf Seestation knapp": "/seestation",
+  "Doppelter Lotsenname": "/einsatzstation",
+};
+
+export function routeFuerMeldungsArt(art: string): string | undefined {
+  return MELDUNGS_ROUTEN[art];
+}
+
 export function gruppiereMeldungen(meldungen: Meldung[]): MeldungsGruppe[] {
   const gruppen = new Map<string, MeldungsGruppe>();
   for (const m of meldungen) {

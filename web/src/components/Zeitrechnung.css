@@ -141,9 +141,11 @@
    der Ebene-2-Knöpfe (44 px Zeilenhöhe + 38 px Knopfhöhe) und ist in
    BEIDEN Modi aktiv. */
 .zeitrechnung__strecke--offsets {
-  left: 50%;
-  width: 12.5%;
-  min-width: 112px;
+  /* 3 px Luft zu den angrenzenden Strecken-Knöpfen (FkW-Brb/Stade-Brb
+     links, Brb-SeeStn rechts) — sonst kleben die Ränder aneinander. */
+  left: calc(50% + 3px);
+  width: calc(12.5% - 6px);
+  min-width: 108px;
   height: 82px;
   gap: 3px;
   padding: 4px 4px;

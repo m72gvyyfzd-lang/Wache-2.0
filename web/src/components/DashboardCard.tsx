@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getAbteilzeitSettings } from "@wache/core";
 import { spieleAlarmTon } from "../lib/alarmTon";
 import { berechneAgPlanung } from "../lib/agPlanung";
 import { benoetigteLotsenAnzahl, istCuxVergabe } from "../lib/coreJob";
-import { berechneMeldungen, gruppiereMeldungen } from "../lib/meldungen";
+import { routeFuerMeldungsArt } from "../lib/meldungen";
 import { useData } from "../state/DataContext";
+import { useMeldungen } from "../state/useMeldungen";
 import { AgPlanungTile } from "./AgPlanung";
 import { MeldungsTile } from "./Meldungen";
 import { MatrixTile, ZahlenTile } from "./ZahlenTile";
@@ -43,23 +45,11 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
     setVorschau,
   } = useData();
 
-  // Zeit-Tick: die Meldungen hängen an der Uhrzeit (gepl. Abruf etc.) und
-  // werden daher regelmäßig neu berechnet, auch ohne Datenänderung.
-  const [jetzt, setJetzt] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setJetzt(new Date()), 15_000);
-    return () => clearInterval(id);
-  }, []);
+  // Meldungen + Zeit-Tick kommen aus dem geteilten Hook (auch die Navi
+  // nutzt ihn für die Alarm-Ränder an den Nav-Knöpfen).
+  const { meldungen, gruppen: meldungsGruppen, jetzt } = useMeldungen();
+  const navigate = useNavigate();
 
-  const meldungen = useMemo(
-    () =>
-      berechneMeldungen(
-        { jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, vNrStart, verbrauchteVNrn },
-        jetzt,
-        settings,
-      ),
-    [jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, vNrStart, verbrauchteVNrn, jetzt],
-  );
   const agGruppen = useMemo(
     () =>
       berechneAgPlanung(
@@ -69,8 +59,6 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
       ),
     [jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, vNrStart, verbrauchteVNrn, jetzt],
   );
-  const meldungsGruppen = useMemo(() => gruppiereMeldungen(meldungen), [meldungen]);
-
   const [offenesPanel, setOffenesPanel] = useState<OffenesPanel>(null);
   const meldungenRef = useRef<HTMLDivElement>(null);
   const agPlanungRef = useRef<HTMLDivElement>(null);
@@ -92,6 +80,10 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
   }
   function toggleMeldungsGruppe(art: string) {
     setOffenesPanel((p) => (p?.typ === "meldungen" && p.art === art ? null : { typ: "meldungen", art }));
+    // Zusätzlich zur Detailliste: direkt auf die Seite springen, auf der
+    // die Meldungs-Art behandelt wird (aktiviert den Nav-Knopf).
+    const route = routeFuerMeldungsArt(art);
+    if (route) navigate(route);
   }
   function toggleAgPlanung() {
     setOffenesPanel((p) => (p?.typ === "ag-planung" ? null : { typ: "ag-planung" }));
