@@ -3,6 +3,7 @@ import { FrageModal } from "../components/FrageModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
+import { Zeitrechnung } from "../components/Zeitrechnung";
 import { handleZeitMitPrefill } from "../components/formShared";
 import {
   ALARM_TOENE,
@@ -176,6 +177,8 @@ export function Settings() {
           </div>
         </Panel>
       </div>
+
+      <Zeitrechnung />
 
       {resetFrage && (
         <Modal title="Reset" onClose={() => setResetFrage(false)} maxWidth="420px" titelZentriert>

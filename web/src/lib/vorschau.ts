@@ -23,10 +23,10 @@
  */
 import type { AbteilzeitSettings } from "@wache/core";
 import type { Abteilung, AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
-import { benoetigteLotsenAnzahl, etaSeestationMatrix, istOhneVNrJob, seeReiseInfoVon, sortiereEintraege } from "./coreJob";
+import { benoetigteLotsenAnzahl, istOhneVNrJob, seeReiseInfoVon, sortiereEintraege } from "./coreJob";
 import { sortiereUndNummeriere } from "./lotsenOrdnung";
 import { planeEinsatzstation } from "./planungEinsatzstation";
-import { ANFAHRT_SEESTATION_MS, TENDER_VORLAUF_MS, type SeestationZeile } from "./seestation";
+import { ANFAHRT_SEESTATION_MS, seeAnkunftAb, TENDER_VORLAUF_MS, type SeestationZeile } from "./seestation";
 import { berechnePotentielleVNrn } from "./vNrPlanung";
 
 export interface VorschauZeilen {
@@ -88,9 +88,7 @@ export function vorschauZeilen(
     // — sonst gälte der Lotse fälschlich als längst angekommen.
     const abfahrt = new Date(Math.max(abteilzeit.getTime(), jetzt.getTime()));
     const seeReise = seeReiseInfoVon(job, jobs);
-    const etaStn =
-      etaSeestationMatrix(abfahrt, seeReise?.herkunft, seeReise?.klasse) ??
-      new Date(abfahrt.getTime() + ANFAHRT_SEESTATION_MS);
+    const etaStn = seeAnkunftAb(abfahrt, seeReise?.herkunft, seeReise?.klasse);
     for (const lotse of zuweisungen.get(job.id) ?? []) {
       verplante.push(zeile(lotse, etaStn, "verplant"));
     }

@@ -9,6 +9,13 @@ import type { Job } from "./types";
 /** Abteilung liegt fest 20 min vor der voraussichtlichen Ankunft an der Brücke Brb. */
 export const ABTEILUNG_VOR_ANKUNFT_MIN = 20;
 
+/** Betriebs-Korrektur auf die HH→Brb-Matrix: die Schiffe kommen in der
+ *  Praxis rund 15 min FRÜHER an der Brücke an, als die generierten
+ *  Fahrzeiten sagen. Die Korrektur wirkt auf die Ankunft Tonne_59 und
+ *  damit auch auf die Abteilzeit (Ankunft − 20 min); die Brb→SEE-Tabelle
+ *  bleibt unberührt. */
+export const BRB_ANKUNFT_KORREKTUR_MIN = -15;
+
 /** Mittlere Tidenperiode als Fallback, wenn nur ein HW eingegeben ist. */
 const TIDENPERIODE_MIN = 745;
 
@@ -93,7 +100,7 @@ export function berechneBrbPrognose(job: Job, hwBrb: HwBrb): BrbPrognose | undef
   const tabelle = basis === "stade" ? BRB_MATRIX.stade : BRB_MATRIX.halo;
 
   const offsetVorHwMin = minutenVorNaechstemHw(hwBrb, start);
-  const fahrzeitMin = interpoliere(tabelle, klasse, offsetVorHwMin);
+  const fahrzeitMin = interpoliere(tabelle, klasse, offsetVorHwMin) + BRB_ANKUNFT_KORREKTUR_MIN;
   const ankunftBrb = new Date(start.getTime() + fahrzeitMin * 60_000);
   const abteilzeit = new Date(ankunftBrb.getTime() - ABTEILUNG_VOR_ANKUNFT_MIN * 60_000);
 
@@ -116,8 +123,8 @@ export type SeeHerkunft = "HH" | "NOK" | "VNR";
 
 /** Abteilung → Abfahrt Tonne_59 in Minuten, je Herkunft. */
 export const SEE_ABFAHRT_OFFSET_MIN: Record<SeeHerkunft, number> = {
-  HH: 15,
-  NOK: 20,
+  HH: 30,
+  NOK: 45,
   VNR: 40,
 };
 

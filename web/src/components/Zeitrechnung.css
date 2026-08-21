@@ -1,0 +1,212 @@
+/* Settings-Kachel "Zeitrechnung": 3D-Kachel über die volle Breite mit
+   Modus-Umschalter und einem Zeitstrahl FkW … SeeStn. Die Strecken-Knöpfe
+   liegen räumlich über ihrem Streckenabschnitt (FkW-Brb: 0–50 %,
+   Stade-Brb: 25–50 % der Linienbreite), darunter die Linie mit den
+   Wegpunkten. */
+
+.zeitrechnung {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 18px 16px;
+  margin-top: 16px;
+  box-shadow:
+    0 4px 12px rgba(15, 23, 42, 0.14),
+    0 1px 2px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.zeitrechnung__kopf {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.zeitrechnung__titel {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Modus-Umschalter im Stil der Formular-Segmente: zwei Knöpfe in einer
+   Pille, der aktive farbig gefüllt. */
+.zeitrechnung__modus {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.zeitrechnung__modus-btn {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 4px 16px;
+  cursor: pointer;
+}
+
+.zeitrechnung__modus-btn--aktiv {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.zeitrechnung__modus-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.zeitrechnung__hinweis {
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+}
+
+/* --- Zeitstrahl -------------------------------------------------------- */
+
+/* Die Linie spannt sich nicht über die ganze Kachel: links/rechts bleibt
+   Rand, damit die äußeren Punkt-Beschriftungen (FkW, SeeStn) nicht aus
+   der Kachel laufen. Alle Prozent-Positionen (Knöpfe wie Punkte) beziehen
+   sich auf dieselbe Strahlbreite. */
+.zeitrechnung__strahl {
+  padding: 0 34px;
+}
+
+.zeitrechnung__ebene {
+  position: relative;
+  height: 44px;
+}
+
+.zeitrechnung__strecke {
+  position: absolute;
+  top: 0;
+  height: 38px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  cursor: default;
+  padding: 2px 6px;
+}
+
+/* FkW-Brb: von FkW (0 %) bis Abt.Brb (50 %). */
+.zeitrechnung__strecke--fkw {
+  left: 0;
+  width: 50%;
+}
+
+/* Stade-Brb: von Stade (25 %) bis Abt.Brb (50 %). */
+.zeitrechnung__strecke--stade {
+  left: 25%;
+  width: 25%;
+}
+
+.zeitrechnung__strecke--editierbar {
+  cursor: pointer;
+}
+
+.zeitrechnung__strecke--editierbar:hover {
+  border-color: var(--accent);
+}
+
+.zeitrechnung__strecke-name {
+  font-weight: 700;
+  font-size: 0.85rem;
+  line-height: 1.1;
+}
+
+.zeitrechnung__strecke-wert {
+  font-size: 0.75rem;
+  line-height: 1.1;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.zeitrechnung__override-stern {
+  color: var(--accent);
+  font-weight: 700;
+  margin-left: 1px;
+}
+
+/* Ebene 3: Linie mit Wegpunkten. Die Labels stehen dezent oberhalb der
+   Punkte; Höhe reserviert Platz für beides. */
+.zeitrechnung__linie-zeile {
+  position: relative;
+  height: 34px;
+  margin-top: 4px;
+}
+
+.zeitrechnung__linie {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 9px;
+  height: 2px;
+  background: var(--line);
+}
+
+.zeitrechnung__punkt-halter {
+  position: absolute;
+  bottom: 4px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.zeitrechnung__punkt-label {
+  font-size: 0.7rem;
+  color: var(--ink-muted);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.zeitrechnung__punkt-label--fett {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.zeitrechnung__punkt {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  background: var(--surface);
+  box-sizing: border-box;
+}
+
+.zeitrechnung__punkt--voll {
+  background: var(--ink);
+}
+
+/* --- Override-Dialog --------------------------------------------------- */
+
+.zeitrechnung__dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.zeitrechnung__dialog-strecke {
+  margin: 0;
+  text-align: center;
+  font-weight: 700;
+}
+
+.zeitrechnung__dialog select {
+  font-size: 1rem;
+  padding: 6px 10px;
+  text-align: center;
+}

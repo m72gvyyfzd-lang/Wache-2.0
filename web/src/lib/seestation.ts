@@ -1,4 +1,6 @@
 /** Berechnungen rund um die Seestation. */
+import { SEE_ABFAHRT_OFFSET_MIN } from "@wache/core";
+import type { Geschwindigkeitsklasse, SeeHerkunft } from "@wache/core";
 import type { Abteilung, SeeSchiff, SeestationLotse } from "../data/types";
 import { etaSeestationMatrix } from "./coreJob";
 
@@ -147,15 +149,29 @@ export function vergleicheVorschauAbt(
  *  neutrales Modul ohne Rückimport vermeidet einen Zirkelbezug. */
 export const TENDER_VORLAUF_MS = 3 * 3_600_000;
 
-/** "Ankunft S-Stn"/"ETA Stn" eines Lotsen im Revier: Brb>>SEE-Matrix
- *  (Abfahrt Tn_59 = Abteilzeit + Herkunfts-Offset, dann Fahrzeit je
- *  Tidenlage), sonst Abteilzeit + pauschale Anfahrt; ein manueller Wert
- *  sticht beides aus. */
+/** Ankunft Seestation ab dem Abteilzeitpunkt: Brb>>SEE-Matrix (Abfahrt
+ *  Tn_59 = Abteilung + Herkunfts-Offset, dann Fahrzeit je Tidenlage) —
+ *  im Fallback (kein HW-Paar oder manueller Modus) derselbe
+ *  Herkunfts-Offset plus die pauschale Anfahrt. Ohne bekannte Herkunft
+ *  (Tender-AG, alte Datensätze) bleibt es bei der nackten Pauschale. */
+export function seeAnkunftAb(
+  abfahrt: Date,
+  herkunft: SeeHerkunft | undefined,
+  klasse: Geschwindigkeitsklasse | undefined,
+): Date {
+  const offsetMs = herkunft ? SEE_ABFAHRT_OFFSET_MIN[herkunft] * 60_000 : 0;
+  return (
+    etaSeestationMatrix(abfahrt, herkunft, klasse) ??
+    new Date(abfahrt.getTime() + offsetMs + ANFAHRT_SEESTATION_MS)
+  );
+}
+
+/** "Ankunft S-Stn"/"ETA Stn" eines Lotsen im Revier — ein manueller Wert
+ *  sticht die Rechnung aus. */
 export function etaSeestation(abteilung: Abteilung): Date {
   return (
     abteilung.etaStnManuell ??
-    etaSeestationMatrix(abteilung.abteilZeit, abteilung.seeHerkunft, abteilung.geschwindigkeitsklasse) ??
-    new Date(abteilung.abteilZeit.getTime() + ANFAHRT_SEESTATION_MS)
+    seeAnkunftAb(abteilung.abteilZeit, abteilung.seeHerkunft, abteilung.geschwindigkeitsklasse)
   );
 }
 

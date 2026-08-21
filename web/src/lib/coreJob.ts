@@ -21,6 +21,52 @@ export function setHwBrbAktuell(eingabe: HwBrbEingabe): void {
   hwBrbAktuell = eingabe.hw1 ? { hw1: eingabe.hw1, hw2: eingabe.hw2 } : undefined;
 }
 
+// --------------------------------------------------------- Zeitrechnung
+// Modus + Session-Overrides der Settings-Kachel "Zeitrechnung".
+// "automatisch" = Matrix-Rechnung (setzt ein HW-Paar voraus), "manuell" =
+// feste Fallback-Offsets. Die Overrides ersetzen im manuellen Modus die
+// FkW-/Stade-Offsets — NUR für die laufende Sitzung, nichts davon wird
+// gespeichert. Wie hwBrbAktuell ein Modul-Singleton, damit die vielen
+// Aufrufstellen nichts durchreichen müssen; der DataContext spiegelt
+// seinen Zustand synchron hierher.
+
+export type ZeitrechnungsModus = "automatisch" | "manuell";
+
+export interface ZeitOverrides {
+  /** FkW → Abteilung in Minuten (Session-Override) */
+  fkwMin?: number;
+  /** Stade → Abteilung in Minuten (Session-Override) */
+  stadeMin?: number;
+}
+
+let zeitModus: ZeitrechnungsModus = "automatisch";
+let zeitOverrides: ZeitOverrides = {};
+
+export function setZeitrechnung(modus: ZeitrechnungsModus, overrides: ZeitOverrides): void {
+  zeitModus = modus;
+  zeitOverrides = overrides;
+}
+
+/** HW-Paar für die Matrix-Pfade — im manuellen Modus bewusst keins, dann
+ *  greifen überall die festen Offsets bzw. Pauschalen. */
+function hwFuerRechnung(): HwBrb | undefined {
+  return zeitModus === "automatisch" ? hwBrbAktuell : undefined;
+}
+
+function zuOffset(minuten: number): { stunden: number; minuten: number } {
+  return { stunden: Math.floor(minuten / 60), minuten: minuten % 60 };
+}
+
+/** Settings mit den Session-Overrides der Zeitrechnungs-Kachel. */
+export function effektiveSettings(basis: AbteilzeitSettings): AbteilzeitSettings {
+  if (zeitOverrides.fkwMin === undefined && zeitOverrides.stadeMin === undefined) return basis;
+  return {
+    ...basis,
+    fkwAbteilung: zeitOverrides.fkwMin !== undefined ? zuOffset(zeitOverrides.fkwMin) : basis.fkwAbteilung,
+    stadeAbteilung: zeitOverrides.stadeMin !== undefined ? zuOffset(zeitOverrides.stadeMin) : basis.stadeAbteilung,
+  };
+}
+
 export function zuCoreJob(eintrag: JobEintrag): Job {
   if (eintrag.liste === "hamburg") {
     return {
@@ -64,7 +110,7 @@ export function istBunkernPausiert(eintrag: JobEintrag): boolean {
 
 export function abteilzeitVon(eintrag: JobEintrag, settings: AbteilzeitSettings): Date | undefined {
   if (istBunkernPausiert(eintrag)) return undefined;
-  return berechneAbteilzeit(zuCoreJob(eintrag), settings, hwBrbAktuell);
+  return berechneAbteilzeit(zuCoreJob(eintrag), effektiveSettings(settings), hwFuerRechnung());
 }
 
 /** Abteilzeit eines AG-Jobs aus seinem Trägerschiff: dieselbe Zeit plus eine
@@ -81,8 +127,9 @@ export function agAbteilzeitVon(traeger: JobEintrag, settings: AbteilzeitSetting
  *  undefined, solange kein HW-Paar eingegeben ist oder der Eintrag kein
  *  HH-Job mit FkW-/Stade-Meldung ist. */
 export function brbPrognoseVon(eintrag: JobEintrag): BrbPrognose | undefined {
-  if (!hwBrbAktuell) return undefined;
-  return berechneBrbPrognose(zuCoreJob(eintrag), hwBrbAktuell);
+  const hw = hwFuerRechnung();
+  if (!hw) return undefined;
+  return berechneBrbPrognose(zuCoreJob(eintrag), hw);
 }
 
 export interface SeeReiseInfo {
@@ -115,8 +162,9 @@ export function etaSeestationMatrix(
   herkunft: SeeHerkunft | undefined,
   klasse: Geschwindigkeitsklasse | undefined
 ): Date | undefined {
-  if (!hwBrbAktuell || !herkunft) return undefined;
-  return berechneSeePrognose(abteilZeit, herkunft, klasse, hwBrbAktuell).ankunftSee;
+  const hw = hwFuerRechnung();
+  if (!hw || !herkunft) return undefined;
+  return berechneSeePrognose(abteilZeit, herkunft, klasse, hw).ankunftSee;
 }
 
 /** Anzeige für die Spalte "Von / Type": Herkunftsliste bzw. Anmeldungs-Typ.

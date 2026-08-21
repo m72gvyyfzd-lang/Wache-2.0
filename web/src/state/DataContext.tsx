@@ -11,7 +11,8 @@ import type {
   SeeSchiff,
   SeestationLotse,
 } from "../data/types";
-import { agAbteilzeitVon, setHwBrbAktuell } from "../lib/coreJob";
+import { agAbteilzeitVon, setHwBrbAktuell, setZeitrechnung } from "../lib/coreJob";
+import type { ZeitOverrides, ZeitrechnungsModus } from "../lib/coreJob";
 import { toernFeldFuerTypLabel } from "../lib/listenvergabe";
 import { tauschePositionen, verschiebeHinter } from "../lib/lotsenOrdnung";
 import {
@@ -126,6 +127,17 @@ interface DataContextValue {
    *  HH-Jobs. Ohne HW_1 rechnen alle HH-Jobs mit den festen Offsets. */
   hwBrb: HwBrbEingabe;
   setHwBrb: (hwBrb: HwBrbEingabe) => void;
+  /** Zeitrechnung (Settings-Kachel): wirksamer Modus — ohne HW-Paar
+   *  zwingend "manuell", die Wahl "automatisch" bleibt dann gemerkt und
+   *  greift, sobald wieder ein HW-Paar eingetragen ist. */
+  zeitModus: ZeitrechnungsModus;
+  /** true, solange ein HW-Paar eingetragen ist — nur dann ist
+   *  "automatisch" wählbar. */
+  zeitAutomatikMoeglich: boolean;
+  setZeitModus: (modus: ZeitrechnungsModus) => void;
+  /** Session-Overrides der Fallback-Offsets (nicht persistiert) */
+  zeitOverrides: ZeitOverrides;
+  setZeitOverrides: (overrides: ZeitOverrides) => void;
   /** Vorschau-Projektion aktiv — geteilt zwischen der Seestations-Seite und
    *  der Seestations-Kachel des Dashboards, damit beide dasselbe zeigen. */
   vorschau: boolean;
@@ -171,6 +183,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // useEffect liefe erst NACH deren Render, die Kinder würden also einmal
   // mit dem veralteten Wert rechnen.
   setHwBrbAktuell(hwBrb);
+
+  // Zeitrechnung: Modus + Session-Overrides (bewusst NICHT persistiert —
+  // ein Override gilt nur für die laufende Sitzung). Ohne HW-Paar ist die
+  // Matrix nicht rechenbar, der wirksame Modus dann zwingend "manuell".
+  const [zeitModusWahl, setZeitModus] = useState<ZeitrechnungsModus>("automatisch");
+  const [zeitOverrides, setZeitOverrides] = useState<ZeitOverrides>({});
+  const zeitAutomatikMoeglich = hwBrb.hw1 !== undefined;
+  const zeitModus: ZeitrechnungsModus = zeitAutomatikMoeglich ? zeitModusWahl : "manuell";
+  // Synchron im Render (wie setHwBrbAktuell): die Kinder rechnen im selben
+  // Durchlauf bereits mit dem neuen Stand.
+  setZeitrechnung(zeitModus, zeitOverrides);
 
   // Persistenter ID-Zähler: einmal vergebene IDs werden nie wiederverwendet,
   // damit spätere Verweise (z.B. AG-Verknüpfung) eindeutig bleiben.
@@ -420,6 +443,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         letzteVNr,
         setLetzteVNr,
         hwBrb,
+        zeitModus,
+        zeitAutomatikMoeglich,
+        setZeitModus,
+        zeitOverrides,
+        setZeitOverrides,
         setHwBrb,
         vorschau,
         setVorschau,

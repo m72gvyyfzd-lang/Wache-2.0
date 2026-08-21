@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ABTEILUNG_VOR_ANKUNFT_MIN,
+  BRB_ANKUNFT_KORREKTUR_MIN,
   berechneBrbPrognose,
   berechneSeePrognose,
   minutenVorNaechstemHw,
@@ -47,14 +48,16 @@ describe("berechneBrbPrognose", () => {
     const p = berechneBrbPrognose(hhJob({ fkwTickerAbgang: um("11:30") }), hwBrb)!;
     expect(p.basis).toBe("fkw");
     expect(p.offsetVorHwMin).toBe(30);
-    expect(p.fahrzeitMin).toBe(BRB_MATRIX.halo[30].normal);
+    // Die Betriebs-Korrektur (Schiffe kommen ~15 min früher an) steckt in
+    // der Fahrzeit mit drin.
+    expect(p.fahrzeitMin).toBe(BRB_MATRIX.halo[30].normal + BRB_ANKUNFT_KORREKTUR_MIN);
     expect(p.ankunftBrb.getTime()).toBe(um("11:30").getTime() + p.fahrzeitMin * 60_000);
   });
 
   it("interpoliert linear zwischen zwei Stützstellen", () => {
     // 37,5 min vor HW → Mittelwert der Zeilen 30 und 45
     const p = berechneBrbPrognose(hhJob({ fkwTickerAbgang: new Date(um("11:22").getTime() - 30_000) }), hwBrb)!;
-    const erwartet = (BRB_MATRIX.halo[30].normal + BRB_MATRIX.halo[45].normal) / 2;
+    const erwartet = (BRB_MATRIX.halo[30].normal + BRB_MATRIX.halo[45].normal) / 2 + BRB_ANKUNFT_KORREKTUR_MIN;
     expect(p.fahrzeitMin).toBe(Math.round(erwartet));
   });
 
@@ -64,7 +67,7 @@ describe("berechneBrbPrognose", () => {
       hwBrb
     )!;
     expect(p.basis).toBe("stade");
-    expect(p.fahrzeitMin).toBe(BRB_MATRIX.stade[30].schnell);
+    expect(p.fahrzeitMin).toBe(BRB_MATRIX.stade[30].schnell + BRB_ANKUNFT_KORREKTUR_MIN);
   });
 
   it("unterscheidet die Geschwindigkeitsklassen", () => {
@@ -95,17 +98,17 @@ describe("berechneSeePrognose", () => {
   });
 
   it("liest exakte Stützstellen aus der See-Tabelle (Offset zur Abfahrt Tn_59)", () => {
-    // Abteilung 11:15 + 15 min (HH) = Abfahrt 11:30 = 30 min vor HW
-    const p = berechneSeePrognose(um("11:15"), "HH", "normal", hwBrb);
+    // Abteilung 11:00 + 30 min (HH) = Abfahrt 11:30 = 30 min vor HW
+    const p = berechneSeePrognose(um("11:00"), "HH", "normal", hwBrb);
     expect(p.offsetVorHwMin).toBe(30);
     expect(p.fahrzeitMin).toBe(BRB_MATRIX.see[30].normal);
     expect(p.ankunftSee.getTime()).toBe(p.abfahrtTn59.getTime() + p.fahrzeitMin * 60_000);
   });
 
   it("unterscheidet die Geschwindigkeitsklassen und defaultet auf normal", () => {
-    const langsam = berechneSeePrognose(um("11:15"), "HH", "langsam", hwBrb);
-    const schnell = berechneSeePrognose(um("11:15"), "HH", "schnell", hwBrb);
-    const standard = berechneSeePrognose(um("11:15"), "HH", undefined, hwBrb);
+    const langsam = berechneSeePrognose(um("11:00"), "HH", "langsam", hwBrb);
+    const schnell = berechneSeePrognose(um("11:00"), "HH", "schnell", hwBrb);
+    const standard = berechneSeePrognose(um("11:00"), "HH", undefined, hwBrb);
     expect(langsam.fahrzeitMin).toBeGreaterThan(schnell.fahrzeitMin);
     expect(standard.fahrzeitMin).toBe(BRB_MATRIX.see[30].normal);
   });
