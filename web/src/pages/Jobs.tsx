@@ -426,7 +426,10 @@ export function Jobs() {
       )}
 
       {zeitEdit && (
-        <Modal title={zeitEdit.job.schiffsname ?? "Job"} onClose={() => setZeitEdit(null)} maxWidth="320px" titelZentriert>
+        // 390px statt der früheren 320: seit dem Reset-Knopf stehen drei
+        // Knöpfe in der Aktionszeile — im schmaleren Fenster ragte
+        // "Übernehmen" über den rechten Rand hinaus.
+        <Modal title={zeitEdit.job.schiffsname ?? "Job"} onClose={() => setZeitEdit(null)} maxWidth="390px" titelZentriert>
           {/* Reset löscht die eingetragene Zeit: FkW/Stade und Ticker/Kuden
               komplett, bei Abt. Zeit nur den manuellen Override (die
               berechnete Zeit greift dann wieder). FkW/Ticker sind gesperrt,
