@@ -1,12 +1,13 @@
 /** Berechnungen rund um die Seestation. */
-import { SEE_ABFAHRT_OFFSET_MIN } from "@wache/core";
 import type { Geschwindigkeitsklasse, SeeHerkunft } from "@wache/core";
 import type { Abteilung, SeeSchiff, SeestationLotse } from "../data/types";
-import { etaSeestationMatrix } from "./coreJob";
+import { effektiverSeeOffsetMin, effektiveSeePauschaleMin, etaSeestationMatrix } from "./coreJob";
 
-/** Pauschale Anfahrtszeit von der Abteilung bis zur Seestation — Fallback,
- *  wenn die Brb>>SEE-Matrix nicht greift (kein HW-Paar, Tender-AG, alte
- *  Datensätze) — auch Grundlage der AG-Fahrt-Vorschläge im Dashboard. */
+/** Pauschale Anfahrtszeit von der Abteilung bis zur Seestation — Grundlage
+ *  der Tender-/AG-Fahrt-Vorschläge im Dashboard und der Vorschau. Für die
+ *  Fallback-Rechnung abgeteilter Lotsen gilt stattdessen die (per
+ *  Zeitrechnungs-Kachel übersteuerbare) Pauschale in coreJob.ts —
+ *  Standard ebenfalls 3:30 (SEE_PAUSCHALE_STANDARD_MIN). */
 export const ANFAHRT_SEESTATION_MS = 3.5 * 3_600_000;
 
 /** Harte Grenze der Zuteilung: unter 15 Min. Vorlauf vor dem Schiffs-ETA
@@ -159,10 +160,10 @@ export function seeAnkunftAb(
   herkunft: SeeHerkunft | undefined,
   klasse: Geschwindigkeitsklasse | undefined,
 ): Date {
-  const offsetMs = herkunft ? SEE_ABFAHRT_OFFSET_MIN[herkunft] * 60_000 : 0;
+  const offsetMs = herkunft ? effektiverSeeOffsetMin(herkunft) * 60_000 : 0;
   return (
     etaSeestationMatrix(abfahrt, herkunft, klasse) ??
-    new Date(abfahrt.getTime() + offsetMs + ANFAHRT_SEESTATION_MS)
+    new Date(abfahrt.getTime() + offsetMs + effektiveSeePauschaleMin() * 60_000)
   );
 }
 

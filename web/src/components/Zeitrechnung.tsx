@@ -1,43 +1,58 @@
 /**
  * Settings-Kachel "Zeitrechnung": macht sichtbar (und im manuellen Modus
- * einstellbar), mit welchen Fahrzeiten die App die Abteilzeiten rechnet.
+ * einstellbar), mit welchen Fahrzeiten die App die Abteil- und
+ * Seestations-Zeiten rechnet.
  *
- * Oben der Umschalter manuell/automatisch: automatisch = Matrix-Rechnung
- * über das HW-Paar Brunsbüttel, manuell = die festen Fallback-Offsets.
- * Ohne eingetragene HW-Zeiten ist die Matrix nicht rechenbar — der
- * wirksame Modus ist dann zwingend "manuell" (siehe DataContext).
+ * Rechts oben der Umschalter manuell/automatisch: automatisch =
+ * Matrix-Rechnung über das HW-Paar Brunsbüttel, manuell = die festen
+ * Fallback-Offsets. Ohne eingetragene HW-Zeiten ist die Matrix nicht
+ * rechenbar — der wirksame Modus ist dann zwingend "manuell" (siehe
+ * DataContext).
  *
  * Darunter ein Zeitstrahl FkW … Stade … Abt.Brb … Brb … SeeStn. Die
- * Strecken-Knöpfe ("FkW-Brb", "Stade-Brb") spannen sich räumlich über
- * ihren Abschnitt und zeigen die aktuell wirksame Dauer bis zur
- * Abteilzeit: im manuellen Modus den Fallback-Offset (bzw. den
- * Session-Override), im automatischen den Matrix-Wert für eine Abfahrt
- * JETZT — der wandert mit der Tide.
+ * Strecken-Knöpfe ("FkW-Brb", "Stade-Brb", "Brb-SeeStn") spannen sich
+ * räumlich über ihren Abschnitt und zeigen die aktuell wirksame Dauer: im
+ * manuellen Modus den Fallback-Offset (bzw. den Session-Override), im
+ * automatischen die Matrix-Werte für eine Abfahrt JETZT — aufgeschlüsselt
+ * nach den drei Geschwindigkeitsklassen slow/normal/fast, wandernd mit
+ * der Tide. Über dem Abschnitt Abt.Brb → Brb sitzt der in BEIDEN Modi
+ * aktive Knopf "Abt. > Abf. Brb" mit den Herkunfts-Offsets (HH/NOK/EHF)
+ * bis zur Abfahrt Tn_59 — diese Offsets stecken auch in der
+ * Matrix-Rechnung, deshalb bleibt der Knopf immer bedienbar.
  *
- * Ein Klick auf einen Strecken-Knopf öffnet im manuellen Modus das
- * Override-Fenster: Dropdown in 15-Minuten-Schritten, "Übernehmen" setzt
- * den Wert für die laufende Sitzung, "Reset" stellt den Standard wieder
- * her. Die Fallback-Konstanten im Code bleiben unverändert.
+ * Ein Klick öffnet das jeweilige Override-Fenster: Dropdown(s) in
+ * 15-Minuten-Schritten, "Übernehmen" setzt die Werte für die laufende
+ * Sitzung, "Reset" stellt die Standards wieder her. Die
+ * Fallback-Konstanten im Code bleiben unverändert; Settings-Reset und
+ * "Neue Wache" setzen alles zurück (siehe DataContext.resetAlles).
  */
 import { useEffect, useMemo, useState } from "react";
-import { berechneBrbPrognose, getAbteilzeitSettings } from "@wache/core";
-import type { HwBrb } from "@wache/core";
+import {
+  berechneBrbPrognose,
+  berechneSeePrognose,
+  getAbteilzeitSettings,
+  SEE_ABFAHRT_OFFSET_MIN,
+} from "@wache/core";
+import type { Geschwindigkeitsklasse, HwBrb, SeeHerkunft } from "@wache/core";
+import { SEE_PAUSCHALE_STANDARD_MIN } from "../lib/coreJob";
 import { Modal } from "./Modal";
 import { useData } from "../state/DataContext";
 import "./Zeitrechnung.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
-/** Standard-Fallback-Offsets in Minuten (aus dem Settings-Blatt). */
+/** Standard-Fallback-Offsets in Minuten (aus dem Settings-Blatt bzw. der
+ *  Brb→SeeStn-Pauschale). */
 const STANDARD_MIN = {
   fkw: settings.fkwAbteilung.stunden * 60 + settings.fkwAbteilung.minuten,
   stade: settings.stadeAbteilung.stunden * 60 + settings.stadeAbteilung.minuten,
+  see: SEE_PAUSCHALE_STANDARD_MIN,
 };
 
 /** Wählbare Override-Werte: 15-Minuten-Raster über die vorgegebene
- *  Spanne. Liegt der Standardwert nicht im Raster (Stade: 1:05), wird er
- *  als eigene Option einsortiert — sonst ließe sich der Standard im
- *  Dropdown gar nicht auswählen. */
+ *  Spanne. Liegt der Standardwert nicht im Raster (Stade: 1:05, EHF-
+ *  Offset: 0:40), wird er als eigene Option einsortiert — sonst ließe
+ *  sich der Standard im Dropdown gar nicht auswählen. */
 function optionen(vonMin: number, bisMin: number, standard: number): number[] {
   const werte: number[] = [];
   for (let m = vonMin; m <= bisMin; m += 15) werte.push(m);
@@ -48,6 +63,14 @@ function optionen(vonMin: number, bisMin: number, standard: number): number[] {
 const OPTIONEN = {
   fkw: optionen(165, 285, STANDARD_MIN.fkw), // 02:45 … 04:45
   stade: optionen(45, 120, STANDARD_MIN.stade), // 00:45 … 02:00
+  see: optionen(150, 270, STANDARD_MIN.see), // 02:30 … 04:30
+};
+
+/** Herkunfts-Offset-Dropdowns: 00:15 … 01:30. */
+const OFFSET_OPTIONEN: Record<SeeHerkunft, number[]> = {
+  HH: optionen(15, 90, SEE_ABFAHRT_OFFSET_MIN.HH),
+  NOK: optionen(15, 90, SEE_ABFAHRT_OFFSET_MIN.NOK),
+  VNR: optionen(15, 90, SEE_ABFAHRT_OFFSET_MIN.VNR),
 };
 
 function formatMin(minuten: number): string {
@@ -56,9 +79,34 @@ function formatMin(minuten: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-type Strecke = "fkw" | "stade";
+type Strecke = "fkw" | "stade" | "see";
+type DialogArt = Strecke | "offsets";
 
-const STRECKEN_LABEL: Record<Strecke, string> = { fkw: "FkW-Brb", stade: "Stade-Brb" };
+const STRECKEN_LABEL: Record<Strecke, string> = {
+  fkw: "FkW-Brb",
+  stade: "Stade-Brb",
+  see: "Brb-SeeStn",
+};
+
+const OVERRIDE_FELD: Record<Strecke, "fkwMin" | "stadeMin" | "seeMin"> = {
+  fkw: "fkwMin",
+  stade: "stadeMin",
+  see: "seeMin",
+};
+
+/** Anzeige-Reihenfolge und Beschriftung der Herkunfts-Offsets. */
+const OFFSET_ZEILEN: { herkunft: SeeHerkunft; label: string }[] = [
+  { herkunft: "HH", label: "von HH" },
+  { herkunft: "NOK", label: "aus NOK" },
+  { herkunft: "VNR", label: "von EHF" },
+];
+
+/** Geschwindigkeitsklassen mit den UI-Kurzlabels (wie im Speed-Dropdown). */
+const KLASSEN: { klasse: Geschwindigkeitsklasse; label: string }[] = [
+  { klasse: "langsam", label: "slow" },
+  { klasse: "normal", label: "normal" },
+  { klasse: "schnell", label: "fast" },
+];
 
 /** Punkte des Zeitstrahls: Position in % der Linienbreite; "voll" =
  *  ausgefüllter Punkt, sonst nur Rahmen. Brb liegt auf 1/4 der Distanz
@@ -74,65 +122,98 @@ const PUNKTE: { label: string; pos: number; voll: boolean }[] = [
 export function Zeitrechnung() {
   const { hwBrb, zeitModus, zeitAutomatikMoeglich, setZeitModus, zeitOverrides, setZeitOverrides } = useData();
 
-  // Minuten-Tick: der Matrix-Wert gilt für eine Abfahrt JETZT und wandert
-  // mit der Tide — ohne Tick bliebe die Anzeige stehen.
+  // Minuten-Tick: die Matrix-Werte gelten für eine Abfahrt JETZT und
+  // wandern mit der Tide — ohne Tick bliebe die Anzeige stehen.
   const [jetzt, setJetzt] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setJetzt(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
 
-  const [dialog, setDialog] = useState<Strecke | null>(null);
+  const [dialog, setDialog] = useState<DialogArt | null>(null);
   const [auswahl, setAuswahl] = useState<number>(STANDARD_MIN.fkw);
+  const [offsetAuswahl, setOffsetAuswahl] = useState<Record<SeeHerkunft, number>>({ ...SEE_ABFAHRT_OFFSET_MIN });
 
-  /** Aktuell wirksame Dauer Meldepunkt → Abteilzeit in Minuten. */
-  const dauerMin = useMemo(() => {
-    if (zeitModus === "automatisch" && hwBrb.hw1) {
-      const hw: HwBrb = { hw1: hwBrb.hw1, hw2: hwBrb.hw2 };
-      // Synthetischer HH-Job mit Meldung JETZT — exakt die echte
-      // Rechenkette inkl. Betriebs-Korrektur, je Meldepunkt.
-      const rechne = (job: Parameters<typeof berechneBrbPrognose>[0]) => {
-        const p = berechneBrbPrognose(job, hw);
-        return p ? Math.round((p.abteilzeit.getTime() - jetzt.getTime()) / 60_000) : undefined;
-      };
-      return {
-        fkw: rechne({ jobNr: 0, routentyp: "HH", fkwTickerAbgang: jetzt }) ?? STANDARD_MIN.fkw,
-        stade: rechne({ jobNr: 0, routentyp: "HH", stadeKuden: jetzt }) ?? STANDARD_MIN.stade,
-      };
-    }
-    return {
-      fkw: zeitOverrides.fkwMin ?? STANDARD_MIN.fkw,
-      stade: zeitOverrides.stadeMin ?? STANDARD_MIN.stade,
+  const hw: HwBrb | undefined = useMemo(
+    () => (zeitModus === "automatisch" && hwBrb.hw1 ? { hw1: hwBrb.hw1, hw2: hwBrb.hw2 } : undefined),
+    [zeitModus, hwBrb],
+  );
+
+  /** Wirksamer Herkunfts-Offset (Session-Override vor Standard). */
+  const offsetWert = (herkunft: SeeHerkunft) => zeitOverrides.offsetMin?.[herkunft] ?? SEE_ABFAHRT_OFFSET_MIN[herkunft];
+
+  /** Matrix-Aufschlüsselung slow/normal/fast je Strecke für eine Abfahrt
+   *  JETZT — nur im automatischen Modus. FkW/Stade laufen über die echte
+   *  Prognose-Kette (inkl. Betriebs-Korrektur), die See-Strecke über die
+   *  See-Tabelle mit Offset 0 (reine Fahrzeit Tn_59 → Tn_5). */
+  const matrixWerte = useMemo(() => {
+    if (!hw) return undefined;
+    const jeKlasse = (rechne: (klasse: Geschwindigkeitsklasse) => number | undefined) =>
+      KLASSEN.map(({ klasse, label }) => ({ label, min: rechne(klasse) }));
+    const brb = (job: Parameters<typeof berechneBrbPrognose>[0]) => (klasse: Geschwindigkeitsklasse) => {
+      const p = berechneBrbPrognose({ ...job, geschwindigkeitsklasse: klasse }, hw);
+      return p ? Math.round((p.abteilzeit.getTime() - jetzt.getTime()) / 60_000) : undefined;
     };
-  }, [zeitModus, hwBrb, zeitOverrides, jetzt]);
+    return {
+      fkw: jeKlasse(brb({ jobNr: 0, routentyp: "HH", fkwTickerAbgang: jetzt })),
+      stade: jeKlasse(brb({ jobNr: 0, routentyp: "HH", stadeKuden: jetzt })),
+      see: jeKlasse((klasse) => berechneSeePrognose(jetzt, "HH", klasse, hw, 0).fahrzeitMin),
+    };
+  }, [hw, jetzt]);
+
+  /** Manuell wirksame Dauer je Strecke in Minuten. */
+  const manuellMin = (strecke: Strecke) => zeitOverrides[OVERRIDE_FELD[strecke]] ?? STANDARD_MIN[strecke];
 
   function oeffneDialog(strecke: Strecke) {
     if (zeitModus !== "manuell") return;
-    setAuswahl((strecke === "fkw" ? zeitOverrides.fkwMin : zeitOverrides.stadeMin) ?? STANDARD_MIN[strecke]);
+    setAuswahl(manuellMin(strecke));
     setDialog(strecke);
+  }
+
+  function oeffneOffsetDialog() {
+    setOffsetAuswahl({ HH: offsetWert("HH"), NOK: offsetWert("NOK"), VNR: offsetWert("VNR") });
+    setDialog("offsets");
   }
 
   function uebernehmen() {
     if (!dialog) return;
-    const feld = dialog === "fkw" ? "fkwMin" : "stadeMin";
-    // Der Standardwert braucht keinen Override — dann bleibt die Anzeige
-    // auch ohne Sternchen sauber auf Standard.
-    setZeitOverrides({ ...zeitOverrides, [feld]: auswahl === STANDARD_MIN[dialog] ? undefined : auswahl });
+    if (dialog === "offsets") {
+      // Nur Abweichungen vom Standard werden als Override gespeichert.
+      const eintraege = (Object.keys(offsetAuswahl) as SeeHerkunft[]).filter(
+        (h) => offsetAuswahl[h] !== SEE_ABFAHRT_OFFSET_MIN[h],
+      );
+      setZeitOverrides({
+        ...zeitOverrides,
+        offsetMin: eintraege.length
+          ? Object.fromEntries(eintraege.map((h) => [h, offsetAuswahl[h]]))
+          : undefined,
+      });
+    } else {
+      // Der Standardwert braucht keinen Override — dann bleibt die Anzeige
+      // auch ohne Sternchen sauber auf Standard.
+      setZeitOverrides({
+        ...zeitOverrides,
+        [OVERRIDE_FELD[dialog]]: auswahl === STANDARD_MIN[dialog] ? undefined : auswahl,
+      });
+    }
     setDialog(null);
   }
 
   function zuruecksetzen() {
     if (!dialog) return;
-    const feld = dialog === "fkw" ? "fkwMin" : "stadeMin";
-    setZeitOverrides({ ...zeitOverrides, [feld]: undefined });
+    if (dialog === "offsets") {
+      setZeitOverrides({ ...zeitOverrides, offsetMin: undefined });
+    } else {
+      setZeitOverrides({ ...zeitOverrides, [OVERRIDE_FELD[dialog]]: undefined });
+    }
     setDialog(null);
   }
 
   const istOverride = (strecke: Strecke) =>
-    zeitModus === "manuell" &&
-    (strecke === "fkw" ? zeitOverrides.fkwMin : zeitOverrides.stadeMin) !== undefined;
+    zeitModus === "manuell" && zeitOverrides[OVERRIDE_FELD[strecke]] !== undefined;
 
   function streckenKnopf(strecke: Strecke, klasse: string) {
+    const werte = matrixWerte?.[strecke];
     return (
       <button
         type="button"
@@ -141,14 +222,25 @@ export function Zeitrechnung() {
         title={
           zeitModus === "manuell"
             ? "manuellen Wert für diese Strecke setzen"
-            : "Matrix-Wert für eine Abfahrt jetzt (wandert mit der Tide)"
+            : "Matrix-Werte für eine Abfahrt jetzt (wandern mit der Tide)"
         }
       >
         <span className="zeitrechnung__strecke-name">{STRECKEN_LABEL[strecke]}</span>
-        <span className="zeitrechnung__strecke-wert">
-          {formatMin(dauerMin[strecke])}
-          {istOverride(strecke) && <span className="zeitrechnung__override-stern">*</span>}
-        </span>
+        {werte ? (
+          <span className="zeitrechnung__strecke-klassen">
+            {werte.map(({ label, min }) => (
+              <span key={label} className="zeitrechnung__klasse">
+                <span className="zeitrechnung__klasse-label">{label}</span>{" "}
+                {min !== undefined ? formatMin(min) : "–"}
+              </span>
+            ))}
+          </span>
+        ) : (
+          <span className="zeitrechnung__strecke-wert">
+            {formatMin(manuellMin(strecke))}
+            {istOverride(strecke) && <span className="zeitrechnung__override-stern">*</span>}
+          </span>
+        )}
       </button>
     );
   }
@@ -157,34 +249,59 @@ export function Zeitrechnung() {
     <section className="zeitrechnung" data-testid="kachel-zeitrechnung">
       <div className="zeitrechnung__kopf">
         <h3 className="zeitrechnung__titel">Zeitrechnung</h3>
-        <div className="zeitrechnung__modus" role="group" aria-label="Berechnungsmodus">
-          <button
-            type="button"
-            className={"zeitrechnung__modus-btn" + (zeitModus === "manuell" ? " zeitrechnung__modus-btn--aktiv" : "")}
-            onClick={() => setZeitModus("manuell")}
-          >
-            manuell
-          </button>
-          <button
-            type="button"
-            className={
-              "zeitrechnung__modus-btn" + (zeitModus === "automatisch" ? " zeitrechnung__modus-btn--aktiv" : "")
-            }
-            disabled={!zeitAutomatikMoeglich}
-            title={zeitAutomatikMoeglich ? undefined : "erst HW Brunsbüttel eintragen"}
-            onClick={() => setZeitModus("automatisch")}
-          >
-            automatisch
-          </button>
+        <div className="zeitrechnung__modus-box">
+          <div className="zeitrechnung__modus" role="group" aria-label="Berechnungsmodus">
+            <button
+              type="button"
+              className={"zeitrechnung__modus-btn" + (zeitModus === "manuell" ? " zeitrechnung__modus-btn--aktiv" : "")}
+              onClick={() => setZeitModus("manuell")}
+            >
+              manuell
+            </button>
+            <button
+              type="button"
+              className={
+                "zeitrechnung__modus-btn" + (zeitModus === "automatisch" ? " zeitrechnung__modus-btn--aktiv" : "")
+              }
+              disabled={!zeitAutomatikMoeglich}
+              title={zeitAutomatikMoeglich ? undefined : "erst HW Brunsbüttel eintragen"}
+              onClick={() => setZeitModus("automatisch")}
+            >
+              automatisch
+            </button>
+          </div>
+          {!zeitAutomatikMoeglich && (
+            <span className="zeitrechnung__hinweis">ohne HW-Zeiten nur manuell möglich</span>
+          )}
         </div>
-        {!zeitAutomatikMoeglich && (
-          <span className="zeitrechnung__hinweis">ohne HW-Zeiten nur manuell möglich</span>
-        )}
       </div>
 
       <div className="zeitrechnung__strahl">
-        {/* Ebene 1: FkW → Abt.Brb */}
-        <div className="zeitrechnung__ebene">{streckenKnopf("fkw", "zeitrechnung__strecke--fkw")}</div>
+        {/* Ebene 0: Abteilung → Abfahrt Tn_59 (Herkunfts-Offsets), immer aktiv */}
+        <div className="zeitrechnung__ebene zeitrechnung__ebene--offsets">
+          <button
+            type="button"
+            className="zeitrechnung__strecke zeitrechnung__strecke--offsets zeitrechnung__strecke--editierbar"
+            onClick={oeffneOffsetDialog}
+            title="Herkunfts-Offsets Abteilung → Abfahrt Brb setzen"
+          >
+            <span className="zeitrechnung__offsets-titel">Abt. &gt; Abf. Brb</span>
+            {OFFSET_ZEILEN.map(({ herkunft, label }) => (
+              <span key={herkunft} className="zeitrechnung__offsets-zeile">
+                {label} : {formatMin(offsetWert(herkunft))}
+                {zeitOverrides.offsetMin?.[herkunft] !== undefined && (
+                  <span className="zeitrechnung__override-stern">*</span>
+                )}
+              </span>
+            ))}
+            <span className="zeitrechnung__offsets-zeile">Sonstige : –</span>
+          </button>
+        </div>
+        {/* Ebene 1: FkW → Abt.Brb und Brb → SeeStn */}
+        <div className="zeitrechnung__ebene">
+          {streckenKnopf("fkw", "zeitrechnung__strecke--fkw")}
+          {streckenKnopf("see", "zeitrechnung__strecke--see")}
+        </div>
         {/* Ebene 2: Stade → Abt.Brb */}
         <div className="zeitrechnung__ebene">{streckenKnopf("stade", "zeitrechnung__strecke--stade")}</div>
         {/* Ebene 3: Linie mit Wegpunkten */}
@@ -201,7 +318,7 @@ export function Zeitrechnung() {
         </div>
       </div>
 
-      {dialog && (
+      {dialog && dialog !== "offsets" && (
         <Modal title="Manueller Wert" onClose={() => setDialog(null)} maxWidth="300px" titelZentriert>
           <div className="job-form zeitrechnung__dialog">
             <p className="zeitrechnung__dialog-strecke">{STRECKEN_LABEL[dialog]}</p>
@@ -212,6 +329,44 @@ export function Zeitrechnung() {
                 </option>
               ))}
             </select>
+            <div className="job-form__actions">
+              <button type="button" className="btn" onClick={zuruecksetzen}>
+                Reset
+              </button>
+              <span className="job-form__spacer" />
+              <button type="button" className="btn btn--accent" onClick={uebernehmen}>
+                Übernehmen
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {dialog === "offsets" && (
+        <Modal title="Manueller Wert" onClose={() => setDialog(null)} maxWidth="320px" titelZentriert>
+          <div className="job-form zeitrechnung__dialog">
+            <p className="zeitrechnung__dialog-strecke">Abt. &gt; Abf. Brb</p>
+            {OFFSET_ZEILEN.map(({ herkunft, label }) => (
+              <label key={herkunft} className="zeitrechnung__offset-feld">
+                <span>{label}</span>
+                <select
+                  value={offsetAuswahl[herkunft]}
+                  onChange={(e) => setOffsetAuswahl({ ...offsetAuswahl, [herkunft]: Number(e.target.value) })}
+                >
+                  {OFFSET_OPTIONEN[herkunft].map((m) => (
+                    <option key={m} value={m}>
+                      {formatMin(m)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+            <label className="zeitrechnung__offset-feld zeitrechnung__offset-feld--inaktiv">
+              <span>Sonstige</span>
+              <select disabled value="">
+                <option value="">–</option>
+              </select>
+            </label>
             <div className="job-form__actions">
               <button type="button" className="btn" onClick={zuruecksetzen}>
                 Reset

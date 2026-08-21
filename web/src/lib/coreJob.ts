@@ -1,6 +1,12 @@
 /** Übersetzt den UI-Datentyp JobEintrag in den Berechnungstyp Job aus
  *  @wache/core und bündelt die darauf aufbauenden Helfer. */
-import { berechneAbteilzeit, berechneBrbPrognose, berechneSeePrognose, istListenvergabeTyp } from "@wache/core";
+import {
+  berechneAbteilzeit,
+  berechneBrbPrognose,
+  berechneSeePrognose,
+  istListenvergabeTyp,
+  SEE_ABFAHRT_OFFSET_MIN,
+} from "@wache/core";
 import type {
   AbteilzeitSettings,
   BrbPrognose,
@@ -37,6 +43,12 @@ export interface ZeitOverrides {
   fkwMin?: number;
   /** Stade → Abteilung in Minuten (Session-Override) */
   stadeMin?: number;
+  /** Brb → Seestation (Fallback-Pauschale) in Minuten (Session-Override) */
+  seeMin?: number;
+  /** Abteilung → Abfahrt Tn_59 je Herkunft in Minuten — wirken anders als
+   *  die Strecken-Overrides in BEIDEN Modi (auch die Matrix-Rechnung nutzt
+   *  den Herkunfts-Offset). */
+  offsetMin?: Partial<Record<SeeHerkunft, number>>;
 }
 
 let zeitModus: ZeitrechnungsModus = "automatisch";
@@ -55,6 +67,20 @@ function hwFuerRechnung(): HwBrb | undefined {
 
 function zuOffset(minuten: number): { stunden: number; minuten: number } {
   return { stunden: Math.floor(minuten / 60), minuten: minuten % 60 };
+}
+
+/** Wirksamer Herkunfts-Offset Abteilung → Abfahrt Tn_59 (Session-Override
+ *  vor Standard) — gilt in beiden Modi, Matrix wie Fallback. */
+export function effektiverSeeOffsetMin(herkunft: SeeHerkunft): number {
+  return zeitOverrides.offsetMin?.[herkunft] ?? SEE_ABFAHRT_OFFSET_MIN[herkunft];
+}
+
+/** Standard der Fallback-Pauschale Brb → Seestation in Minuten (3:30). */
+export const SEE_PAUSCHALE_STANDARD_MIN = 210;
+
+/** Wirksame Fallback-Pauschale Brb → Seestation in Minuten. */
+export function effektiveSeePauschaleMin(): number {
+  return zeitOverrides.seeMin ?? SEE_PAUSCHALE_STANDARD_MIN;
 }
 
 /** Settings mit den Session-Overrides der Zeitrechnungs-Kachel. */
@@ -164,7 +190,7 @@ export function etaSeestationMatrix(
 ): Date | undefined {
   const hw = hwFuerRechnung();
   if (!hw || !herkunft) return undefined;
-  return berechneSeePrognose(abteilZeit, herkunft, klasse, hw).ankunftSee;
+  return berechneSeePrognose(abteilZeit, herkunft, klasse, hw, effektiverSeeOffsetMin(herkunft)).ankunftSee;
 }
 
 /** Anzeige für die Spalte "Von / Type": Herkunftsliste bzw. Anmeldungs-Typ.

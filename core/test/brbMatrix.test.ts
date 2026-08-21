@@ -112,6 +112,17 @@ describe("berechneSeePrognose", () => {
     expect(langsam.fahrzeitMin).toBeGreaterThan(schnell.fahrzeitMin);
     expect(standard.fahrzeitMin).toBe(BRB_MATRIX.see[30].normal);
   });
+
+  it("abfahrtOffsetMin übersteuert den Standard-Offset der Herkunft", () => {
+    // Override 60 statt HH-Standard 30: Abfahrt 12:00 = 0 min vor HW
+    const p = berechneSeePrognose(um("11:00"), "HH", "normal", hwBrb, 60);
+    expect(p.abfahrtTn59.getTime()).toBe(um("12:00").getTime());
+    expect(p.offsetVorHwMin).toBe(0);
+    expect(p.fahrzeitMin).toBe(BRB_MATRIX.see[0].normal);
+    // Override 0 liefert die reine Fahrzeit ab dem übergebenen Zeitpunkt
+    const rein = berechneSeePrognose(um("11:00"), "HH", "normal", hwBrb, 0);
+    expect(rein.abfahrtTn59.getTime()).toBe(um("11:00").getTime());
+  });
 });
 
 describe("berechneAbteilzeit mit HW-Brb-Matrix", () => {

@@ -393,6 +393,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setSeeAbteilungen([]);
     setVerbrauchteVNrn([]);
     setHwBrb({});
+    // Zeitrechnungs-Kachel: Session-Overrides und Moduswahl gehören zur
+    // Wache — Reset und "Neue Wache" stellen die Standardwerte wieder her.
+    setZeitModus("automatisch");
+    setZeitOverrides({});
     const neuerStart = letzteVNr + 1;
     setVNrStartState(neuerStart);
     speichereVNrStart(neuerStart);

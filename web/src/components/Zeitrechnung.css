@@ -16,13 +16,13 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
+/* Kopf: Titel bleibt über die volle Breite zentriert, der Modus-Umschalter
+   sitzt rechts in derselben Ebene (absolut, damit er die Zentrierung des
+   Titels nicht verschiebt). */
 .zeitrechnung__kopf {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
   margin-bottom: 14px;
+  min-height: 30px;
 }
 
 .zeitrechnung__titel {
@@ -30,6 +30,17 @@
   font-size: 1rem;
   font-weight: 700;
   text-align: center;
+  line-height: 30px;
+}
+
+.zeitrechnung__modus-box {
+  position: absolute;
+  right: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
 }
 
 /* Modus-Umschalter im Stil der Formular-Segmente: zwei Knöpfe in einer
@@ -112,6 +123,45 @@
   width: 25%;
 }
 
+/* Brb-SeeStn: von Brb (62,5 %) bis SeeStn (100 %). */
+.zeitrechnung__strecke--see {
+  left: 62.5%;
+  width: 37.5%;
+}
+
+/* Herkunfts-Offsets: räumlich über dem Abschnitt Abt.Brb (50 %) → Brb
+   (62,5 %) — die Zeit zwischen Abteilung und Abfahrt an der Brücke. Der
+   Knopf trägt vier Textzeilen und ist deshalb höher als die
+   Strecken-Knöpfe; er ist in BEIDEN Modi aktiv. */
+.zeitrechnung__ebene--offsets {
+  height: 108px;
+}
+
+.zeitrechnung__strecke--offsets {
+  left: 50%;
+  width: 12.5%;
+  min-width: 112px;
+  height: 102px;
+  gap: 2px;
+  padding: 4px 4px;
+}
+
+.zeitrechnung__offsets-titel {
+  font-weight: 700;
+  font-size: 0.72rem;
+  color: var(--ink-muted);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.zeitrechnung__offsets-zeile {
+  font-size: 0.66rem;
+  color: var(--ink-muted);
+  line-height: 1.25;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .zeitrechnung__strecke--editierbar {
   cursor: pointer;
 }
@@ -137,6 +187,28 @@
   color: var(--accent);
   font-weight: 700;
   margin-left: 1px;
+}
+
+/* Automatischer Modus: Aufschlüsselung slow/normal/fast in der Wertzeile. */
+.zeitrechnung__strecke-klassen {
+  display: flex;
+  gap: 10px;
+  font-size: 0.68rem;
+  line-height: 1.1;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.zeitrechnung__klasse-label {
+  color: var(--ink-faint);
+}
+
+/* Der Stade-Knopf (25 % Breite) ist für drei beschriftete Werte knapp —
+   dort rücken die Werte enger zusammen. */
+.zeitrechnung__strecke--stade .zeitrechnung__strecke-klassen {
+  gap: 6px;
+  font-size: 0.63rem;
 }
 
 /* Ebene 3: Linie mit Wegpunkten. Die Labels stehen dezent oberhalb der
@@ -209,4 +281,25 @@
   font-size: 1rem;
   padding: 6px 10px;
   text-align: center;
+}
+
+/* Offsets-Dialog: Beschriftung links, Dropdown rechts, je Herkunft eine
+   Zeile. "Sonstige" ist noch nicht definiert und bleibt gesperrt. */
+.zeitrechnung__offset-feld {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.zeitrechnung__offset-feld > span {
+  font-size: 0.9rem;
+}
+
+.zeitrechnung__offset-feld select {
+  width: 110px;
+}
+
+.zeitrechnung__offset-feld--inaktiv {
+  opacity: 0.5;
 }

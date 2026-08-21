@@ -141,16 +141,22 @@ export interface SeePrognose {
 
 /**
  * Matrixbasierte ETA Seestation für einen abgeteilten Lotsen:
- * Abfahrt Tn_59 = Abteilzeit + Offset (HH 15 / NOK 20 / V-Nr-Jobs 40 min),
+ * Abfahrt Tn_59 = Abteilzeit + Offset (HH 30 / NOK 45 / V-Nr-Jobs 40 min),
  * dann Fahrzeit Tn_59 → Tonne_5 aus der See-Tabelle.
+ *
+ * `abfahrtOffsetMin` übersteuert den Standard-Offset der Herkunft — die
+ * Settings-Kachel "Zeitrechnung" reicht hier ihre Session-Werte durch
+ * (0 liefert die reine Fahrzeit Tn_59 → Tn_5 ab `abteilZeit`).
  */
 export function berechneSeePrognose(
   abteilZeit: Date,
   herkunft: SeeHerkunft,
   klasse: Geschwindigkeitsklasse | undefined,
-  hwBrb: HwBrb
+  hwBrb: HwBrb,
+  abfahrtOffsetMin?: number
 ): SeePrognose {
-  const abfahrtTn59 = new Date(abteilZeit.getTime() + SEE_ABFAHRT_OFFSET_MIN[herkunft] * 60_000);
+  const offsetMin = abfahrtOffsetMin ?? SEE_ABFAHRT_OFFSET_MIN[herkunft];
+  const abfahrtTn59 = new Date(abteilZeit.getTime() + offsetMin * 60_000);
   const offsetVorHwMin = minutenVorNaechstemHw(hwBrb, abfahrtTn59);
   const fahrzeitMin = interpoliere(BRB_MATRIX.see, klasse ?? "normal", offsetVorHwMin);
   const ankunftSee = new Date(abfahrtTn59.getTime() + fahrzeitMin * 60_000);
