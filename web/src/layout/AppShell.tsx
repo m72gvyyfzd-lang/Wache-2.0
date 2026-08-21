@@ -1,12 +1,15 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { routeFuerMeldungsArt, type MeldungsStufe } from "../lib/meldungen";
 import { useMeldungen } from "../state/useMeldungen";
 import { TopBar } from "./TopBar";
 import "./AppShell.css";
 
-/** Hauptpunkte mit optionalen Unterpunkten: die Unterpunkte sind nur
- *  sichtbar, solange der Hauptpunkt selbst oder einer seiner Unterpunkte
- *  offen ist — die Navi bleibt sonst kürzer. */
+/** Hauptpunkte mit optionalen Unterpunkten. Die Unterpunkte sind per Klick
+ *  auf den BEREITS AKTIVEN Hauptpunkt ein-/ausblendbar (erster Klick
+ *  navigiert nur); beim Verlassen des Bereichs klappen sie automatisch zu.
+ *  Steht man direkt auf einer Unterseite (z.B. /eta-update), bleibt das
+ *  Untermenü offen, damit der aktive Knopf sichtbar ist. */
 const NAV_ITEMS: { to: string; label: string; unter?: { to: string; label: string }[] }[] = [
   { to: "/jobs", label: "Tafel Brb" },
   { to: "/einsatzplanung", label: "Einsatzplanung" },
@@ -25,6 +28,21 @@ const NAV_ITEMS: { to: string; label: string; unter?: { to: string; label: strin
 
 export function AppShell() {
   const { pathname } = useLocation();
+
+  /** Route des Hauptpunkts, dessen Untermenü per Klick aufgeklappt wurde
+   *  (null = keins). Unterseiten halten ihr Menü unabhängig davon offen. */
+  const [offenesUntermenue, setOffenesUntermenue] = useState<string | null>(null);
+
+  // Beim Verlassen des Bereichs (weder der Hauptpunkt noch eine seiner
+  // Unterseiten offen) klappt das Untermenü automatisch wieder zu.
+  useEffect(() => {
+    setOffenesUntermenue((offen) => {
+      if (offen === null) return null;
+      const item = NAV_ITEMS.find((i) => i.to === offen);
+      const imBereich = pathname === offen || (item?.unter?.some((u) => u.to === pathname) ?? false);
+      return imBereich ? offen : null;
+    });
+  }, [pathname]);
 
   // Alarm-Ränder: je Nav-Ziel die höchste anliegende Meldungsstufe (alarm
   // sticht warnung; Vorschläge/Infos färben nicht). Der betroffene Knopf
@@ -61,7 +79,7 @@ export function AppShell() {
               {NAV_ITEMS.map((item) => {
                 const untermenueOffen =
                   item.unter !== undefined &&
-                  (pathname === item.to || item.unter.some((u) => u.to === pathname));
+                  (offenesUntermenue === item.to || item.unter.some((u) => u.to === pathname));
                 return (
                   <li key={item.to}>
                     <NavLink
@@ -69,6 +87,15 @@ export function AppShell() {
                       className={({ isActive }) =>
                         "app-nav__link" + (isActive ? " app-nav__link--active" : "") + stufenKlasse(item.to)
                       }
+                      onClick={() => {
+                        // Klick auf den bereits aktiven Hauptpunkt schaltet
+                        // sein Untermenü um; Navigations-Klicks lassen den
+                        // Zustand in Ruhe (der Effekt oben räumt beim
+                        // Bereichswechsel auf).
+                        if (item.unter !== undefined && pathname === item.to) {
+                          setOffenesUntermenue((offen) => (offen === item.to ? null : item.to));
+                        }
+                      }}
                     >
                       {item.label}
                     </NavLink>
