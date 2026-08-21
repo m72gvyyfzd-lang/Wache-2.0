@@ -45,23 +45,28 @@ function mittelwert(a: Zeitoffset, b: Zeitoffset): Zeitoffset {
   return ausMinuten(Math.floor((zuMinuten(a) + zuMinuten(b)) / 2));
 }
 
+/** "Wechsel Tide"-Offsets FkW/Stade → Abteilung: an die HH→Brb-Matrix
+ *  angeglichen statt Flut/Ebbe-Mittel. Rechnung: Mittel der normal-Spalte
+ *  (halo 194,25 / stade 112,47 min Fahrzeit bis zur Brücke) plus
+ *  Betriebs-Korrektur (−15, siehe BRB_ANKUNFT_KORREKTUR_MIN) minus
+ *  Abteilvorlauf (20 min vor Ankunft) = 159,25 bzw. 77,47 min, auf das
+ *  15-Minuten-Raster gerundet. FkW 2:45 entspricht dabei genau dem alten
+ *  Flut/Ebbe-Mittel, Stade steigt von 1:05 auf 1:15. */
+const FKW_WECHSEL_TIDE: Zeitoffset = { stunden: 2, minuten: 45 };
+const STADE_WECHSEL_TIDE: Zeitoffset = { stunden: 1, minuten: 15 };
+
 /**
  * Liefert die aktuell gültigen Abteilzeit-Offsets für den gewählten Tide-Modus.
- * "Wechsel Tide" ist der Mittelwert aus Flut und Ebbe.
+ * "Wechsel Tide" ist der Mittelwert aus Flut und Ebbe — außer FkW/Stade,
+ * die auf den Matrix-Durchschnitt angeglichen sind (siehe oben).
  */
 export function getAbteilzeitSettings(tideModus: TideModus): AbteilzeitSettings {
   const hh =
     tideModus === "Wechsel Tide"
       ? mittelwert(TIDE_WERTE.Flut.hh, TIDE_WERTE.Ebbe.hh)
       : TIDE_WERTE[tideModus].hh;
-  const fkw =
-    tideModus === "Wechsel Tide"
-      ? mittelwert(TIDE_WERTE.Flut.fkw, TIDE_WERTE.Ebbe.fkw)
-      : TIDE_WERTE[tideModus].fkw;
-  const stade =
-    tideModus === "Wechsel Tide"
-      ? mittelwert(TIDE_WERTE.Flut.stade, TIDE_WERTE.Ebbe.stade)
-      : TIDE_WERTE[tideModus].stade;
+  const fkw = tideModus === "Wechsel Tide" ? FKW_WECHSEL_TIDE : TIDE_WERTE[tideModus].fkw;
+  const stade = tideModus === "Wechsel Tide" ? STADE_WECHSEL_TIDE : TIDE_WERTE[tideModus].stade;
 
   return {
     kudenAbteilung: KUDEN_ABTEILUNG,

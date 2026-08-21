@@ -50,9 +50,9 @@ const STANDARD_MIN = {
 };
 
 /** Wählbare Override-Werte: 15-Minuten-Raster über die vorgegebene
- *  Spanne. Liegt der Standardwert nicht im Raster (Stade: 1:05, EHF-
- *  Offset: 0:40), wird er als eigene Option einsortiert — sonst ließe
- *  sich der Standard im Dropdown gar nicht auswählen. */
+ *  Spanne. Liegt der Standardwert nicht im Raster (z.B. der EHF-Offset
+ *  0:40), wird er als eigene Option einsortiert — sonst ließe sich der
+ *  Standard im Dropdown gar nicht auswählen. */
 function optionen(vonMin: number, bisMin: number, standard: number): number[] {
   const werte: number[] = [];
   for (let m = vonMin; m <= bisMin; m += 15) werte.push(m);
