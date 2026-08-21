@@ -54,6 +54,29 @@ export interface WachImport {
   markerIndex?: number;
 }
 
+/**
+ * ETA Stn für die im Fahrwasser erkannten Lotsen (Tendertafel, nicht
+ * fett): feste Mitte der aktuellen Fahrt — MoFa (06–12) → 09:00, MiFa
+ * (12–18) → 15:00, AFA (18–06) → 00:00 des Folgetags. Läuft der Import
+ * nach Mitternacht (die AFA hat ihre Mitte schon passiert), ist das die
+ * bereits erreichte Mitternacht (heute 00:00). Erspart dem User das
+ * Nachtragen der fehlenden ETAs von Hand — die Zeiten bleiben danach
+ * normal editierbar.
+ */
+export function fahrtMitteEta(fahrt: AktuelleFahrt, jetzt: Date): Date {
+  const eta = new Date(jetzt);
+  eta.setSeconds(0, 0);
+  if (fahrt === "MoFa") {
+    eta.setHours(9, 0);
+  } else if (fahrt === "MiFa") {
+    eta.setHours(15, 0);
+  } else {
+    eta.setHours(0, 0);
+    if (jetzt.getHours() >= 12) eta.setDate(eta.getDate() + 1);
+  }
+  return eta;
+}
+
 /** Auswählbare Marker-Kandidaten für den manuellen Fallback: alle
  *  Tendertafel-Einträge mit Lotsenname und lesbarer V-Nr. */
 export interface MarkerKandidat {
@@ -558,6 +581,10 @@ export function baueWachImport(
           });
           continue;
         }
+        // Fahrwasser-Lotsen (nicht fett) bekommen die Fahrt-Mitte als
+        // ETA Stn vorbelegt — sonst müsste der User jede Zeit von Hand
+        // nachtragen (siehe fahrtMitteEta).
+        const aufDemWeg = !e.lotseFett;
         importDaten.seestationLotsen.push({
           vNr: vNr.vNr,
           zusatz: vNr.zusatz,
@@ -565,15 +592,29 @@ export function baueWachImport(
           kategorie,
           elbehafen: false,
           aufStation: e.lotseFett || undefined,
+          etaStn: aufDemWeg && aktuelleFahrt ? fahrtMitteEta(aktuelleFahrt, jetzt) : undefined,
         });
       }
       const aufStation = importDaten.seestationLotsen.filter((l) => l.aufStation).length;
+      const unterwegs = importDaten.seestationLotsen.length - aufStation;
       meldungen.push({
         stufe: "info",
         text:
           `Auf Seestation: ${importDaten.seestationLotsen.length} Lotsen übernommen ` +
-          `(${aufStation} bereits auf Station, ${importDaten.seestationLotsen.length - aufStation} auf dem Weg)`,
+          `(${aufStation} bereits auf Station, ${unterwegs} auf dem Weg)`,
       });
+      if (unterwegs > 0 && aktuelleFahrt) {
+        const eta = fahrtMitteEta(aktuelleFahrt, jetzt);
+        meldungen.push({
+          stufe: "info",
+          text: `ETA Stn für ${unterwegs} Lotsen im Fahrwasser auf ${String(eta.getHours()).padStart(2, "0")}:${String(eta.getMinutes()).padStart(2, "0")} vorbelegt (Mitte ${aktuelleFahrt})`,
+        });
+      } else if (unterwegs > 0) {
+        meldungen.push({
+          stufe: "warnung",
+          text: `Keine aktuelle Fahrt erkannt — ETA Stn der ${unterwegs} Lotsen im Fahrwasser bitte von Hand eintragen`,
+        });
+      }
     }
   }
 
