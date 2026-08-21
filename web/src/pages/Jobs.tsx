@@ -8,7 +8,16 @@ import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import { ZeitFeldModal } from "../components/ZeitFeldModal";
 import type { JobEintrag, JobListe } from "../data/types";
-import { benoetigteLotsenAnzahl, istAgJob, istBunkernPausiert, istCuxVergabe, istVerwaisterAgJob, sortiereEintraege, type EintragMitAbteilzeit } from "../lib/coreJob";
+import {
+  benoetigteLotsenAnzahl,
+  istAgJob,
+  istBunkernPausiert,
+  istCuxVergabe,
+  istVerwaisterAgJob,
+  sortiereEintraege,
+  stadePrognoseVon,
+  type EintragMitAbteilzeit,
+} from "../lib/coreJob";
 import { formatUhrzeit } from "../lib/format";
 import { useData } from "../state/DataContext";
 import "./Jobs.css";
@@ -42,6 +51,10 @@ interface CheckpointListeProps {
   zeilen: EintragMitAbteilzeit[];
   checkpointLabels: [string, string, string];
   checkpoints: (job: JobEintrag) => [ZeitFeld, ZeitFeld, ZeitFeld];
+  /** Optionale Prognose für den LETZTEN Checkpoint (Hamburg: Stade aus der
+   *  FkW-Matrix): wird dezent angezeigt, solange keine echte Zeit
+   *  eingetragen ist — reine Info, kein gespeicherter Wert. */
+  cp3Prognose?: (job: JobEintrag) => Date | undefined;
   onNeu: () => void;
   onZeile: (job: JobEintrag) => void;
   onZeitBearbeiten: (job: JobEintrag, feld: keyof JobEintrag, label: string, wert: Date | undefined) => void;
@@ -59,6 +72,7 @@ function CheckpointListe({
   zeilen,
   checkpointLabels,
   checkpoints,
+  cp3Prognose,
   onNeu,
   onZeile,
   onZeitBearbeiten,
@@ -144,7 +158,17 @@ function CheckpointListe({
                   className="num row-click"
                   onDoubleClick={() => onZeitBearbeiten(eintrag, cp3.feld, label3, cp3.wert)}
                 >
-                  {formatCheckpoint(cp3.wert)}
+                  {(() => {
+                    if (cp3.wert !== undefined) return formatCheckpoint(cp3.wert);
+                    const prognose = cp3Prognose?.(eintrag);
+                    return prognose ? (
+                      <span className="checkpoint-prognose" title="voraussichtlich (aus FkW-Matrix) — noch keine echte Zeit">
+                        {formatUhrzeit(prognose)}
+                      </span>
+                    ) : (
+                      formatCheckpoint(undefined)
+                    );
+                  })()}
                 </td>
                 <td
                   className="num row-click"
@@ -336,6 +360,7 @@ export function Jobs() {
           { wert: job.buetzfleth ? job.geplAbgang : job.fkw, feld: job.buetzfleth ? "geplAbgang" : "fkw" },
           { wert: job.stade, feld: "stade" },
         ]}
+        cp3Prognose={stadePrognoseVon}
         onNeu={() => setDialog({ liste: "hamburg" })}
         onZeile={(eintrag) => setDialog({ liste: "hamburg", eintrag })}
         onZeitBearbeiten={(job, feld, label, wert) => setZeitEdit({ job, feld, label, wert })}
@@ -402,11 +427,33 @@ export function Jobs() {
 
       {zeitEdit && (
         <Modal title={zeitEdit.job.schiffsname ?? "Job"} onClose={() => setZeitEdit(null)} maxWidth="320px" titelZentriert>
+          {/* Reset löscht die eingetragene Zeit: FkW/Stade und Ticker/Kuden
+              komplett, bei Abt. Zeit nur den manuellen Override (die
+              berechnete Zeit greift dann wieder). FkW/Ticker sind gesperrt,
+              solange der genauere Meldepunkt (Stade/Kuden) gesetzt ist —
+              erst den zurücksetzen. In der Andere-Liste ist die Abt. Zeit
+              die primäre Eingabe und hat bewusst keinen Reset. */}
           <ZeitFeldModal
             label={zeitEdit.label}
             initial={zeitEdit.wert}
             onUebernehmen={handleZeitUebernehmen}
             onAbbrechen={() => setZeitEdit(null)}
+            onReset={
+              zeitEdit.feld === "fkw" ||
+              zeitEdit.feld === "stade" ||
+              zeitEdit.feld === "ticker" ||
+              zeitEdit.feld === "kuden" ||
+              (zeitEdit.feld === "abtZeitManuell" && zeitEdit.job.liste !== "andere")
+                ? () => handleZeitUebernehmen(undefined)
+                : undefined
+            }
+            resetGesperrt={
+              zeitEdit.feld === "fkw" && zeitEdit.job.stade
+                ? "erst die Stade-Zeit zurücksetzen"
+                : zeitEdit.feld === "ticker" && zeitEdit.job.kuden
+                  ? "erst die Kuden-Zeit zurücksetzen"
+                  : undefined
+            }
           />
         </Modal>
       )}

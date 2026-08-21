@@ -54,3 +54,11 @@ tr.zeile-cux td.cell-name {
 .job-bunkert.job-letzter-checkpoint td {
   font-weight: 400;
 }
+
+/* Voraussichtliche Stade-Zeit aus der FkW-Matrix (reine Info, solange
+   keine echte Zeit eingetragen ist): dezent und kursiv, damit sie sich
+   klar von den eingetragenen Zeiten abhebt. */
+.checkpoint-prognose {
+  color: var(--ink-faint);
+  font-style: italic;
+}

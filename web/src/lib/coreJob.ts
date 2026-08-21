@@ -4,6 +4,7 @@ import {
   berechneAbteilzeit,
   berechneBrbPrognose,
   berechneSeePrognose,
+  berechneStadePrognose,
   istListenvergabeTyp,
   SEE_ABFAHRT_OFFSET_MIN,
 } from "@wache/core";
@@ -156,6 +157,15 @@ export function brbPrognoseVon(eintrag: JobEintrag): BrbPrognose | undefined {
   const hw = hwFuerRechnung();
   if (!hw) return undefined;
   return berechneBrbPrognose(zuCoreJob(eintrag), hw);
+}
+
+/** Voraussichtliche Stade-Passage eines HH-Jobs mit FkW-Meldung, aber noch
+ *  ohne eingetragene Stade-Zeit — dezente Info-Anzeige in der Tafel Brb.
+ *  Nur im automatischen Modus (hwFuerRechnung), nicht für Bützfleth. */
+export function stadePrognoseVon(eintrag: JobEintrag): Date | undefined {
+  const hw = hwFuerRechnung();
+  if (!hw || eintrag.liste !== "hamburg" || eintrag.buetzfleth) return undefined;
+  return berechneStadePrognose(zuCoreJob(eintrag), hw);
 }
 
 export interface SeeReiseInfo {

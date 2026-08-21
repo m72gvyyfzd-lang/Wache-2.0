@@ -113,6 +113,33 @@ export function berechneBrbPrognose(job: Job, hwBrb: HwBrb): BrbPrognose | undef
   };
 }
 
+/**
+ * Voraussichtliche Stade-Passage (Tonne_101) eines HH-Jobs, der bisher nur
+ * eine FkW-Meldung hat — reine Info-Anzeige für die Tafel Brb, solange der
+ * User die echte Stade-Zeit noch nicht eingetragen hat.
+ *
+ * Rechnung rückwärts von der (unkorrigierten) Ankunft Tn_59 aus der
+ * FkW-Tabelle: gesucht ist t mit t + Stade-Fahrzeit(t) = Ankunft. Die
+ * Stade-Fahrzeit hängt vom Tidenoffset der Passage selbst ab — zwei
+ * Fixpunkt-Iterationen genügen (die Tabellen ändern sich je 15 min nur
+ * wenig). Bewusst OHNE Betriebs-Korrektur: trüge der User genau diesen
+ * Wert als Stade-Zeit ein, ergäbe die Stade-Rechnung dieselbe Abteilzeit
+ * wie die FkW-Rechnung (die −15 min stecken in beiden Wegen).
+ */
+export function berechneStadePrognose(job: Job, hwBrb: HwBrb): Date | undefined {
+  if (job.routentyp !== "HH" || !job.fkwTickerAbgang || job.stadeKuden) return undefined;
+  const klasse = job.geschwindigkeitsklasse ?? "normal";
+  const offsetFkw = minutenVorNaechstemHw(hwBrb, job.fkwTickerAbgang);
+  const ankunftMs =
+    job.fkwTickerAbgang.getTime() + interpoliere(BRB_MATRIX.halo, klasse, offsetFkw) * 60_000;
+  let t = ankunftMs;
+  for (let i = 0; i < 2; i++) {
+    const offset = minutenVorNaechstemHw(hwBrb, new Date(t));
+    t = ankunftMs - interpoliere(BRB_MATRIX.stade, klasse, offset) * 60_000;
+  }
+  return new Date(t);
+}
+
 // ---------------------------------------------------------------------------
 // Brb >> SEE: Anreise eines abgeteilten Lotsen zur Seestation
 

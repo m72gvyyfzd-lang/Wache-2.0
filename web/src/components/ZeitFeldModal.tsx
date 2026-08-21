@@ -1,6 +1,11 @@
 /** Quick-Edit für eine einzelne Zeitspalte (Tafel Brb: HH/FkW/Stade,
  *  Holt./Ticker/Kuden, man. Abt.Zeit/Abt. Zeit) — Datum+Uhrzeit getrennt,
- *  wie in den übrigen Formularen der App, mit dem aktuellen Wert vorbelegt. */
+ *  wie in den übrigen Formularen der App, mit dem aktuellen Wert vorbelegt.
+ *
+ *  Optionaler Reset-Knopf: löscht die eingetragene Zeit komplett (Feld →
+ *  leer; bei der manuellen Abt.Zeit greift danach wieder die berechnete).
+ *  Er kann gesperrt sein — z.B. FkW, solange eine Stade-Zeit eingetragen
+ *  ist (die Rechnung hängt dann an Stade, ein FkW-Reset wäre irreführend). */
 import { useState } from "react";
 import { ausDatumUndZeit, toLocalDateInput, toLocalTimeInput } from "../lib/datetime";
 import { handleZeitMitPrefill } from "./formShared";
@@ -11,9 +16,13 @@ interface ZeitFeldModalProps {
   initial: Date | undefined;
   onUebernehmen: (wert: Date | undefined) => void;
   onAbbrechen: () => void;
+  /** Reset-Knopf anbieten: setzt das Feld auf "keine Zeit" zurück. */
+  onReset?: () => void;
+  /** Reset gesperrt (Knopf sichtbar, aber inaktiv) — mit Begründung im title. */
+  resetGesperrt?: string;
 }
 
-export function ZeitFeldModal({ label, initial, onUebernehmen, onAbbrechen }: ZeitFeldModalProps) {
+export function ZeitFeldModal({ label, initial, onUebernehmen, onAbbrechen, onReset, resetGesperrt }: ZeitFeldModalProps) {
   const [datum, setDatum] = useState(toLocalDateInput(initial));
   const [zeit, setZeit] = useState(toLocalTimeInput(initial));
 
@@ -37,6 +46,17 @@ export function ZeitFeldModal({ label, initial, onUebernehmen, onAbbrechen }: Ze
         <button type="button" className="btn btn--ghost" onClick={onAbbrechen}>
           Abbrechen
         </button>
+        {onReset && (
+          <button
+            type="button"
+            className="btn"
+            disabled={resetGesperrt !== undefined}
+            title={resetGesperrt}
+            onClick={onReset}
+          >
+            Reset
+          </button>
+        )}
         <span className="job-form__spacer" />
         <button type="button" className="btn btn--accent" onClick={() => onUebernehmen(ausDatumUndZeit(datum, zeit))}>
           Übernehmen

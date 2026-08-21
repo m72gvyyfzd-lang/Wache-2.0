@@ -4,6 +4,7 @@ import {
   BRB_ANKUNFT_KORREKTUR_MIN,
   berechneBrbPrognose,
   berechneSeePrognose,
+  berechneStadePrognose,
   minutenVorNaechstemHw,
   SEE_ABFAHRT_OFFSET_MIN,
   type HwBrb,
@@ -84,6 +85,25 @@ describe("berechneBrbPrognose", () => {
   it("liefert undefined für Nicht-HH-Jobs und ohne Meldepunkt", () => {
     expect(berechneBrbPrognose({ jobNr: 1, routentyp: "NOK", fkwTickerAbgang: um("11:30") }, hwBrb)).toBeUndefined();
     expect(berechneBrbPrognose(hhJob({ hhHoltenau: um("10:00") }), hwBrb)).toBeUndefined();
+  });
+});
+
+describe("berechneStadePrognose", () => {
+  it("liefert eine Stade-Zeit zwischen FkW-Abgang und Ankunft, konsistent zur Stade-Rechnung", () => {
+    const job = { jobNr: 1, routentyp: "HH" as const, fkwTickerAbgang: um("09:00") };
+    const stade = berechneStadePrognose(job, hwBrb)!;
+    const fkwPrognose = berechneBrbPrognose(job, hwBrb)!;
+    expect(stade.getTime()).toBeGreaterThan(um("09:00").getTime());
+    expect(stade.getTime()).toBeLessThan(fkwPrognose.ankunftBrb.getTime());
+    // Trüge man die Prognose als Stade-Zeit ein, käme (fast) dieselbe
+    // Abteilzeit heraus — Toleranz 5 min für die Fixpunkt-Näherung.
+    const mitStade = berechneBrbPrognose({ ...job, stadeKuden: stade }, hwBrb)!;
+    expect(Math.abs(mitStade.abteilzeit.getTime() - fkwPrognose.abteilzeit.getTime())).toBeLessThan(5 * 60_000);
+  });
+
+  it("liefert undefined mit vorhandener Stade-Zeit oder ohne FkW", () => {
+    expect(berechneStadePrognose({ jobNr: 1, routentyp: "HH", fkwTickerAbgang: um("09:00"), stadeKuden: um("10:00") }, hwBrb)).toBeUndefined();
+    expect(berechneStadePrognose({ jobNr: 1, routentyp: "HH" }, hwBrb)).toBeUndefined();
   });
 });
 
