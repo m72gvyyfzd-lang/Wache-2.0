@@ -4,6 +4,8 @@
 import type {
   Abteilung,
   AktuelleFahrt,
+  EhEintrag,
+  EhListe,
   HwBrbEingabe,
   JobEintrag,
   LotsenEintrag,
@@ -32,6 +34,7 @@ const VORSCHAU_KEY = "wache.vorschau.v1";
 const ALARM_TON_KEY = "wache.alarmTon.v1";
 const HW_BRB_KEY = "wache.hwBrb.v1";
 const THEME_KEY = "wache.theme.v1";
+const EH_LISTE_KEY = "wache.ehListe.v1";
 
 const JOB_DATUM_FELDER = [
   "hh",
@@ -367,4 +370,26 @@ export function ladeTheme(): "hell" | "dunkel" | undefined {
 
 export function speichereTheme(wert: "hell" | "dunkel"): void {
   localStorage.setItem(THEME_KEY, wert);
+}
+
+/** EH-Liste: dauerhaft gemerkte Elbehafen-Zugehörigkeiten. Bewusst NICHT
+ *  Teil von resetAlles/importiereWache — die Liste soll jeden
+ *  Wachbeginn-Import und Reset überleben (siehe data/types.ts::EhEintrag).
+ *  Die Namen bleiben damit ausschließlich im localStorage dieses Geräts. */
+export function ladeEhListe(): EhListe {
+  const raw = localStorage.getItem(EH_LISTE_KEY);
+  if (!raw) return { eintraege: [] };
+  try {
+    const wert = JSON.parse(raw) as { eintraege?: EhEintrag[]; stand?: string };
+    return {
+      eintraege: Array.isArray(wert.eintraege) ? wert.eintraege : [],
+      stand: typeof wert.stand === "string" ? new Date(wert.stand) : undefined,
+    };
+  } catch {
+    return { eintraege: [] };
+  }
+}
+
+export function speichereEhListe(liste: EhListe): void {
+  localStorage.setItem(EH_LISTE_KEY, JSON.stringify(liste));
 }

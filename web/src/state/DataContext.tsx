@@ -4,6 +4,7 @@ import { mockJobs, mockLotsenliste, mockSeeSchiffe } from "../data/mockData";
 import type {
   Abteilung,
   AktuelleFahrt,
+  EhListe,
   HwBrbEingabe,
   JobEintrag,
   LotsenEintrag,
@@ -19,8 +20,10 @@ import {
   ladeAbteilungen,
   ladeAktuelleFahrt,
   ladeANrZaehler,
+  ladeEhListe,
   ladeHwBrb,
   ladeVorschauAktiv,
+  speichereEhListe,
   speichereVorschauAktiv,
   ladeJobIdZaehler,
   ladeJobs,
@@ -143,6 +146,12 @@ interface DataContextValue {
    *  der Seestations-Kachel des Dashboards, damit beide dasselbe zeigen. */
   vorschau: boolean;
   setVorschau: (aktiv: boolean) => void;
+  /** EH-Liste (Seite "EH-Liste" unter Einsatzstation): dauerhaft gemerkte
+   *  Elbehafen-Zugehörigkeiten. Überlebt bewusst resetAlles und
+   *  importiereWache; beim Wachbeginn-Import belegt sie das EH-Häkchen der
+   *  Einsatzstations-Lotsen per Namensabgleich nur vor. */
+  ehListe: EhListe;
+  setEhListe: (liste: EhListe) => void;
 }
 
 /** Nutzdaten des Wachbeginn-Imports (siehe lib/wachbeginnImport.ts —
@@ -175,10 +184,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [verbrauchteVNrn, setVerbrauchteVNrn] = useState<number[]>(() => ladeVerbrauchteVNrn());
   const [hwBrb, setHwBrbState] = useState<HwBrbEingabe>(() => ladeHwBrb());
   const [vorschau, setVorschauState] = useState<boolean>(() => ladeVorschauAktiv());
+  const [ehListe, setEhListeState] = useState<EhListe>(() => ladeEhListe());
 
   const setVorschau = useCallback((aktiv: boolean) => {
     setVorschauState(aktiv);
     speichereVorschauAktiv(aktiv);
+  }, []);
+
+  const setEhListe = useCallback((liste: EhListe) => {
+    setEhListeState(liste);
+    speichereEhListe(liste);
   }, []);
 
   // Das HW-Paar fließt über ein Modul-Singleton in alle abteilzeitVon-
@@ -483,6 +498,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         macheSeeAbteilungRueckgaengig,
         resetAlles,
         importiereWache,
+        ehListe,
+        setEhListe,
       }}
     >
       {children}

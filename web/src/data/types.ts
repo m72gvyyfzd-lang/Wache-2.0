@@ -137,6 +137,27 @@ export interface LotsenEintrag {
 }
 
 /**
+ * Ein Eintrag der EH-Liste: dauerhaft gemerkte Elbehafen-Zugehörigkeit
+ * eines Lotsen. Die Liste lebt in einem eigenen Speicherschlüssel, den
+ * weder "Neue Wache" noch der Settings-Reset anfasst — sie überlebt also
+ * jeden Import. Beim Wachbeginn-Import wird sie per Namensabgleich
+ * (passtName) auf die Einsatzstations-Lotsen angewendet und belegt deren
+ * EH-Häkchen nur VOR; danach bleibt es in der Einsatzstation frei
+ * änderbar. Die Kategorie ist reine Zusatzinfo vom Zeitpunkt der
+ * Übernahme (der Abgleich läuft ausschließlich über den Namen).
+ */
+export interface EhEintrag {
+  name: string;
+  kategorie: string;
+}
+
+/** Die EH-Liste samt Zeitpunkt des letzten Übertragens ("letzter Stand"). */
+export interface EhListe {
+  eintraege: EhEintrag[];
+  stand?: Date;
+}
+
+/**
  * "Abteilung": verbindet einen Job mit dem Lotsen, der ihn übernimmt.
  * Die Anzeige-Werte werden im Moment des Abteilens eingefroren
  * (insbesondere die sonst live berechnete V-Nr.), damit sich der Eintrag

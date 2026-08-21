@@ -155,7 +155,7 @@ async function liesDatei(datei: File): Promise<PdfSeite[]> {
 }
 
 export function Wachbeginn() {
-  const { resetAlles, importiereWache } = useData();
+  const { resetAlles, importiereWache, ehListe } = useData();
   const [phase, setPhase] = useState<"start" | "upload" | "fertig">("start");
   const [frageOffen, setFrageOffen] = useState(false);
   const [tab, setTab] = useState<"tafel" | "seestation" | "toernstaende" | "auswertung">("tafel");
@@ -206,8 +206,9 @@ export function Wachbeginn() {
       toernstaende.status === "fertig" ? toernstaende.daten : null,
       new Date(),
       markerManuell ?? undefined,
+      ehListe.eintraege,
     );
-  }, [tafel, seestation, toernstaende, markerManuell]);
+  }, [tafel, seestation, toernstaende, markerManuell, ehListe]);
 
   const kandidaten = useMemo(
     () => (seestation.status === "fertig" ? markerKandidaten(seestation.daten) : []),

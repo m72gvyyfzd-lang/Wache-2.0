@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./layout/AppShell";
+import { EhListe } from "./pages/EhListe";
 import { Einsatzplanung } from "./pages/Einsatzplanung";
 import { EtaUpdate } from "./pages/EtaUpdate";
 import { Einsatzstation } from "./pages/Einsatzstation";
@@ -24,6 +25,7 @@ function App() {
         <Route path="/versetzliste-seestation" element={<Navigate to="/versetzlisten" replace />} />
         <Route path="/seestation" element={<Seestation />} />
         <Route path="/einsatzstation" element={<Einsatzstation />} />
+        <Route path="/eh-liste" element={<EhListe />} />
         <Route path="/fahrt-planung" element={<FahrtPlanung />} />
         <Route path="/wachbeginn" element={<Wachbeginn />} />
         <Route path="/eta-update" element={<EtaUpdate />} />

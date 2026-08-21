@@ -1,0 +1,97 @@
+/* EH-Liste: Aktionszeile oben, darunter zwei Halb-Listen (EH-Lotsen links,
+   Update rechts). Die Tabellen übernehmen die versetz-table-Optik. */
+.ehliste__aktionen {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.ehliste__aktionen .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ehliste__spacer {
+  flex: 1;
+}
+
+.ehliste__stand {
+  color: var(--ink-faint);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.ehliste__warnung {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--alarm, #b5432f) 45%, var(--line));
+  background: color-mix(in srgb, var(--alarm, #b5432f) 10%, var(--surface));
+  color: var(--ink);
+  font-size: 0.88rem;
+}
+
+.ehliste__spalten {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.ehliste__spalte {
+  flex: 1;
+  min-width: 0;
+}
+
+.ehliste__titel {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  color: var(--ink-muted);
+}
+
+.ehliste__spalte tbody tr {
+  cursor: pointer;
+}
+
+.ehliste__zeile--duplikat td {
+  background: color-mix(in srgb, var(--alarm, #b5432f) 14%, var(--surface));
+}
+
+.ehliste__leer td {
+  color: var(--ink-faint);
+  font-style: italic;
+  cursor: default;
+}
+
+/* Bearbeiten-Fenster: Eingabe + Aktionszeile */
+.ehliste__bearbeiten {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ehliste__bearbeiten label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.88rem;
+  color: var(--ink-muted);
+}
+
+.ehliste__bearbeiten-aktionen {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Schmale Bildschirme: die beiden Listen untereinander */
+@media (max-width: 720px) {
+  .ehliste__spalten {
+    flex-direction: column;
+  }
+
+  .ehliste__spalte {
+    width: 100%;
+  }
+}

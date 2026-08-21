@@ -28,6 +28,7 @@ import type { AnmeldungsTyp } from "@wache/core";
 import type {
   Abteilung,
   AktuelleFahrt,
+  EhEintrag,
   JobEintrag,
   LotsenEintrag,
   SeeSchiff,
@@ -481,6 +482,10 @@ export function baueWachImport(
    *  der automatische Namensabgleich nicht greift oder korrigiert werden
    *  soll */
   markerManuell?: number,
+  /** EH-Liste (Seite "EH-Liste"): dauerhaft gemerkte EH-Zugehörigkeiten.
+   *  Belegt das EH-Häkchen der Einsatzstations-Lotsen per Namensabgleich
+   *  vor — nur die Einsatzstation, und nur als Vorbelegung. */
+  ehListe?: EhEintrag[],
 ): WachImport {
   const meldungen: ImportMeldung[] = [];
   const importDaten: WachImport = {
@@ -529,6 +534,20 @@ export function baueWachImport(
       `(${anzahlFahrt} aktuelle Fahrt, ${importDaten.lotsen.length - anzahlFahrt} Bereitschaft; ` +
       `übersprungen: ${lotsenErgebnis.uebersprungenCb} CB, ${lotsenErgebnis.uebersprungenOhne} ohne Tafel/BB)`,
   });
+
+  // --- EH-Vorbelegung aus der EH-Liste ---------------------------------
+  if (ehListe && ehListe.length > 0) {
+    let ehGesetzt = 0;
+    for (const lotse of importDaten.lotsen) {
+      if (ehListe.some((e) => passtName(e.name, lotse.name))) {
+        lotse.elbehafen = true;
+        ehGesetzt += 1;
+      }
+    }
+    if (ehGesetzt > 0) {
+      meldungen.push({ stufe: "info", text: `EH-Liste: ${ehGesetzt} Lotsen als EH vorbelegt` });
+    }
+  }
 
   // --- Tendertafel → ETA Seestation ------------------------------------
   importDaten.seeSchiffe = seeSchiffeAusTender(tender, jetzt, meldungen);

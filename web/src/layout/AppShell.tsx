@@ -15,7 +15,7 @@ const NAV_ITEMS: { to: string; label: string; unter?: { to: string; label: strin
   { to: "/einsatzplanung", label: "Einsatzplanung" },
   { to: "/versetzlisten", label: "Versetzlisten" },
   { to: "/seestation", label: "Seestation", unter: [{ to: "/eta-update", label: "ETA Update" }] },
-  { to: "/einsatzstation", label: "Einsatzstation" },
+  { to: "/einsatzstation", label: "Einsatzstation", unter: [{ to: "/eh-liste", label: "EH-Liste" }] },
   {
     to: "/settings",
     label: "Settings",
