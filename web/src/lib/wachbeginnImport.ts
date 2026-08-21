@@ -26,6 +26,7 @@
 import { SCHIFFS_KATEGORIEN } from "@wache/core";
 import type { AnmeldungsTyp } from "@wache/core";
 import type {
+  Abteilung,
   AktuelleFahrt,
   JobEintrag,
   LotsenEintrag,
@@ -48,6 +49,11 @@ export interface WachImport {
   lotsen: LotsenEintrag[];
   seeSchiffe: Omit<SeeSchiff, "id">[];
   seestationLotsen: Omit<SeestationLotse, "id">[];
+  /** die als "im Fahrwasser" erkannten Tendertafel-Lotsen (nicht fett) als
+   *  reguläre Abteilungen (Schiff "WACHBEGINN", Typ DIV, Herkunft Sonstige,
+   *  Abt.Zeit = Beginn der aktuellen Fahrt) — sie laufen damit den normalen
+   *  Weg Versetzliste → Seestation. */
+  abteilungen: Omit<Abteilung, "id">[];
   meldungen: ImportMeldung[];
   /** verwendeter Marker-Eintrag (Index in tender.eintraege) — automatisch
    *  erkannt oder manuell gewählt; undefined = kein Marker gefunden */
@@ -75,6 +81,26 @@ export function fahrtMitteEta(fahrt: AktuelleFahrt, jetzt: Date): Date {
     if (jetzt.getHours() >= 12) eta.setDate(eta.getDate() + 1);
   }
   return eta;
+}
+
+/**
+ * Beginn der aktuellen Fahrt — Abt.Zeit der als Abteilung übernommenen
+ * Fahrwasser-Lotsen: MoFa → 06:00, MiFa → 12:00, AFA → 18:00. Läuft der
+ * Import nach Mitternacht (die AFA läuft seit dem Vorabend), ist das
+ * 18:00 des Vortags.
+ */
+export function fahrtBeginn(fahrt: AktuelleFahrt, jetzt: Date): Date {
+  const beginn = new Date(jetzt);
+  beginn.setSeconds(0, 0);
+  if (fahrt === "MoFa") {
+    beginn.setHours(6, 0);
+  } else if (fahrt === "MiFa") {
+    beginn.setHours(12, 0);
+  } else {
+    beginn.setHours(18, 0);
+    if (jetzt.getHours() < 12) beginn.setDate(beginn.getDate() - 1);
+  }
+  return beginn;
 }
 
 /** Auswählbare Marker-Kandidaten für den manuellen Fallback: alle
@@ -462,6 +488,7 @@ export function baueWachImport(
     lotsen: [],
     seeSchiffe: [],
     seestationLotsen: [],
+    abteilungen: [],
     meldungen,
   };
 
@@ -581,38 +608,62 @@ export function baueWachImport(
           });
           continue;
         }
-        // Fahrwasser-Lotsen (nicht fett) bekommen die Fahrt-Mitte als
-        // ETA Stn vorbelegt — sonst müsste der User jede Zeit von Hand
-        // nachtragen (siehe fahrtMitteEta).
+        // Fahrwasser-Lotsen (nicht fett) werden als reguläre Abteilung
+        // angelegt (Schiff "WACHBEGINN", Typ DIV, Herkunft Sonstige,
+        // Abt.Zeit = Fahrtbeginn): sie stehen dann in der Versetzliste
+        // "Lotsen im Revier", die Ankunft S-Stn rechnet der normale Weg
+        // (Sonstige-Offset + Matrix bzw. Pauschale). Ohne erkannte Fahrt
+        // (keine Abt.Zeit herleitbar) oder mit Zusatz-V-Nr. ("1234 A" —
+        // Abteilungen kennen keinen Zusatz) bleibt es beim bisherigen
+        // Seestations-Lotsen mit Fahrt-Mitte als ETA (siehe fahrtMitteEta).
         const aufDemWeg = !e.lotseFett;
-        importDaten.seestationLotsen.push({
-          vNr: vNr.vNr,
-          zusatz: vNr.zusatz,
-          name,
-          kategorie,
-          elbehafen: false,
-          aufStation: e.lotseFett || undefined,
-          etaStn: aufDemWeg && aktuelleFahrt ? fahrtMitteEta(aktuelleFahrt, jetzt) : undefined,
-        });
+        if (aufDemWeg && aktuelleFahrt && vNr.zusatz === undefined) {
+          importDaten.abteilungen.push({
+            jobId: 0,
+            vNr: vNr.vNr,
+            typLabel: "DIV",
+            schiffsname: "WACHBEGINN",
+            lotsenName: name,
+            lotsenKategorie: kategorie,
+            elbehafen: false,
+            abteilZeit: fahrtBeginn(aktuelleFahrt, jetzt),
+            seeHerkunft: "SONST",
+            wachbeginn: true,
+          });
+        } else {
+          importDaten.seestationLotsen.push({
+            vNr: vNr.vNr,
+            zusatz: vNr.zusatz,
+            name,
+            kategorie,
+            elbehafen: false,
+            aufStation: e.lotseFett || undefined,
+            etaStn: aufDemWeg && aktuelleFahrt ? fahrtMitteEta(aktuelleFahrt, jetzt) : undefined,
+          });
+        }
       }
       const aufStation = importDaten.seestationLotsen.filter((l) => l.aufStation).length;
-      const unterwegs = importDaten.seestationLotsen.length - aufStation;
+      const unterwegs = importDaten.seestationLotsen.length - aufStation + importDaten.abteilungen.length;
       meldungen.push({
         stufe: "info",
         text:
-          `Auf Seestation: ${importDaten.seestationLotsen.length} Lotsen übernommen ` +
+          `Auf Seestation: ${aufStation + unterwegs} Lotsen übernommen ` +
           `(${aufStation} bereits auf Station, ${unterwegs} auf dem Weg)`,
       });
-      if (unterwegs > 0 && aktuelleFahrt) {
-        const eta = fahrtMitteEta(aktuelleFahrt, jetzt);
+      if (importDaten.abteilungen.length > 0 && aktuelleFahrt) {
+        const beginn = fahrtBeginn(aktuelleFahrt, jetzt);
         meldungen.push({
           stufe: "info",
-          text: `ETA Stn für ${unterwegs} Lotsen im Fahrwasser auf ${String(eta.getHours()).padStart(2, "0")}:${String(eta.getMinutes()).padStart(2, "0")} vorbelegt (Mitte ${aktuelleFahrt})`,
+          text:
+            `${importDaten.abteilungen.length} Lotsen im Fahrwasser als Abteilung "WACHBEGINN" übernommen ` +
+            `(Abt.Zeit ${String(beginn.getHours()).padStart(2, "0")}:${String(beginn.getMinutes()).padStart(2, "0")} = Beginn ${aktuelleFahrt}) — Abt.Zeiten bitte in der Versetzliste nachpflegen`,
         });
-      } else if (unterwegs > 0) {
+      }
+      const ohneFahrt = importDaten.seestationLotsen.filter((l) => !l.aufStation && l.etaStn === undefined).length;
+      if (ohneFahrt > 0) {
         meldungen.push({
           stufe: "warnung",
-          text: `Keine aktuelle Fahrt erkannt — ETA Stn der ${unterwegs} Lotsen im Fahrwasser bitte von Hand eintragen`,
+          text: `Keine aktuelle Fahrt erkannt — ETA Stn der ${ohneFahrt} Lotsen im Fahrwasser bitte von Hand eintragen`,
         });
       }
     }

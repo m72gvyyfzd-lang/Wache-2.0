@@ -199,7 +199,12 @@ export function Versetzlisten() {
   }
 
   // ---- gemeinsamer Rückgängig-Knopf ----
-  const kannRueckgaengig = reiter === "einsatzstation" ? ausgewaehlt !== null : seeAuswahl !== null;
+  // Wachbeginn-Abteilungen (Fahrwasser-Lotsen aus dem Import) sind gesperrt:
+  // hinter ihnen steht kein Job und kein Vergabe-Listen-Eintrag — Rückgängig
+  // würde den Lotsen ersatzlos aus der Wache entfernen.
+  const rueckgaengigGesperrt = reiter === "einsatzstation" && ausgewaehlt?.wachbeginn === true;
+  const kannRueckgaengig =
+    reiter === "einsatzstation" ? ausgewaehlt !== null && !rueckgaengigGesperrt : seeAuswahl !== null;
 
   const rueckgaengigFrage =
     reiter === "einsatzstation"
@@ -293,6 +298,11 @@ export function Versetzlisten() {
             disabled={!kannRueckgaengig}
             onClick={() => setFrageOffen(true)}
             data-testid="rueckgaengig"
+            title={
+              rueckgaengigGesperrt
+                ? "Wachbeginn-Übernahme: kein Rückgängig möglich — der Lotse stammt aus dem Import, nicht aus einer Vergabe-Liste"
+                : undefined
+            }
           >
             {reiter === "einsatzstation" ? "Abteilung rückgängig machen" : "Rückgängig machen"}
           </button>

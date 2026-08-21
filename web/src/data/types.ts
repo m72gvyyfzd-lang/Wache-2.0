@@ -185,6 +185,13 @@ export interface Abteilung {
    *  zugewiesen wurde (siehe SeeAbteilung) — er verschwindet dann aus
    *  "Auf Seestation", der Datensatz bleibt erhalten. */
   seeAbgeteilt?: boolean;
+  /** true für die beim Wachbeginn-Import als "im Fahrwasser" erkannten
+   *  Lotsen (Tendertafel, nicht fett): sie werden direkt als Abteilung
+   *  angelegt (Schiff "WACHBEGINN", jobId 0 als Platzhalter — es gibt
+   *  keinen echten Job dahinter). Der Rückgängig-Knopf ist für sie
+   *  gesperrt, weil der Lotse in keiner Vergabe-Liste steht und sonst
+   *  ersatzlos verschwinden würde. */
+  wachbeginn?: boolean;
 }
 
 /**

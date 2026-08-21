@@ -120,8 +120,9 @@ interface DataContextValue {
    *  erhalten. */
   resetAlles: () => void;
   /** Wachbeginn-Import (nach resetAlles): setzt Jobs, Lotsen, See-Schiffe,
-   *  Auf-Seestation-Lotsen sowie aktuelle Fahrt und letzte V-Nr. (inkl.
-   *  neuem vNrStart) in einem Schritt aus den PDF-Exporten. */
+   *  Auf-Seestation-Lotsen, Abteilungen (Fahrwasser-Lotsen der Tendertafel)
+   *  sowie aktuelle Fahrt und letzte V-Nr. (inkl. neuem vNrStart) in einem
+   *  Schritt aus den PDF-Exporten. */
   importiereWache: (daten: WachImportDaten) => void;
   /** HW-Paar Brunsbüttel (Settings) für die matrixbasierte Brb-Prognose der
    *  HH-Jobs. Ohne HW_1 rechnen alle HH-Jobs mit den festen Offsets. */
@@ -153,6 +154,9 @@ export interface WachImportDaten {
   lotsen: LotsenEintrag[];
   seeSchiffe: Omit<SeeSchiff, "id">[];
   seestationLotsen: Omit<SeestationLotse, "id">[];
+  /** Fahrwasser-Lotsen der Tendertafel als reguläre Abteilungen (Schiff
+   *  "WACHBEGINN", wachbeginn-Flag gesetzt) */
+  abteilungen: Omit<Abteilung, "id">[];
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -414,6 +418,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setLotsen(daten.lotsen);
     setSeeSchiffe(daten.seeSchiffe.map((s, i) => ({ ...s, id: i + 1 })));
     setSeestationLotsen(daten.seestationLotsen.map((l, i) => ({ ...l, id: i + 1 })));
+    // Fahrwasser-Lotsen aus der Tendertafel als reguläre Abteilungen —
+    // resetAlles() hat die Liste unmittelbar zuvor geleert, die IDs
+    // starten also frisch bei 1.
+    setAbteilungen(daten.abteilungen.map((a, i) => ({ ...a, id: i + 1 })));
     if (daten.aktuelleFahrt) {
       setAktuelleFahrtState(daten.aktuelleFahrt);
       speichereAktuelleFahrt(daten.aktuelleFahrt);
