@@ -15,7 +15,7 @@ import { FrageModal } from "../components/FrageModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
-import { passtName } from "../lib/wachbeginnImport";
+import { passtNameGenau } from "../lib/wachbeginnImport";
 import { useData } from "../state/DataContext";
 import "./Versetzliste.css";
 import "./EhListe.css";
@@ -41,8 +41,10 @@ export function EhListe() {
   const [bearbeiteName, setBearbeiteName] = useState<string | null>(null);
 
   const eintraege = ehListe.eintraege;
+  // Streng verglichen (voller Name): "Behnke, J-M" und "Behnke, J-H" sind
+  // zwei verschiedene Personen, kein Duplikat.
   const istDuplikat = (index: number) =>
-    eintraege.some((e, j) => j !== index && passtName(e.name, eintraege[index].name));
+    eintraege.some((e, j) => j !== index && passtNameGenau(e.name, eintraege[index].name));
   const hatDuplikate = eintraege.some((_, i) => istDuplikat(i));
 
   const ausgewaehlt = auswahl !== null ? (eintraege[auswahl] ?? null) : null;
@@ -55,8 +57,8 @@ export function EhListe() {
     const neue: UpdateZeile[] = [];
     for (const l of lotsen) {
       if (!l.elbehafen) continue;
-      if (eintraege.some((e) => passtName(e.name, l.name))) continue;
-      if (neue.some((n) => passtName(n.name, l.name))) continue;
+      if (eintraege.some((e) => passtNameGenau(e.name, l.name))) continue;
+      if (neue.some((n) => passtNameGenau(n.name, l.name))) continue;
       neue.push({ name: l.name, kategorie: l.kategorie, gewaehlt: false });
     }
     setUpdateListe(neue);

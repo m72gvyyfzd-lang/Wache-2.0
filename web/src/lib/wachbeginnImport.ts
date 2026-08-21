@@ -205,6 +205,25 @@ export function passtName(a: string, b: string): boolean {
   return za.initiale === zb.initiale;
 }
 
+/** Strenger Namensvergleich für die EH-Liste: der VOLLE Name muss
+ *  übereinstimmen — toleriert werden nur Groß-/Kleinschreibung, Punkte
+ *  und Leerzeichen-Varianten (z.B. "Thormählen , Björn"). passtName wäre
+ *  hier zu locker: es vergleicht nur Nachname + erste Initiale, womit
+ *  "Behnke, J-M" und "Behnke, J-H" fälschlich als dieselbe Person
+ *  gälten. Die EH-Namen stammen aus demselben Tafel-Export wie die
+ *  Einsatzstations-Lotsen, exakte Gleichheit ist daher der richtige
+ *  Maßstab. */
+export function passtNameGenau(a: string, b: string): boolean {
+  const norm = (roh: string) =>
+    roh
+      .toLowerCase()
+      .replace(/\./g, "")
+      .replace(/\s*,\s*/g, ", ")
+      .replace(/\s+/g, " ")
+      .trim();
+  return norm(a) === norm(b);
+}
+
 function spaltenIndex(sektion: TafelSektion, name: string): number {
   return sektion.spalten.findIndex((s) => s.toLowerCase().replace(/[^a-zäöü+]/g, "").startsWith(name));
 }
@@ -536,10 +555,12 @@ export function baueWachImport(
   });
 
   // --- EH-Vorbelegung aus der EH-Liste ---------------------------------
+  // Strenger Voll-Namensvergleich: bei Geschwistern wie "Behnke, J-M" /
+  // "Behnke, J-H" darf nur der tatsächlich gelistete EH bekommen.
   if (ehListe && ehListe.length > 0) {
     let ehGesetzt = 0;
     for (const lotse of importDaten.lotsen) {
-      if (ehListe.some((e) => passtName(e.name, lotse.name))) {
+      if (ehListe.some((e) => passtNameGenau(e.name, lotse.name))) {
         lotse.elbehafen = true;
         ehGesetzt += 1;
       }
