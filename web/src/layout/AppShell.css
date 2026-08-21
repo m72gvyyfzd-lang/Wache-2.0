@@ -153,14 +153,44 @@
 }
 
 /* Meldungslage: der Nav-Knopf der Seite, auf der ein Alarm bzw. eine
-   Warnung anliegt, bekommt einen dezenten roten/orangen Rand (dieselben
-   Farben wie die Meldungs-Kachel). Alarm sticht Warnung. */
-.app-nav__link--warnung {
-  border-color: color-mix(in srgb, #c77d1e 65%, var(--line));
+   Warnung anliegt, bekommt einen weichen Glow — rot bei Alarm, orange
+   bei Warnung (dieselben Farben wie die Meldungs-Kachel, Alarm sticht
+   Warnung). Der Rand wird nur leicht mitgetönt, damit der Schein eine
+   definierte Kante hat; die hover-Varianten stehen mit im Selektor, weil
+   :hover sonst den Glow-Schatten verdrängen würde. */
+.app-nav__link--warnung,
+.app-nav__link--warnung:hover {
+  border-color: color-mix(in srgb, #c77d1e 30%, var(--line));
+  box-shadow:
+    inset 0 1px 0 var(--taste-licht),
+    0 1px 2px var(--taste-schatten),
+    0 0 12px 2px rgba(199, 125, 30, 0.45);
 }
 
-.app-nav__link--alarm {
-  border-color: color-mix(in srgb, #b5432f 70%, var(--line));
+.app-nav__link--alarm,
+.app-nav__link--alarm:hover {
+  border-color: color-mix(in srgb, #b5432f 35%, var(--line));
+  box-shadow:
+    inset 0 1px 0 var(--taste-licht),
+    0 1px 2px var(--taste-schatten),
+    0 0 12px 2px rgba(181, 67, 47, 0.5);
+}
+
+/* Aktiv gedrückte Taste behält ihre Mulde, der Glow legt sich darüber. */
+.app-nav__link--active.app-nav__link--warnung,
+.app-nav__link--active.app-nav__link--warnung:hover {
+  box-shadow:
+    inset 0 3px 6px var(--taste-mulde),
+    inset 0 -1px 0 var(--taste-licht),
+    0 0 12px 2px rgba(199, 125, 30, 0.45);
+}
+
+.app-nav__link--active.app-nav__link--alarm,
+.app-nav__link--active.app-nav__link--alarm:hover {
+  box-shadow:
+    inset 0 3px 6px var(--taste-mulde),
+    inset 0 -1px 0 var(--taste-licht),
+    0 0 12px 2px rgba(181, 67, 47, 0.5);
 }
 
 @media (prefers-color-scheme: dark) {

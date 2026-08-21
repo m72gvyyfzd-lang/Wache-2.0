@@ -111,22 +111,27 @@
   padding: 2px 6px;
 }
 
-/* FkW-Brb: von FkW (0 %) bis Abt.Brb (50 %). */
+/* Die Strecken-Knöpfe halten 6 px Luft zum Offsets-Knopf in der Mitte:
+   der behält seine Position/Breite (3 px eingerückt), die Nachbarn geben
+   je weitere 3 px ab — FkW-Brb bleibt dabei links am FkW-Punkt
+   ausgerichtet, Brb-SeeStn rechts am SeeStn-Punkt. */
+
+/* FkW-Brb: von FkW (0 %) bis kurz vor Abt.Brb (50 %). */
 .zeitrechnung__strecke--fkw {
   left: 0;
-  width: 50%;
+  width: calc(50% - 3px);
 }
 
-/* Stade-Brb: von Stade (25 %) bis Abt.Brb (50 %). */
+/* Stade-Brb: von Stade (25 %) bis kurz vor Abt.Brb (50 %). */
 .zeitrechnung__strecke--stade {
   left: 25%;
-  width: 25%;
+  width: calc(25% - 3px);
 }
 
-/* Brb-SeeStn: von Brb (62,5 %) bis SeeStn (100 %). */
+/* Brb-SeeStn: von kurz hinter Brb (62,5 %) bis SeeStn (100 %). */
 .zeitrechnung__strecke--see {
-  left: 62.5%;
-  width: 37.5%;
+  left: calc(62.5% + 3px);
+  width: calc(37.5% - 3px);
 }
 
 /* Wrapper um die beiden Ebenen-Zeilen: Bezugsrahmen für den
