@@ -46,14 +46,16 @@ function mittelwert(a: Zeitoffset, b: Zeitoffset): Zeitoffset {
 }
 
 /** "Wechsel Tide"-Offsets FkW/Stade → Abteilung: an die HH→Brb-Matrix
- *  angeglichen statt Flut/Ebbe-Mittel. Rechnung: Mittel der normal-Spalte
- *  (halo 194,25 / stade 112,47 min Fahrzeit bis zur Brücke) plus
- *  Betriebs-Korrektur (−15, siehe BRB_ANKUNFT_KORREKTUR_MIN) minus
- *  Abteilvorlauf (20 min vor Ankunft) = 159,25 bzw. 77,47 min, auf das
- *  15-Minuten-Raster gerundet. FkW 2:45 entspricht dabei genau dem alten
- *  Flut/Ebbe-Mittel, Stade steigt von 1:05 auf 1:15. */
+ *  angeglichen statt Flut/Ebbe-Mittel. Rechnung mit dem Mittel der
+ *  normal-Spalte (halo 194,25 / stade 112,47 min Fahrzeit bis zur
+ *  Brücke) und 20 min Abteilvorlauf:
+ *  - FkW: die Meldezeit liegt ~15 min nach dem echten Abgang (siehe
+ *    MELDE_ABGANG_KORREKTUR_MIN) → 194,25 − 15 − 20 = 159,25 → 2:45
+ *    ab Meldung.
+ *  - Stade: echte Passagezeit, kein Meldeversatz → 112,47 − 20 =
+ *    92,47 → 1:30 ab Passage. */
 const FKW_WECHSEL_TIDE: Zeitoffset = { stunden: 2, minuten: 45 };
-const STADE_WECHSEL_TIDE: Zeitoffset = { stunden: 1, minuten: 15 };
+const STADE_WECHSEL_TIDE: Zeitoffset = { stunden: 1, minuten: 30 };
 
 /**
  * Liefert die aktuell gültigen Abteilzeit-Offsets für den gewählten Tide-Modus.

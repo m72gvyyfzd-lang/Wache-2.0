@@ -16,15 +16,15 @@ function job(partial: Partial<Job>): Job {
 
 describe("berechneAnrufzeit", () => {
   it("zieht den Standard-Vorlauf von 1h von der Abteilzeit ab", () => {
-    const j = job({ stadeKuden: d("2026-08-02T10:00:00Z") }); // Abteilzeit 11:15
+    const j = job({ stadeKuden: d("2026-08-02T10:00:00Z") }); // Abteilzeit 11:30
     const l = lotse({ jobNr: 1 });
-    expect(berechneAnrufzeit(l, j, settings)).toEqual(d("2026-08-02T10:15:00Z"));
+    expect(berechneAnrufzeit(l, j, settings)).toEqual(d("2026-08-02T10:30:00Z"));
   });
 
   it("nutzt individuellen Vorlauf aus Dezimalstunden (1.5 = 1h30)", () => {
-    const j = job({ stadeKuden: d("2026-08-02T10:00:00Z") }); // Abteilzeit 11:15
+    const j = job({ stadeKuden: d("2026-08-02T10:00:00Z") }); // Abteilzeit 11:30
     const l = lotse({ jobNr: 1, vorlaufStunden: 1.5 });
-    expect(berechneAnrufzeit(l, j, settings)).toEqual(d("2026-08-02T09:45:00Z"));
+    expect(berechneAnrufzeit(l, j, settings)).toEqual(d("2026-08-02T10:00:00Z"));
   });
 
   it("liefert undefined ohne zugeordneten Job", () => {

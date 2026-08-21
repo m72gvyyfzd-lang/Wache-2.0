@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ABTEILUNG_VOR_ANKUNFT_MIN,
-  BRB_ANKUNFT_KORREKTUR_MIN,
+  MELDE_ABGANG_KORREKTUR_MIN,
   berechneBrbPrognose,
   berechneSeePrognose,
   berechneStadePrognose,
@@ -45,35 +45,37 @@ describe("minutenVorNaechstemHw", () => {
 
 describe("berechneBrbPrognose", () => {
   it("liest exakte Stützstellen direkt aus der Matrix (FkW / HaLo-Tabelle)", () => {
-    // FkW-Abgang 11:30 = 30 min vor HW → Matrixzeile 30, Klasse "normal"
-    const p = berechneBrbPrognose(hhJob({ fkwTickerAbgang: um("11:30") }), hwBrb)!;
+    // FkW-MELDUNG 11:45 → echter Abgang 11:30 (Meldeversatz −15) = 30 min
+    // vor HW → Matrixzeile 30, Klasse "normal"; die Fahrzeit bleibt roh.
+    const p = berechneBrbPrognose(hhJob({ fkwTickerAbgang: um("11:45") }), hwBrb)!;
     expect(p.basis).toBe("fkw");
     expect(p.offsetVorHwMin).toBe(30);
-    // Die Betriebs-Korrektur (Schiffe kommen ~15 min früher an) steckt in
-    // der Fahrzeit mit drin.
-    expect(p.fahrzeitMin).toBe(BRB_MATRIX.halo[30].normal + BRB_ANKUNFT_KORREKTUR_MIN);
+    expect(p.fahrzeitMin).toBe(BRB_MATRIX.halo[30].normal);
     expect(p.ankunftBrb.getTime()).toBe(um("11:30").getTime() + p.fahrzeitMin * 60_000);
   });
 
   it("interpoliert linear zwischen zwei Stützstellen", () => {
-    // 37,5 min vor HW → Mittelwert der Zeilen 30 und 45
-    const p = berechneBrbPrognose(hhJob({ fkwTickerAbgang: new Date(um("11:22").getTime() - 30_000) }), hwBrb)!;
-    const erwartet = (BRB_MATRIX.halo[30].normal + BRB_MATRIX.halo[45].normal) / 2 + BRB_ANKUNFT_KORREKTUR_MIN;
+    // Meldung 11:37:30 → Abgang 11:22:30 = 37,5 min vor HW → Mittelwert
+    // der Zeilen 30 und 45
+    const p = berechneBrbPrognose(hhJob({ fkwTickerAbgang: new Date(um("11:37").getTime() - 30_000) }), hwBrb)!;
+    const erwartet = (BRB_MATRIX.halo[30].normal + BRB_MATRIX.halo[45].normal) / 2;
     expect(p.fahrzeitMin).toBe(Math.round(erwartet));
   });
 
-  it("nimmt die Stade-Meldung (DOW-Tabelle) vor der FkW-Meldung", () => {
+  it("nimmt die Stade-Meldung (DOW-Tabelle) vor der FkW-Meldung — unkorrigiert", () => {
+    // Stade ist eine echte Passagezeit: kein Meldeversatz, rohe Fahrzeit.
     const p = berechneBrbPrognose(
       hhJob({ fkwTickerAbgang: um("09:00"), stadeKuden: um("11:30"), geschwindigkeitsklasse: "schnell" }),
       hwBrb
     )!;
     expect(p.basis).toBe("stade");
-    expect(p.fahrzeitMin).toBe(BRB_MATRIX.stade[30].schnell + BRB_ANKUNFT_KORREKTUR_MIN);
+    expect(p.offsetVorHwMin).toBe(30);
+    expect(p.fahrzeitMin).toBe(BRB_MATRIX.stade[30].schnell);
   });
 
   it("unterscheidet die Geschwindigkeitsklassen", () => {
-    const langsam = berechneBrbPrognose(hhJob({ fkwTickerAbgang: um("11:30"), geschwindigkeitsklasse: "langsam" }), hwBrb)!;
-    const schnell = berechneBrbPrognose(hhJob({ fkwTickerAbgang: um("11:30"), geschwindigkeitsklasse: "schnell" }), hwBrb)!;
+    const langsam = berechneBrbPrognose(hhJob({ fkwTickerAbgang: um("11:45"), geschwindigkeitsklasse: "langsam" }), hwBrb)!;
+    const schnell = berechneBrbPrognose(hhJob({ fkwTickerAbgang: um("11:45"), geschwindigkeitsklasse: "schnell" }), hwBrb)!;
     expect(langsam.fahrzeitMin).toBeGreaterThan(schnell.fahrzeitMin);
   });
 
@@ -162,8 +164,8 @@ describe("berechneAbteilzeit mit HW-Brb-Matrix", () => {
 
   it("fällt mit hwBrb, aber nur HH-Meldung (Holtenau) auf den festen Offset zurück", () => {
     const job = hhJob({ hhHoltenau: um("10:00") });
-    // Flut: HH + 3:29
-    expect(berechneAbteilzeit(job, settings, hwBrb)?.getTime()).toBe(um("13:29").getTime());
+    // Meldung − 15 (Meldeversatz) + Flut-Offset 3:29
+    expect(berechneAbteilzeit(job, settings, hwBrb)?.getTime()).toBe(um("13:14").getTime());
   });
 
   it("manueller Override sticht auch die Matrix aus", () => {

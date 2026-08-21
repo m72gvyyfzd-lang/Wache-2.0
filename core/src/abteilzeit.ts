@@ -1,4 +1,4 @@
-import { berechneBrbPrognose, type HwBrb } from "./brbMatrix";
+import { berechneBrbPrognose, MELDE_ABGANG_KORREKTUR_MIN, type HwBrb } from "./brbMatrix";
 import type { AbteilzeitSettings, Job, Zeitoffset } from "./types";
 
 function addOffset(datum: Date, offset: Zeitoffset): Date {
@@ -42,8 +42,15 @@ export function berechneAbteilzeit(
       if (prognose) return prognose.abteilzeit;
     }
     if (stadeKuden) return addOffset(stadeKuden, settings.stadeAbteilung);
+    // FkW-Offset gilt ab MELDUNG: der Meldeversatz (−15) steckt bereits in
+    // der Herleitung von fkwAbteilung (siehe settings.ts).
     if (fkwTickerAbgang) return addOffset(fkwTickerAbgang, settings.fkwAbteilung);
-    if (hhHoltenau) return addOffset(hhHoltenau, settings.hhAbteilung);
+    // HH-Meldungen sind wie FkW späte Abgangszeiten — der Blattwert
+    // hhAbteilung kennt den Versatz aber nicht, daher Start = Meldung − 15.
+    if (hhHoltenau) {
+      const start = new Date(hhHoltenau.getTime() - MELDE_ABGANG_KORREKTUR_MIN * 60_000);
+      return addOffset(start, settings.hhAbteilung);
+    }
     return undefined;
   }
 

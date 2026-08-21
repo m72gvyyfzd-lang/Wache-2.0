@@ -9,12 +9,14 @@ import type { Job } from "./types";
 /** Abteilung liegt fest 20 min vor der voraussichtlichen Ankunft an der Brücke Brb. */
 export const ABTEILUNG_VOR_ANKUNFT_MIN = 20;
 
-/** Betriebs-Korrektur auf die HH→Brb-Matrix: die Schiffe kommen in der
- *  Praxis rund 15 min FRÜHER an der Brücke an, als die generierten
- *  Fahrzeiten sagen. Die Korrektur wirkt auf die Ankunft Tonne_59 und
- *  damit auch auf die Abteilzeit (Ankunft − 20 min); die Brb→SEE-Tabelle
- *  bleibt unberührt. */
-export const BRB_ANKUNFT_KORREKTUR_MIN = -15;
+/** Betriebs-Korrektur der HH-/FkW-MELDEZEITEN: die eingetragenen Zeiten
+ *  liegen in der Praxis rund 15 min NACH dem tatsächlichen Abgang — die
+ *  Rechnung startet deshalb bei Meldung − 15 min. Früher wurde stattdessen
+ *  die Ankunft um 15 min vorgezogen; für die Abteilzeit ist das nahezu
+ *  gleichwertig, aber erst die Start-Korrektur bringt die Stade-Prognose
+ *  auf den richtigen Durchgangspunkt. Stade-/Kuden-Meldungen sind echte
+ *  Passagezeiten und bleiben unkorrigiert; die Brb→SEE-Tabelle ebenso. */
+export const MELDE_ABGANG_KORREKTUR_MIN = 15;
 
 /** Mittlere Tidenperiode als Fallback, wenn nur ein HW eingegeben ist. */
 const TIDENPERIODE_MIN = 745;
@@ -96,11 +98,16 @@ export function berechneBrbPrognose(job: Job, hwBrb: HwBrb): BrbPrognose | undef
       : undefined;
   if (!basis) return undefined;
 
-  const start = basis === "stade" ? job.stadeKuden! : job.fkwTickerAbgang!;
+  // FkW-Meldungen sind späte Abgangszeiten → Start = Meldung − 15 min;
+  // Stade-Meldungen sind echte Passagen und starten unkorrigiert.
+  const start =
+    basis === "stade"
+      ? job.stadeKuden!
+      : new Date(job.fkwTickerAbgang!.getTime() - MELDE_ABGANG_KORREKTUR_MIN * 60_000);
   const tabelle = basis === "stade" ? BRB_MATRIX.stade : BRB_MATRIX.halo;
 
   const offsetVorHwMin = minutenVorNaechstemHw(hwBrb, start);
-  const fahrzeitMin = interpoliere(tabelle, klasse, offsetVorHwMin) + BRB_ANKUNFT_KORREKTUR_MIN;
+  const fahrzeitMin = interpoliere(tabelle, klasse, offsetVorHwMin);
   const ankunftBrb = new Date(start.getTime() + fahrzeitMin * 60_000);
   const abteilzeit = new Date(ankunftBrb.getTime() - ABTEILUNG_VOR_ANKUNFT_MIN * 60_000);
 
@@ -118,20 +125,20 @@ export function berechneBrbPrognose(job: Job, hwBrb: HwBrb): BrbPrognose | undef
  * eine FkW-Meldung hat — reine Info-Anzeige für die Tafel Brb, solange der
  * User die echte Stade-Zeit noch nicht eingetragen hat.
  *
- * Rechnung rückwärts von der (unkorrigierten) Ankunft Tn_59 aus der
- * FkW-Tabelle: gesucht ist t mit t + Stade-Fahrzeit(t) = Ankunft. Die
- * Stade-Fahrzeit hängt vom Tidenoffset der Passage selbst ab — zwei
- * Fixpunkt-Iterationen genügen (die Tabellen ändern sich je 15 min nur
- * wenig). Bewusst OHNE Betriebs-Korrektur: trüge der User genau diesen
- * Wert als Stade-Zeit ein, ergäbe die Stade-Rechnung dieselbe Abteilzeit
- * wie die FkW-Rechnung (die −15 min stecken in beiden Wegen).
+ * Rechnung rückwärts von der Ankunft Tn_59 aus der FkW-Tabelle (Start =
+ * Meldung − 15 min, siehe MELDE_ABGANG_KORREKTUR_MIN): gesucht ist t mit
+ * t + Stade-Fahrzeit(t) = Ankunft. Die Stade-Fahrzeit hängt vom
+ * Tidenoffset der Passage selbst ab — zwei Fixpunkt-Iterationen genügen
+ * (die Tabellen ändern sich je 15 min nur wenig). Trüge der User genau
+ * diesen Wert als Stade-Zeit ein, ergäbe die Stade-Rechnung dieselbe
+ * Abteilzeit wie die FkW-Rechnung.
  */
 export function berechneStadePrognose(job: Job, hwBrb: HwBrb): Date | undefined {
   if (job.routentyp !== "HH" || !job.fkwTickerAbgang || job.stadeKuden) return undefined;
   const klasse = job.geschwindigkeitsklasse ?? "normal";
-  const offsetFkw = minutenVorNaechstemHw(hwBrb, job.fkwTickerAbgang);
-  const ankunftMs =
-    job.fkwTickerAbgang.getTime() + interpoliere(BRB_MATRIX.halo, klasse, offsetFkw) * 60_000;
+  const start = new Date(job.fkwTickerAbgang.getTime() - MELDE_ABGANG_KORREKTUR_MIN * 60_000);
+  const offsetFkw = minutenVorNaechstemHw(hwBrb, start);
+  const ankunftMs = start.getTime() + interpoliere(BRB_MATRIX.halo, klasse, offsetFkw) * 60_000;
   let t = ankunftMs;
   for (let i = 0; i < 2; i++) {
     const offset = minutenVorNaechstemHw(hwBrb, new Date(t));

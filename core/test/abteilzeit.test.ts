@@ -17,8 +17,8 @@ describe("getAbteilzeitSettings (Wechsel Tide = Mittelwert Flut/Ebbe)", () => {
     expect(settings.hhAbteilung).toEqual({ stunden: 3, minuten: 14 });
   });
 
-  it("liefert den matrix-angeglichenen Stade-Offset (1:15)", () => {
-    expect(settings.stadeAbteilung).toEqual({ stunden: 1, minuten: 15 });
+  it("liefert den matrix-angeglichenen Stade-Offset (1:30, Passage unkorrigiert)", () => {
+    expect(settings.stadeAbteilung).toEqual({ stunden: 1, minuten: 30 });
   });
 
   it("berechnet FkW-Offset korrekt (2:45, hier stimmt auch das Original überein)", () => {
@@ -60,8 +60,8 @@ describe("berechneAbteilzeit — Route HH", () => {
       fkwTickerAbgang: d("2026-08-02T09:00:00Z"),
       stadeKuden: d("2026-08-02T10:00:00Z"),
     });
-    // Stade + 1:15
-    expect(berechneAbteilzeit(j, settings)).toEqual(d("2026-08-02T11:15:00Z"));
+    // Stade + 1:30
+    expect(berechneAbteilzeit(j, settings)).toEqual(d("2026-08-02T11:30:00Z"));
   });
 
   it("nutzt FkW + Offset, wenn Stade unbekannt ist", () => {
@@ -71,7 +71,8 @@ describe("berechneAbteilzeit — Route HH", () => {
 
   it("nutzt HH/Holtenau + Offset, wenn nur diese Zeit bekannt ist", () => {
     const j = job({ routentyp: "HH", hhHoltenau: d("2026-08-02T06:00:00Z") });
-    expect(berechneAbteilzeit(j, settings)).toEqual(d("2026-08-02T09:14:00Z"));
+    // Meldung − 15 (Meldeversatz) + 3:14
+    expect(berechneAbteilzeit(j, settings)).toEqual(d("2026-08-02T08:59:00Z"));
   });
 
   it("liefert undefined ohne jeden Checkpoint", () => {
@@ -82,13 +83,13 @@ describe("berechneAbteilzeit — Route HH", () => {
 describe("berechneAbteilzeit — Route BÜTZ", () => {
   it("nutzt Stade + Stade-Offset, wenn vorhanden", () => {
     const j = job({ routentyp: "BÜTZ", stadeKuden: d("2026-08-02T10:00:00Z") });
-    expect(berechneAbteilzeit(j, settings)).toEqual(d("2026-08-02T11:15:00Z"));
+    expect(berechneAbteilzeit(j, settings)).toEqual(d("2026-08-02T11:30:00Z"));
   });
 
   it("addiert bei FkW-Fallback zusätzlich den 29-Minuten-Zuschlag", () => {
     const j = job({ routentyp: "BÜTZ", fkwTickerAbgang: d("2026-08-02T09:00:00Z") });
-    // 09:00 + 0:29 + 1:15 = 10:44
-    expect(berechneAbteilzeit(j, settings)).toEqual(d("2026-08-02T10:44:00Z"));
+    // 09:00 + 0:29 + 1:30 = 10:59
+    expect(berechneAbteilzeit(j, settings)).toEqual(d("2026-08-02T10:59:00Z"));
   });
 });
 
