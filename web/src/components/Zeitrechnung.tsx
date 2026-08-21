@@ -277,8 +277,16 @@ export function Zeitrechnung() {
       </div>
 
       <div className="zeitrechnung__strahl">
-        {/* Ebene 0: Abteilung → Abfahrt Tn_59 (Herkunfts-Offsets), immer aktiv */}
-        <div className="zeitrechnung__ebene zeitrechnung__ebene--offsets">
+        <div className="zeitrechnung__ebenen">
+          {/* Ebene 1: FkW → Abt.Brb und Brb → SeeStn */}
+          <div className="zeitrechnung__ebene">
+            {streckenKnopf("fkw", "zeitrechnung__strecke--fkw")}
+            {streckenKnopf("see", "zeitrechnung__strecke--see")}
+          </div>
+          {/* Ebene 2: Stade → Abt.Brb */}
+          <div className="zeitrechnung__ebene">{streckenKnopf("stade", "zeitrechnung__strecke--stade")}</div>
+          {/* Herkunfts-Offsets (immer aktiv): spannt sich über beide Ebenen
+              und schließt unten bündig mit den Strecken-Knöpfen ab. */}
           <button
             type="button"
             className="zeitrechnung__strecke zeitrechnung__strecke--offsets zeitrechnung__strecke--editierbar"
@@ -286,24 +294,25 @@ export function Zeitrechnung() {
             title="Herkunfts-Offsets Abteilung → Abfahrt Brb setzen"
           >
             <span className="zeitrechnung__offsets-titel">Abt. &gt; Abf. Brb</span>
-            {OFFSET_ZEILEN.map(({ herkunft, label }) => (
-              <span key={herkunft} className="zeitrechnung__offsets-zeile">
-                {label} : {formatMin(offsetWert(herkunft))}
-                {zeitOverrides.offsetMin?.[herkunft] !== undefined && (
-                  <span className="zeitrechnung__override-stern">*</span>
-                )}
+            <span className="zeitrechnung__offsets-grid">
+              {OFFSET_ZEILEN.map(({ herkunft, label }) => (
+                <span key={herkunft} className="zeitrechnung__offsets-reihe">
+                  <span className="zeitrechnung__offsets-label">{label}</span>
+                  <span className="zeitrechnung__offsets-wert">
+                    : {formatMin(offsetWert(herkunft))}
+                    {zeitOverrides.offsetMin?.[herkunft] !== undefined && (
+                      <span className="zeitrechnung__override-stern">*</span>
+                    )}
+                  </span>
+                </span>
+              ))}
+              <span className="zeitrechnung__offsets-reihe">
+                <span className="zeitrechnung__offsets-label">Sonstige</span>
+                <span className="zeitrechnung__offsets-wert">: –</span>
               </span>
-            ))}
-            <span className="zeitrechnung__offsets-zeile">Sonstige : –</span>
+            </span>
           </button>
         </div>
-        {/* Ebene 1: FkW → Abt.Brb und Brb → SeeStn */}
-        <div className="zeitrechnung__ebene">
-          {streckenKnopf("fkw", "zeitrechnung__strecke--fkw")}
-          {streckenKnopf("see", "zeitrechnung__strecke--see")}
-        </div>
-        {/* Ebene 2: Stade → Abt.Brb */}
-        <div className="zeitrechnung__ebene">{streckenKnopf("stade", "zeitrechnung__strecke--stade")}</div>
         {/* Ebene 3: Linie mit Wegpunkten */}
         <div className="zeitrechnung__linie-zeile">
           <div className="zeitrechnung__linie" />
@@ -343,30 +352,46 @@ export function Zeitrechnung() {
       )}
 
       {dialog === "offsets" && (
-        <Modal title="Manueller Wert" onClose={() => setDialog(null)} maxWidth="320px" titelZentriert>
+        <Modal title="Manueller Wert" onClose={() => setDialog(null)} maxWidth="440px" titelZentriert>
           <div className="job-form zeitrechnung__dialog">
             <p className="zeitrechnung__dialog-strecke">Abt. &gt; Abf. Brb</p>
-            {OFFSET_ZEILEN.map(({ herkunft, label }) => (
-              <label key={herkunft} className="zeitrechnung__offset-feld">
-                <span>{label}</span>
+            {/* 2x2: von HH neben von EHF, darunter aus NOK neben Sonstige */}
+            <div className="zeitrechnung__offset-raster">
+              {(["HH", "VNR"] as const).map((herkunft) => (
+                <label key={herkunft} className="zeitrechnung__offset-feld">
+                  <span>{OFFSET_ZEILEN.find((z) => z.herkunft === herkunft)!.label}</span>
+                  <select
+                    value={offsetAuswahl[herkunft]}
+                    onChange={(e) => setOffsetAuswahl({ ...offsetAuswahl, [herkunft]: Number(e.target.value) })}
+                  >
+                    {OFFSET_OPTIONEN[herkunft].map((m) => (
+                      <option key={m} value={m}>
+                        {formatMin(m)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+              <label className="zeitrechnung__offset-feld">
+                <span>aus NOK</span>
                 <select
-                  value={offsetAuswahl[herkunft]}
-                  onChange={(e) => setOffsetAuswahl({ ...offsetAuswahl, [herkunft]: Number(e.target.value) })}
+                  value={offsetAuswahl.NOK}
+                  onChange={(e) => setOffsetAuswahl({ ...offsetAuswahl, NOK: Number(e.target.value) })}
                 >
-                  {OFFSET_OPTIONEN[herkunft].map((m) => (
+                  {OFFSET_OPTIONEN.NOK.map((m) => (
                     <option key={m} value={m}>
                       {formatMin(m)}
                     </option>
                   ))}
                 </select>
               </label>
-            ))}
-            <label className="zeitrechnung__offset-feld zeitrechnung__offset-feld--inaktiv">
-              <span>Sonstige</span>
-              <select disabled value="">
-                <option value="">–</option>
-              </select>
-            </label>
+              <label className="zeitrechnung__offset-feld zeitrechnung__offset-feld--inaktiv">
+                <span>Sonstige</span>
+                <select disabled value="">
+                  <option value="">–</option>
+                </select>
+              </label>
+            </div>
             <div className="job-form__actions">
               <button type="button" className="btn" onClick={zuruecksetzen}>
                 Reset

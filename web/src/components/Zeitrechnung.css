@@ -129,20 +129,23 @@
   width: 37.5%;
 }
 
-/* Herkunfts-Offsets: räumlich über dem Abschnitt Abt.Brb (50 %) → Brb
-   (62,5 %) — die Zeit zwischen Abteilung und Abfahrt an der Brücke. Der
-   Knopf trägt vier Textzeilen und ist deshalb höher als die
-   Strecken-Knöpfe; er ist in BEIDEN Modi aktiv. */
-.zeitrechnung__ebene--offsets {
-  height: 108px;
+/* Wrapper um die beiden Ebenen-Zeilen: Bezugsrahmen für den
+   Offsets-Knopf, der sich über BEIDE Ebenen spannt. */
+.zeitrechnung__ebenen {
+  position: relative;
 }
 
+/* Herkunfts-Offsets: räumlich über dem Abschnitt Abt.Brb (50 %) → Brb
+   (62,5 %) — die Zeit zwischen Abteilung und Abfahrt an der Brücke. Der
+   Knopf reicht von der Oberkante der Ebene-1-Knöpfe bis zur Unterkante
+   der Ebene-2-Knöpfe (44 px Zeilenhöhe + 38 px Knopfhöhe) und ist in
+   BEIDEN Modi aktiv. */
 .zeitrechnung__strecke--offsets {
   left: 50%;
   width: 12.5%;
   min-width: 112px;
-  height: 102px;
-  gap: 2px;
+  height: 82px;
+  gap: 3px;
   padding: 4px 4px;
 }
 
@@ -154,11 +157,28 @@
   white-space: nowrap;
 }
 
-.zeitrechnung__offsets-zeile {
+/* Zweispaltiges Raster (Label | ": Wert"): die Wert-Spalte beginnt für
+   alle Zeilen an derselben x-Position — die Doppelpunkte stehen dadurch
+   exakt untereinander. */
+.zeitrechnung__offsets-grid {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  column-gap: 4px;
+  row-gap: 1px;
+  justify-content: center;
+}
+
+.zeitrechnung__offsets-reihe {
+  display: contents;
+}
+
+.zeitrechnung__offsets-label,
+.zeitrechnung__offsets-wert {
   font-size: 0.66rem;
   color: var(--ink-muted);
   line-height: 1.25;
   white-space: nowrap;
+  text-align: left;
   font-variant-numeric: tabular-nums;
 }
 
@@ -283,8 +303,15 @@
   text-align: center;
 }
 
-/* Offsets-Dialog: Beschriftung links, Dropdown rechts, je Herkunft eine
-   Zeile. "Sonstige" ist noch nicht definiert und bleibt gesperrt. */
+/* Offsets-Dialog: 2x2-Raster — oben "von HH" neben "von EHF", darunter
+   "aus NOK" neben "Sonstige". "Sonstige" ist noch nicht definiert und
+   bleibt gesperrt. */
+.zeitrechnung__offset-raster {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 18px;
+}
+
 .zeitrechnung__offset-feld {
   display: flex;
   align-items: center;
@@ -297,7 +324,7 @@
 }
 
 .zeitrechnung__offset-feld select {
-  width: 110px;
+  width: 100px;
 }
 
 .zeitrechnung__offset-feld--inaktiv {
