@@ -82,7 +82,9 @@ export function zaehleJobsBrb(
   return {
     hamburg: relevante.filter((j) => j.liste === "hamburg").length,
     nok: relevante.filter((j) => j.liste === "nok").length,
-    liegend: relevante.filter((j) => istTyp(j, "BHF", "EHF")).length,
+    // "Sonstige" (DIV) zählt hier mit: wie BHF/EHF ein einzelnes Schiff im
+    // Revier, dessen Lotse mit V-Nr. zur Seestation kommt.
+    liegend: relevante.filter((j) => istTyp(j, "BHF", "EHF", "Sonstige")).length,
     radar: relevante.filter((j) => istTyp(j, "Sonderradar", "Nebelradar")).length,
     // WR bleibt bewusst außen vor: die Abteilung liegt immer erst NACH der
     // bestehenden Fahrt.

@@ -89,7 +89,7 @@ describe("berechneBrbPrognose", () => {
 
 describe("berechneSeePrognose", () => {
   it("addiert den Herkunfts-Offset bis zur Abfahrt Tn_59", () => {
-    for (const herkunft of ["HH", "NOK", "VNR"] as const) {
+    for (const herkunft of ["HH", "NOK", "VNR", "SONST"] as const) {
       const p = berechneSeePrognose(um("11:00"), herkunft, "normal", hwBrb);
       expect(p.abfahrtTn59.getTime()).toBe(
         um("11:00").getTime() + SEE_ABFAHRT_OFFSET_MIN[herkunft] * 60_000

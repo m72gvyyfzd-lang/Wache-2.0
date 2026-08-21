@@ -100,7 +100,7 @@ export function istAbgerufen(
     if (!job.bhfBesetzZeit) return false;
     return job.bhfBesetzZeit.getTime() - 3_600_000 < vergabeZeit.getTime();
   }
-  // EHF, Sonderradar, Nebelradar, AG (Tender): 1 Std. vor Abteilzeit
+  // EHF, Sonderradar, Nebelradar, AG (Tender), Sonstige: 1 Std. vor Abteilzeit
   const abteilzeit = abteilzeitVon(job, settings);
   if (!abteilzeit) return false;
   return abteilzeit.getTime() - 3_600_000 < vergabeZeit.getTime();

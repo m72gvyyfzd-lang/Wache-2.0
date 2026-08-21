@@ -333,7 +333,3 @@
 .zeitrechnung__offset-feld select {
   width: 100px;
 }
-
-.zeitrechnung__offset-feld--inaktiv {
-  opacity: 0.5;
-}

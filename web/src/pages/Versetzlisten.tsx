@@ -12,6 +12,7 @@ import { Panel } from "../components/Panel";
 import { SpeedSelect } from "../components/formShared";
 import { Switch } from "../components/SeestationModals";
 import type { Abteilung } from "../data/types";
+import { ausDatumUndZeit, toLocalDateInput, toLocalTimeInput } from "../lib/datetime";
 import { formatUhrzeit } from "../lib/format";
 import { etaSeestation } from "../lib/seestation";
 import { gekoppelteAgAbteilungen } from "../lib/agKopplung";
@@ -42,23 +43,40 @@ function eintragLabel(abteilung: Abteilung): string {
   return [abteilung.typLabel, abteilung.schiffsname].filter(Boolean).join(" ");
 }
 
-/** Doppelklick auf eine Zeile "Lotsen im Revier": Ankert-Status und Speed
- *  (Brb>>SEE-Matrix) nachträglich anpassen — die Ankunft S-Stn wird daraus
- *  live neu berechnet (siehe lib/seestation.ts::etaSeestation), auch wenn
- *  der Lotse schon abgeteilt ist. */
+/** Doppelklick auf eine Zeile "Lotsen im Revier": Abt.Zeit, Ankert-Status
+ *  und Speed (Brb>>SEE-Matrix) nachträglich anpassen — die Ankunft S-Stn
+ *  wird daraus live neu berechnet (siehe lib/seestation.ts::etaSeestation),
+ *  auch wenn der Lotse schon abgeteilt ist. */
 function AbteilungBearbeitenModal({
   initial,
   onUebernehmen,
   onAbbrechen,
 }: {
-  initial: { ankert: boolean; geschwindigkeitsklasse: Geschwindigkeitsklasse };
-  onUebernehmen: (wert: { ankert: boolean; geschwindigkeitsklasse: Geschwindigkeitsklasse }) => void;
+  initial: { abteilZeit: Date; ankert: boolean; geschwindigkeitsklasse: Geschwindigkeitsklasse };
+  onUebernehmen: (wert: {
+    abteilZeit: Date;
+    ankert: boolean;
+    geschwindigkeitsklasse: Geschwindigkeitsklasse;
+  }) => void;
   onAbbrechen: () => void;
 }) {
+  const [abtDatum, setAbtDatum] = useState(toLocalDateInput(initial.abteilZeit));
+  const [abtZeit, setAbtZeit] = useState(toLocalTimeInput(initial.abteilZeit));
   const [ankert, setAnkert] = useState(initial.ankert);
   const [geschwindigkeit, setGeschwindigkeit] = useState(initial.geschwindigkeitsklasse);
+  const neueAbteilZeit = ausDatumUndZeit(abtDatum, abtZeit);
   return (
     <div className="job-form">
+      <div className="job-form__row">
+        <label>
+          Datum
+          <input type="date" value={abtDatum} onChange={(e) => setAbtDatum(e.target.value)} />
+        </label>
+        <label>
+          Abt. Zeit
+          <input type="time" value={abtZeit} onChange={(e) => setAbtZeit(e.target.value)} required />
+        </label>
+      </div>
       <div className="job-form__row">
         <Switch label="ankert" checked={ankert} onChange={setAnkert} />
         <SpeedSelect value={geschwindigkeit} onChange={setGeschwindigkeit} />
@@ -71,7 +89,11 @@ function AbteilungBearbeitenModal({
         <button
           type="button"
           className="btn btn--accent"
-          onClick={() => onUebernehmen({ ankert, geschwindigkeitsklasse: geschwindigkeit })}
+          disabled={neueAbteilZeit === undefined}
+          onClick={() =>
+            neueAbteilZeit &&
+            onUebernehmen({ abteilZeit: neueAbteilZeit, ankert, geschwindigkeitsklasse: geschwindigkeit })
+          }
         >
           OK
         </button>
@@ -442,19 +464,22 @@ export function Versetzlisten() {
         >
           <AbteilungBearbeitenModal
             initial={{
+              abteilZeit: bearbeiteAbteilung.abteilZeit,
               ankert: bearbeiteAbteilung.ankert ?? false,
               geschwindigkeitsklasse: bearbeiteAbteilung.geschwindigkeitsklasse ?? "normal",
             }}
             onUebernehmen={(wert) => {
               updateAbteilung(bearbeiteAbteilung.id, {
+                abteilZeit: wert.abteilZeit,
                 ankert: wert.ankert,
                 geschwindigkeitsklasse: wert.geschwindigkeitsklasse,
               });
-              // AG-Lotsen fahren auf demselben Schiff mit: Speed und
-              // Ankert-Status gelten für sie genauso, sonst liefen ihre
+              // AG-Lotsen fahren auf demselben Schiff mit: Abt.Zeit, Speed
+              // und Ankert-Status gelten für sie genauso, sonst liefen ihre
               // Ankunftszeiten auseinander (siehe lib/agKopplung.ts).
               for (const ag of gekoppelteAgAbteilungen(bearbeiteAbteilung, jobs, abteilungen)) {
                 updateAbteilung(ag.id, {
+                  abteilZeit: wert.abteilZeit,
                   ankert: wert.ankert,
                   geschwindigkeitsklasse: wert.geschwindigkeitsklasse,
                 });

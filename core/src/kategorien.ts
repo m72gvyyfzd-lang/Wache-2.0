@@ -36,7 +36,9 @@ export type LotsenKategorie = (typeof LOTSEN_KATEGORIEN)[number];
 
 /** Anmeldungs-Typen der Liste "Andere Jobs". "AG (Tender)" ist eine AG
  *  ohne Trägerjob-Bindung: eigener Tender, Abteilzeit direkt eingetragen —
- *  das planbare Gegenstück zum Tender-AG-Vorschlag des Dashboards. */
+ *  das planbare Gegenstück zum Tender-AG-Vorschlag des Dashboards.
+ *  "Sonstige" (Kurzform DIV) ist der freie Job mit direkt eingetragener
+ *  Abteilzeit: normale V-Nr.-Vergabe, als AG-Trägerschiff verwendbar. */
 export const ANMELDUNGS_TYPEN = [
   "AG",
   "AG (Tender)",
@@ -49,6 +51,7 @@ export const ANMELDUNGS_TYPEN = [
   "BHF",
   "WB",
   "WR",
+  "Sonstige",
 ] as const;
 
 export type AnmeldungsTyp = (typeof ANMELDUNGS_TYPEN)[number];

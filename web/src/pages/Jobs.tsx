@@ -197,6 +197,9 @@ function AndereListe({ zeilen, alleJobs, abgeteiltProJob, onNeu, onZeile, onWarn
             <th>Schiff</th>
             <th className="num">Kat.</th>
             <th className="num">Abt. Zeit</th>
+            {/* nur in dieser Liste: die Zellen (Rest-Anzahl je Job) gab es
+                schon, jetzt wieder mit sichtbarer Kopfspalte */}
+            <th className="num">Lots.</th>
           </tr>
         </thead>
         <tbody>
@@ -276,13 +279,14 @@ export function Jobs() {
   const hamburg = sortiereEintraege(jobs.filter((j) => j.liste === "hamburg" && sichtbar(j)), settings);
   const nok = sortiereEintraege(jobs.filter((j) => j.liste === "nok" && sichtbar(j)), settings);
   const andere = sortiereEintraege(jobs.filter((j) => j.liste === "andere" && sichtbar(j)), settings);
-  // Nur aktuell verfügbare Trägerjobs zur Auswahl: bereits voll abgeteilte
-  // Hamburg/NOK-Jobs (eigener Lotse schon dispatcht) fliegen raus — außer es
-  // ist der Job, den der gerade bearbeitete AG-Job selbst referenziert
-  // (sonst würde die Auswahl beim Bearbeiten unsichtbar, obwohl sie ja
-  // weiterhin gilt).
+  // Nur aktuell verfügbare Trägerjobs zur Auswahl: Hamburg/NOK-Jobs sowie
+  // Sonstige-Jobs (DIV) der Andere-Liste. Bereits voll abgeteilte Träger
+  // (eigener Lotse schon dispatcht) fliegen raus — außer es ist der Job,
+  // den der gerade bearbeitete AG-Job selbst referenziert (sonst würde die
+  // Auswahl beim Bearbeiten unsichtbar, obwohl sie ja weiterhin gilt).
   const verknuepfbar = jobs.filter(
-    (j) => j.liste !== "andere" && (sichtbar(j) || j.id === dialog?.eintrag?.agJobId),
+    (j) =>
+      (j.liste !== "andere" || j.typ === "Sonstige") && (sichtbar(j) || j.id === dialog?.eintrag?.agJobId),
   );
 
   function handleSubmit(job: JobEintrag) {

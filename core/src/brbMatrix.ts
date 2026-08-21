@@ -117,15 +117,18 @@ export function berechneBrbPrognose(job: Job, hwBrb: HwBrb): BrbPrognose | undef
 // Brb >> SEE: Anreise eines abgeteilten Lotsen zur Seestation
 
 /** Woher der abgeteilte Lotse kommt — bestimmt den Vorlauf von der
- *  Abteilung bis zur Abfahrt an der Brücke (Tonne_59). "VNR" = andere Jobs
- *  mit V-Nr. (EHF, BHF); Tender-AG bleibt bewusst außen vor (pauschal). */
-export type SeeHerkunft = "HH" | "NOK" | "VNR";
+ *  Abteilung bis zur Abfahrt an der Brücke (Tonne_59). "VNR" = EHF
+ *  (UI-Beschriftung "von EHF"), "SONST" = Sonstige-/Anmeldungs-Jobs mit
+ *  V-Nr.; BHF läuft über den NOK-Offset. Tender-AG bleibt bewusst außen
+ *  vor (pauschal). */
+export type SeeHerkunft = "HH" | "NOK" | "VNR" | "SONST";
 
 /** Abteilung → Abfahrt Tonne_59 in Minuten, je Herkunft. */
 export const SEE_ABFAHRT_OFFSET_MIN: Record<SeeHerkunft, number> = {
   HH: 30,
   NOK: 45,
   VNR: 40,
+  SONST: 40,
 };
 
 export interface SeePrognose {

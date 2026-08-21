@@ -71,6 +71,7 @@ const OFFSET_OPTIONEN: Record<SeeHerkunft, number[]> = {
   HH: optionen(15, 90, SEE_ABFAHRT_OFFSET_MIN.HH),
   NOK: optionen(15, 90, SEE_ABFAHRT_OFFSET_MIN.NOK),
   VNR: optionen(15, 90, SEE_ABFAHRT_OFFSET_MIN.VNR),
+  SONST: optionen(15, 90, SEE_ABFAHRT_OFFSET_MIN.SONST),
 };
 
 function formatMin(minuten: number): string {
@@ -94,12 +95,18 @@ const OVERRIDE_FELD: Record<Strecke, "fkwMin" | "stadeMin" | "seeMin"> = {
   see: "seeMin",
 };
 
-/** Anzeige-Reihenfolge und Beschriftung der Herkunfts-Offsets. */
+/** Anzeige-Reihenfolge und Beschriftung der Herkunfts-Offsets. "aus NOK"
+ *  deckt auch BHF ab, "Sonstige" die DIV-/Anmeldungs-Jobs mit V-Nr. */
 const OFFSET_ZEILEN: { herkunft: SeeHerkunft; label: string }[] = [
   { herkunft: "HH", label: "von HH" },
   { herkunft: "NOK", label: "aus NOK" },
   { herkunft: "VNR", label: "von EHF" },
+  { herkunft: "SONST", label: "Sonstige" },
 ];
+
+/** Anordnung im 2x2-Bearbeitungsfenster: oben HH neben EHF, darunter NOK
+ *  neben Sonstige. */
+const OFFSET_DIALOG_REIHENFOLGE: SeeHerkunft[] = ["HH", "VNR", "NOK", "SONST"];
 
 /** Geschwindigkeitsklassen mit den UI-Kurzlabels (wie im Speed-Dropdown). */
 const KLASSEN: { klasse: Geschwindigkeitsklasse; label: string }[] = [
@@ -171,7 +178,7 @@ export function Zeitrechnung() {
   }
 
   function oeffneOffsetDialog() {
-    setOffsetAuswahl({ HH: offsetWert("HH"), NOK: offsetWert("NOK"), VNR: offsetWert("VNR") });
+    setOffsetAuswahl({ HH: offsetWert("HH"), NOK: offsetWert("NOK"), VNR: offsetWert("VNR"), SONST: offsetWert("SONST") });
     setDialog("offsets");
   }
 
@@ -306,10 +313,6 @@ export function Zeitrechnung() {
                   </span>
                 </span>
               ))}
-              <span className="zeitrechnung__offsets-reihe">
-                <span className="zeitrechnung__offsets-label">Sonstige</span>
-                <span className="zeitrechnung__offsets-wert">: –</span>
-              </span>
             </span>
           </button>
         </div>
@@ -357,7 +360,7 @@ export function Zeitrechnung() {
             <p className="zeitrechnung__dialog-strecke">Abt. &gt; Abf. Brb</p>
             {/* 2x2: von HH neben von EHF, darunter aus NOK neben Sonstige */}
             <div className="zeitrechnung__offset-raster">
-              {(["HH", "VNR"] as const).map((herkunft) => (
+              {OFFSET_DIALOG_REIHENFOLGE.map((herkunft) => (
                 <label key={herkunft} className="zeitrechnung__offset-feld">
                   <span>{OFFSET_ZEILEN.find((z) => z.herkunft === herkunft)!.label}</span>
                   <select
@@ -372,25 +375,6 @@ export function Zeitrechnung() {
                   </select>
                 </label>
               ))}
-              <label className="zeitrechnung__offset-feld">
-                <span>aus NOK</span>
-                <select
-                  value={offsetAuswahl.NOK}
-                  onChange={(e) => setOffsetAuswahl({ ...offsetAuswahl, NOK: Number(e.target.value) })}
-                >
-                  {OFFSET_OPTIONEN.NOK.map((m) => (
-                    <option key={m} value={m}>
-                      {formatMin(m)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="zeitrechnung__offset-feld zeitrechnung__offset-feld--inaktiv">
-                <span>Sonstige</span>
-                <select disabled value="">
-                  <option value="">–</option>
-                </select>
-              </label>
             </div>
             <div className="job-form__actions">
               <button type="button" className="btn" onClick={zuruecksetzen}>

@@ -178,7 +178,12 @@ export function seeReiseInfoVon(eintrag: JobEintrag, alleJobs: JobEintrag[]): Se
     return traeger ? seeReiseInfoVon(traeger, alleJobs) : undefined;
   }
   if (eintrag.typ === "AG (Tender)" || istOhneVNrJob(eintrag)) return undefined;
-  return { herkunft: "VNR", klasse: eintrag.geschwindigkeitsklasse };
+  // EHF behält den eigenen Offset ("von EHF"), BHF fährt wie die
+  // NOK-Schiffe ("aus NOK"); alles Übrige mit V-Nr. (Sonstige/DIV,
+  // Anmeldungen) läuft über den Sonstige-Offset.
+  if (eintrag.typ === "EHF") return { herkunft: "VNR", klasse: eintrag.geschwindigkeitsklasse };
+  if (eintrag.typ === "BHF") return { herkunft: "NOK", klasse: eintrag.geschwindigkeitsklasse };
+  return { herkunft: "SONST", klasse: eintrag.geschwindigkeitsklasse };
 }
 
 /** Matrixbasierte ETA Seestation ab Abteilzeitpunkt; undefined ohne
@@ -202,6 +207,7 @@ export function vonTypeLabel(eintrag: JobEintrag): string {
   if (eintrag.typ === "Sonderradar") return "SoRa";
   if (eintrag.typ === "Nebelradar") return "NeRa";
   if (eintrag.typ === "AG (Tender)") return "AG-T";
+  if (eintrag.typ === "Sonstige") return "DIV";
   return eintrag.typ ?? "?";
 }
 

@@ -19,7 +19,8 @@ function ohneSchiffsfelder(typ: AnmeldungsTyp | ""): boolean {
 
 interface JobFormAndereProps {
   initial?: JobEintrag;
-  /** Alle Jobs aus Hamburg/NOK für die AG-Verknüpfung */
+  /** Mögliche Trägerschiffe für die AG-Verknüpfung: Jobs aus Hamburg/NOK
+   *  sowie Sonstige-Jobs (DIV) der Andere-Liste. */
   verknuepfbareJobs: JobEintrag[];
   onSubmit: (job: JobEintrag) => void;
   onDelete?: () => void;
@@ -30,13 +31,22 @@ interface JobFormAndereProps {
  *  mit dem eigenen Schiff zur Seestation → Speed-Auswahl für die
  *  Brb>>SEE-Matrix. (AG erbt vom Trägerjob, Tender-AG bleibt pauschal.) */
 function mitSpeedAuswahl(typ: AnmeldungsTyp | ""): boolean {
-  return typ === "EHF" || typ === "BHF";
+  return typ === "EHF" || typ === "BHF" || typ === "Sonstige";
 }
 
 /** Typen, bei denen die Kat. Pflicht ist: die Vergabe-Dienste (Kat.
- *  entscheidet über die Kandidaten-Gruppe) sowie EHF/BHF. */
+ *  entscheidet über die Kandidaten-Gruppe) sowie EHF/BHF/Sonstige. */
 function katPflicht(typ: AnmeldungsTyp | ""): boolean {
-  return typ === "1+1" || typ === "2+2" || typ === "WR" || typ === "WB" || typ === "HuLo" || typ === "EHF" || typ === "BHF";
+  return (
+    typ === "1+1" ||
+    typ === "2+2" ||
+    typ === "WR" ||
+    typ === "WB" ||
+    typ === "HuLo" ||
+    typ === "EHF" ||
+    typ === "BHF" ||
+    typ === "Sonstige"
+  );
 }
 
 export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, onCancel }: JobFormAndereProps) {
@@ -190,7 +200,13 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
       <div className={ohneSchiffsfelder(typ) ? "job-form__row job-form__verborgen" : "job-form__row"}>
         <label className="job-form__grow3">
           Schiffsname
-          <input value={schiffsname} onChange={(e) => setSchiffsname(e.target.value.toUpperCase())} />
+          {/* Pflicht nur bei "Sonstige" (DIV) — der freie Job hat keinen
+              Typ-Kontext, aus dem sich der Eintrag sonst erklären würde. */}
+          <input
+            value={schiffsname}
+            onChange={(e) => setSchiffsname(e.target.value.toUpperCase())}
+            required={typ === "Sonstige"}
+          />
         </label>
         {/* Kat.-Pflicht typabhängig — nie bei ausgeblendeter Zeile (ein
             unsichtbares Pflichtfeld würde das Speichern stumm blockieren). */}
@@ -202,7 +218,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
         {typ === "AG" && (
           <>
             <label className="job-form__grow2">
-              Schiff (aus Hamburg/NOK)
+              Trägerschiff
               <select value={agJobId} onChange={(e) => handleAgJobId(e.target.value)} required>
                 <option value="">–</option>
                 {verknuepfbareJobs.map((job) => (

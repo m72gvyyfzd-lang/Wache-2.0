@@ -19,7 +19,14 @@ import type {
   SeeSchiff,
   SeestationLotse,
 } from "../data/types";
-import { abteilzeitVon, benoetigteLotsenAnzahl, istCuxVergabe, sortiereEintraege, vonTypeLabel } from "./coreJob";
+import {
+  abteilzeitVon,
+  benoetigteLotsenAnzahl,
+  istCuxVergabe,
+  istVerwaisterAgJob,
+  sortiereEintraege,
+  vonTypeLabel,
+} from "./coreJob";
 import { formatUhrzeit } from "./format";
 import { istListenvergabeJob, VERGABE_GRUPPE } from "./listenvergabe";
 import { geplanterAbruf, planeEinsatzstation, planeEinsatzstationMitVergaben } from "./planungEinsatzstation";
@@ -422,9 +429,34 @@ function listenvergabeMeldungen(daten: MeldungsDaten, settings: AbteilzeitSettin
   return meldungen;
 }
 
+/**
+ * AG ohne Trägerschiff: der verknüpfte Trägerjob wurde gelöscht. Eine AG
+ * braucht zwingend einen Träger (die Lotsen fahren auf dessen Schiff mit)
+ * — bis der User die AG neu verknüpft oder löscht, bleibt das ein Alarm.
+ * Ergänzt die rote Zeile samt Warnfenster auf Tafel Brb um eine
+ * Dashboard-Meldung.
+ */
+function agTraegerMeldungen(daten: MeldungsDaten): Meldung[] {
+  const abgeteiltProJob = new Map<number, number>();
+  for (const a of daten.abteilungen) abgeteiltProJob.set(a.jobId, (abgeteiltProJob.get(a.jobId) ?? 0) + 1);
+  return daten.jobs
+    .filter(
+      (job) =>
+        istVerwaisterAgJob(job, daten.jobs) &&
+        benoetigteLotsenAnzahl(job) - (abgeteiltProJob.get(job.id) ?? 0) > 0,
+    )
+    .map((job) => ({
+      id: `ag-verwaist-${job.id}`,
+      stufe: "alarm" as const,
+      art: "AG ohne Trägerschiff",
+      text: `AG ohne Trägerschiff: ${jobLabel(job)} — Trägerjob wurde gelöscht, bitte neu verknüpfen oder AG löschen`,
+    }));
+}
+
 export function berechneMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitSettings): Meldung[] {
   return sortiereMeldungen([
     ...abrufMeldungen(daten, jetzt, settings),
+    ...agTraegerMeldungen(daten),
     ...abteilungEinsatzplanungMeldungen(daten, jetzt, settings),
     ...seestationAnkunftMeldungen(daten, jetzt),
     ...seestationSchiffMeldungen(daten, jetzt),
@@ -460,6 +492,7 @@ const MELDUNGS_ROUTEN: Record<string, string> = {
   "Listenvergabe unterbesetzt": "/einsatzplanung",
   "Listenvergaben zeitgleich": "/einsatzplanung",
   "WR-Zeit falsch eingetragen": "/jobs",
+  "AG ohne Trägerschiff": "/jobs",
   "Ankunft Seestation überfällig": "/versetzlisten",
   "Abteilung Seestation überfällig": "/seestation",
   "Anmeldung überfällig": "/seestation",
