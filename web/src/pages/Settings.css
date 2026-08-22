@@ -59,6 +59,32 @@
   font-weight: 600;
 }
 
+/* HW Brunsbüttel: die beiden Zeit/Datum-Zeilen seitlich zentrieren statt
+   linksbündig — die Kachel ist breiter als ihr Inhalt braucht. */
+.settings-row__hw .settings-feld {
+  justify-content: center;
+}
+
+/* Reset: der Knopf steht mittig in der Kachel, nicht nur horizontal. Der
+   Grid-Zeile stretcht die Kachel auf die Höhe der Nachbarn — panel und
+   panel__body geben diese Höhe als Flex-Spalte weiter, damit sich die
+   Zeile darin zentrieren kann. */
+.settings-row__reset .panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-row__reset .panel__body {
+  flex: 1;
+  display: flex;
+}
+
+.settings-row__reset .settings-feld-zeile {
+  flex: 1;
+  justify-content: center;
+  padding: 16px 20px;
+}
+
 .settings-feld input {
   width: 70px;
   text-align: center;

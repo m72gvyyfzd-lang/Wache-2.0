@@ -19,10 +19,14 @@
 /* Kopf: Titel bleibt über die volle Breite zentriert, der Modus-Umschalter
    sitzt rechts in derselben Ebene (absolut, damit er die Zentrierung des
    Titels nicht verschiebt). */
+/* min-height reserviert IMMER den Platz für Modus-Pille + Hinweiszeile
+   (auch wenn der Hinweis gerade nicht angezeigt wird) — die absolut
+   positionierte Modus-Box trägt sonst nicht zur Kopf-Höhe bei und
+   überlagert bei fehlenden HW-Zeiten den Zeitstrahl darunter. */
 .zeitrechnung__kopf {
   position: relative;
   margin-bottom: 14px;
-  min-height: 30px;
+  min-height: 54px;
 }
 
 .zeitrechnung__titel {

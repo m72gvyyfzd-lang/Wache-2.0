@@ -1,5 +1,13 @@
 /* EH-Liste: Aktionszeile oben, darunter zwei Halb-Listen (EH-Lotsen links,
    Update rechts). Die Tabellen übernehmen die versetz-table-Optik. */
+
+/* Ohne eigenen Kachel-Titel/-Kopf sitzt panel__body sonst nur mit dessen
+   knappem Standard-Abstand (Border + 4px) am Kachelrand — oben verdoppelt
+   auf 10px gesamt, links/rechts auf denselben Wert angeglichen. */
+.eh-panel .panel__body {
+  padding: 9px 9px 8px;
+}
+
 .ehliste__aktionen {
   display: flex;
   align-items: center;
@@ -48,6 +56,7 @@
   margin: 0 0 8px;
   font-size: 0.95rem;
   color: var(--ink-muted);
+  text-align: center;
 }
 
 .ehliste__spalte tbody tr {

@@ -29,7 +29,7 @@ interface UpdateZeile {
 function formatStand(stand: Date | undefined): string {
   if (!stand) return "–";
   const t = (n: number) => String(n).padStart(2, "0");
-  return `${t(stand.getDate())}.${t(stand.getMonth() + 1)}.${stand.getFullYear()}, ${t(stand.getHours())}:${t(stand.getMinutes())}`;
+  return `${t(stand.getDate())}.${t(stand.getMonth() + 1)}.${stand.getFullYear()}`;
 }
 
 export function EhListe() {
@@ -97,13 +97,9 @@ export function EhListe() {
 
   return (
     <div>
-      <PageHeader
-        title="EH-Liste"
-        centered
-        description="Dauerhaft gemerkte Elbehafen-Zugehörigkeiten — überleben jeden Wachbeginn-Import und belegen dort das EH-Häkchen der Einsatzstation vor. Gespeichert nur auf diesem Gerät."
-      />
+      <PageHeader title="EH-Liste" centered />
 
-      <Panel>
+      <Panel className="eh-panel">
         <div className="ehliste">
           <div className="ehliste__aktionen">
             <button type="button" className="btn btn--accent" onClick={handleCheckUpdate} data-testid="eh-check-update">
