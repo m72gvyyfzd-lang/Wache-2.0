@@ -188,6 +188,23 @@ export function loescheFahrtRueckgaengig(): void {
   localStorage.removeItem(FAHRT_RUECKGAENGIG_KEY);
 }
 
+/** Eigener Speicherschlüssel der Fahrt-Planungs-Seite (Zählfelder,
+ *  Bört-Vorschau, Ablauf-Kette) — exportiert, damit der globale
+ *  Settings-Reset ihn mit leeren kann (siehe DataContext.resetAlles). Die
+ *  Seite selbst persistiert unter diesem Schlüssel per eigenem Effekt. */
+export const FAHRT_PLANUNG_KEY = "wache.fahrtplanung.v1";
+
+/** Löscht den Entwurf der Fahrt-Planungs-Seite UND einen noch offenen
+ *  Rückgängig-Schnappschuss — Teil des globalen Settings-Resets, da
+ *  dessen Lotsen-Bezug nach dem Leeren aller Listen ohnehin ungültig
+ *  wäre. Der seiteneigene "Reset"-Knopf (nur den Entwurf) nutzt das
+ *  NICHT — er setzt lediglich den React-Zustand der Seite zurück, ohne
+ *  eine laufende "Fahrt erstellen"-Rückgängig-Möglichkeit zu kappen. */
+export function loescheFahrtPlanung(): void {
+  localStorage.removeItem(FAHRT_PLANUNG_KEY);
+  loescheFahrtRueckgaengig();
+}
+
 export function ladeAbteilungen(): Abteilung[] {
   const raw = localStorage.getItem(ABTEILUNGEN_KEY);
   if (!raw) return [];

@@ -23,6 +23,7 @@ import {
   ladeEhListe,
   ladeHwBrb,
   ladeVorschauAktiv,
+  loescheFahrtPlanung,
   speichereEhListe,
   speichereVorschauAktiv,
   ladeJobIdZaehler,
@@ -117,10 +118,11 @@ interface DataContextValue {
   macheSeeAbteilungRueckgaengig: (id: number) => void;
   /** Reset (Settings): leert ALLE Listen (Jobs, Lotsen, Abteilungen,
    *  See-Schiffe, Seestation-Lotsen, SeeAbteilungen, verbrauchte V-Nrn)
-   *  sowie die HW-Zeiten Brunsbüttel und setzt die Zähler zurück — die
-   *  V-Nr.-Zählung beginnt wieder bei "letzte V-Nr." + 1. Die übrigen
-   *  Einstellungen (letzte V-Nr., aktuelle Fahrt, Alarm-Ton) bleiben
-   *  erhalten. */
+   *  sowie die HW-Zeiten Brunsbüttel und den Entwurf der Fahrt-Planungs-
+   *  Seite (inkl. eines offenen Rückgängig-Schnappschusses) und setzt die
+   *  Zähler zurück — die V-Nr.-Zählung beginnt wieder bei "letzte V-Nr."
+   *  + 1. Die übrigen Einstellungen (letzte V-Nr., aktuelle Fahrt,
+   *  Alarm-Ton) bleiben erhalten. */
   resetAlles: () => void;
   /** Wachbeginn-Import (nach resetAlles): setzt Jobs, Lotsen, See-Schiffe,
    *  Auf-Seestation-Lotsen, Abteilungen (Fahrwasser-Lotsen der Tendertafel)
@@ -412,6 +414,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setSeeAbteilungen([]);
     setVerbrauchteVNrn([]);
     setHwBrb({});
+    // Fahrt-Planung (eigener Speicherschlüssel, kein Context-State) gehört
+    // ebenso zur Wache — ihr Entwurf und ein offener Rückgängig-
+    // Schnappschuss würden sich sonst auf die gerade geleerten Listen
+    // beziehen.
+    loescheFahrtPlanung();
     // Zeitrechnungs-Kachel: Session-Overrides und Moduswahl gehören zur
     // Wache — Reset und "Neue Wache" stellen die Standardwerte wieder her.
     setZeitModus("automatisch");

@@ -22,6 +22,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { getAbteilzeitSettings, LOTSEN_KATEGORIEN } from "@wache/core";
+import { FrageModal } from "../components/FrageModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import type { AktuelleFahrt, LotsenEintrag } from "../data/types";
@@ -46,6 +47,7 @@ import { formatUhrzeit } from "../lib/format";
 import { formatAbrufzeit, sortiereUndNummeriere } from "../lib/lotsenOrdnung";
 import { useData } from "../state/DataContext";
 import {
+  FAHRT_PLANUNG_KEY,
   ladeFahrtRueckgaengig,
   loescheFahrtRueckgaengig,
   speichereFahrtRueckgaengig,
@@ -57,8 +59,6 @@ import "./Einsatzstation.css";
 import "./FahrtPlanung.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
-
-const STORAGE_KEY = "wache.fahrtplanung.v1";
 
 /** So lange lässt sich ein "Fahrt erstellen" zurücknehmen. Danach ist die
  *  neue Fahrt im Betrieb angekommen (Lotsen abgerufen, abgeteilt) — ein
@@ -133,7 +133,7 @@ function vorwertText(wert: string | undefined): string {
 
 function ladeGespeichert(): Gespeichert {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Gespeichert;
+    return JSON.parse(localStorage.getItem(FAHRT_PLANUNG_KEY) ?? "{}") as Gespeichert;
   } catch {
     return {};
   }
@@ -169,6 +169,7 @@ export function FahrtPlanung() {
   // einen localStorage-Schnappschuss (siehe storage.ts) — er überlebt auch
   // ein Neuladen der Seite.
   const [fahrtDialogOffen, setFahrtDialogOffen] = useState(false);
+  const [resetFrage, setResetFrage] = useState(false);
   const [rueckgaengigDa, setRueckgaengigDa] = useState(() => {
     const snap = ladeFahrtRueckgaengig();
     return snap !== undefined && Date.now() - snap.zeit <= RUECKGAENGIG_FRIST_MS;
@@ -211,7 +212,7 @@ export function FahrtPlanung() {
       datenErmittelt,
       generiert,
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(daten));
+    localStorage.setItem(FAHRT_PLANUNG_KEY, JSON.stringify(daten));
   }, [aktuelle, naechste, werte, vorherige, einfuegungen, bestaetigt, datenErmittelt, generiert]);
 
   function handleAktuelle(fahrt: AktuelleFahrt) {
@@ -442,6 +443,23 @@ export function FahrtPlanung() {
     setRueckgaengigDa(false);
   }
 
+  /** Setzt NUR den Entwurf dieser Seite zurück (Fahrt-Auswahl, Zählfelder,
+   *  Bört-Vorschau, Ablauf-Kette) — unabhängig von "Rückgängig": eine
+   *  bereits vollzogene "Fahrt erstellen" bleibt über deren eigenen
+   *  Schnappschuss weiter rücknehmbar. Der persistierende Effekt oben
+   *  schreibt den geleerten Stand automatisch in den localStorage. */
+  function handleFahrtPlanungReset() {
+    setAktuelle(aktuelleFahrt);
+    setNaechste(folgeFahrt(aktuelleFahrt));
+    setWerte({ ...LEERE_WERTE });
+    setVorherige({});
+    setEinfuegungen([]);
+    setBestaetigt(new Set());
+    setDatenErmittelt(false);
+    setGeneriert(false);
+    setResetFrage(false);
+  }
+
   function handleEinfuegenHinzufuegen() {
     const name = neuName.trim();
     if (!name) return;
@@ -533,6 +551,9 @@ export function FahrtPlanung() {
           title={`Letztes 'Fahrt erstellen' rückgängig machen (bis ${RUECKGAENGIG_FRIST_MS / 60_000} Min. danach)`}
         >
           Rückgängig
+        </button>
+        <button type="button" className="btn btn--danger" onClick={() => setResetFrage(true)} title="Nur den Entwurf dieser Seite zurücksetzen">
+          Reset
         </button>
       </div>
 
@@ -813,6 +834,17 @@ export function FahrtPlanung() {
               </button>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {resetFrage && (
+        <Modal title="Fahrt-Planung zurücksetzen" onClose={() => setResetFrage(false)} maxWidth="420px" titelZentriert>
+          <FrageModal
+            frage="Soll der aktuelle Entwurf der Fahrt-Planung zurückgesetzt werden? Zählfelder, Bört-Vorschau und Verhinderungs-Einträge gehen verloren. Eine bereits erstellte Fahrt bleibt über 'Rückgängig' weiter rücknehmbar."
+            zentriert
+            onJa={handleFahrtPlanungReset}
+            onNein={() => setResetFrage(false)}
+          />
         </Modal>
       )}
     </div>
