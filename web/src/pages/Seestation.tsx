@@ -19,11 +19,11 @@ import {
   ANMELDUNG_ESKALATION_MS,
   ANMELDUNG_VORWARNUNG_MS,
   VORSCHAU_HORIZONT_MS,
+  effektiverVorlaufZielMs,
   planungsEta,
   sortiereSeestation,
   vergleicheVorschauAbt,
   VORLAUF_AUF_STATION_MS,
-  VORLAUF_WARNUNG_MS,
   vorschauAbtZeiten,
   zeilenAusAbteilungen,
   zeilenAusSeestationLotsen,
@@ -212,15 +212,17 @@ export function Seestation() {
     : undefined;
   const aktiveZuteilung = vorschauZuteilung ?? basisZuteilung;
 
-  // Knapper Vorlauf: der Lotse ist zugeteilt, kommt aber weniger als eine
-  // Stunde vor seinem Schiff an (siehe VORLAUF_WARNUNG_MS). Bewusst aus der
-  // BASIS-Zuteilung — die Warnung beschreibt die echte Lage, unabhängig vom
-  // Vorschau-Schalter, und deckt sich so mit dem Meldungspanel.
+  // Knapper Vorlauf: der Lotse ist zugeteilt, kommt aber später als das
+  // angestrebte Vorlauf-Ziel vor seinem Schiff an (Standard 1 Std., per
+  // AG-Planungs-Settings übersteuerbar — siehe effektiverVorlaufZielMs).
+  // Bewusst aus der BASIS-Zuteilung — die Warnung beschreibt die echte
+  // Lage, unabhängig vom Vorschau-Schalter, und deckt sich so mit dem
+  // Meldungspanel.
   const knappProKey = new Set<string>();
   for (const schiff of schiffeSortiert) {
     for (const slot of basisZuteilung.get(schiff.id)?.zugewiesen ?? []) {
       if (slot.zeile.aufStation || slot.zeile.etaStn === undefined) continue;
-      if (schiff.eta.getTime() - slot.zeile.etaStn.getTime() < VORLAUF_WARNUNG_MS) {
+      if (schiff.eta.getTime() - slot.zeile.etaStn.getTime() < effektiverVorlaufZielMs()) {
         knappProKey.add(slot.zeile.key);
       }
     }

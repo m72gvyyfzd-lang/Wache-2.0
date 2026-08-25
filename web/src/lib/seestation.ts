@@ -1,7 +1,7 @@
 /** Berechnungen rund um die Seestation. */
 import type { Geschwindigkeitsklasse, SeeHerkunft } from "@wache/core";
-import type { Abteilung, SeeSchiff, SeestationLotse } from "../data/types";
-import { effektiverSeeOffsetMin, effektiveSeePauschaleMin, etaSeestationMatrix } from "./coreJob";
+import type { Abteilung, JobEintrag, SeeSchiff, SeestationLotse } from "../data/types";
+import { effektiverSeeOffsetMin, effektiveSeePauschaleMin, etaSeestationMatrix, seeReiseInfoVon } from "./coreJob";
 
 /** Pauschale Anfahrtszeit von der Abteilung bis zur Seestation — Grundlage
  *  der Tender-/AG-Fahrt-Vorschläge im Dashboard und der Vorschau. Für die
@@ -9,6 +9,72 @@ import { effektiverSeeOffsetMin, effektiveSeePauschaleMin, etaSeestationMatrix }
  *  Zeitrechnungs-Kachel übersteuerbare) Pauschale in coreJob.ts —
  *  Standard ebenfalls 3:30 (SEE_PAUSCHALE_STANDARD_MIN). */
 export const ANFAHRT_SEESTATION_MS = 3.5 * 3_600_000;
+
+// ------------------------------------------------------- AG-Planungs-Kachel
+// Session-Overrides der drei Stellschrauben aus dem "Settings"-Knopf der
+// AG-Planungs-Kachel — wie hwBrbAktuell/zeitOverrides (siehe coreJob.ts) ein
+// Modul-Singleton, damit die Berechnung (seestationBedarf.ts, agPlanung.ts)
+// nichts durchreichen muss. Bewusst NICHT persistiert: gilt nur für die
+// laufende Sitzung und wird beim Settings-Reset bzw. "Neue Wache" geleert.
+
+export type AgAnfahrtModus = 3 | 3.5 | 4 | 4.5 | "auto";
+
+export interface AgPlanungEinstellungen {
+  /** Planungshorizont — Standard 12 Std. (siehe PLANUNGS_HORIZONT_MS) */
+  horizontStd?: 9 | 12 | 18;
+  /** Angestrebter Vorlauf vor dem Schiffs-ETA — Standard 1 Std. (siehe
+   *  VORLAUF_WARNUNG_MS) */
+  vorlaufZielStd?: 1 | 2 | 3 | 4;
+  /** Anfahrt zur Seestation — Standard 3,5 Std. (siehe ANFAHRT_SEESTATION_MS).
+   *  "auto" übernimmt für den jeweils vorgeschlagenen Träger die matrix-
+   *  basierte Fahrzeit (siehe traegerAnfahrtMs), sofern ein HW-Paar bekannt
+   *  ist — sonst bleibt es bei der 3,5-Std.-Pauschale. */
+  anfahrtModus?: AgAnfahrtModus;
+}
+
+let agPlanungEinstellungen: AgPlanungEinstellungen = {};
+
+export function setAgPlanungEinstellungen(einstellungen: AgPlanungEinstellungen): void {
+  agPlanungEinstellungen = einstellungen;
+}
+
+/** Wirksamer Planungshorizont der AG-Planung in ms (Standard siehe
+ *  PLANUNGS_HORIZONT_MS, weiter unten definiert). */
+export function effektiverPlanungsHorizontMs(): number {
+  return agPlanungEinstellungen.horizontStd !== undefined
+    ? agPlanungEinstellungen.horizontStd * 3_600_000
+    : PLANUNGS_HORIZONT_MS;
+}
+
+/** Wirksamer angestrebter Vorlauf vor dem Schiffs-ETA in ms (Standard siehe
+ *  VORLAUF_WARNUNG_MS) — gilt für die AG-Planungs-Frist ebenso wie für die
+ *  "knapper Vorlauf"-Warnung (Meldungspanel + Seestations-Seite), damit
+ *  beide Anzeigen konsistent bleiben. */
+export function effektiverVorlaufZielMs(): number {
+  return agPlanungEinstellungen.vorlaufZielStd !== undefined
+    ? agPlanungEinstellungen.vorlaufZielStd * 3_600_000
+    : VORLAUF_WARNUNG_MS;
+}
+
+/** Pauschale Anfahrt zur Seestation in ms — als Schätzung für die
+ *  Kandidaten-Filterung (bevor ein konkreter Träger feststeht) und für die
+ *  Tender-AG (hat keinen Träger, für den "auto" etwas übernehmen könnte).
+ *  Im Auto-Modus bleibt es hierfür bei der 3,5-Std.-Pauschale. */
+export function effektiveAnfahrtPauschaleMs(): number {
+  const modus = agPlanungEinstellungen.anfahrtModus;
+  return modus !== undefined && modus !== "auto" ? modus * 3_600_000 : ANFAHRT_SEESTATION_MS;
+}
+
+/** Anfahrt zur Seestation für EINEN konkreten Trägerjob: im Auto-Modus die
+ *  matrix-basierte Fahrzeit (Abteilung → Ankunft Seestation, dieselbe
+ *  Rechnung wie die "verplanten" Vorschau-Lotsen), sofern ein HW-Paar
+ *  bekannt ist — sonst wie in den festen Modi die Pauschale. */
+export function traegerAnfahrtMs(traeger: JobEintrag, abteilzeit: Date, alleJobs: JobEintrag[]): number {
+  if (agPlanungEinstellungen.anfahrtModus !== "auto") return effektiveAnfahrtPauschaleMs();
+  const reiseInfo = seeReiseInfoVon(traeger, alleJobs);
+  const matrixAnkunft = etaSeestationMatrix(abteilzeit, reiseInfo?.herkunft, reiseInfo?.klasse);
+  return matrixAnkunft ? matrixAnkunft.getTime() - abteilzeit.getTime() : ANFAHRT_SEESTATION_MS;
+}
 
 /** Harte Grenze der Zuteilung: unter 15 Min. Vorlauf vor dem Schiffs-ETA
  *  gilt ein Lotse nicht mehr als pünktlich und wird nur noch im zweiten

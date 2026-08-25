@@ -43,6 +43,8 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
     verbrauchteVNrn,
     vorschau,
     setVorschau,
+    agPlanungEinstellungen,
+    setAgPlanungEinstellungen,
   } = useData();
 
   // Meldungen + Zeit-Tick kommen aus dem geteilten Hook (auch die Navi
@@ -50,15 +52,30 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
   const { meldungen, gruppen: meldungsGruppen, jetzt } = useMeldungen();
   const navigate = useNavigate();
 
-  const agGruppen = useMemo(
-    () =>
-      berechneAgPlanung(
-        { jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, vNrStart, verbrauchteVNrn },
-        jetzt,
-        settings,
-      ),
-    [jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, vNrStart, verbrauchteVNrn, jetzt],
-  );
+  const agGruppen = useMemo(() => {
+    // agPlanungEinstellungen wirkt über das Modul-Singleton in seestation.ts
+    // (siehe DataContext) — die Lese-Zeile hält die useMemo-Abhängigkeit für
+    // den Linter sichtbar, damit ein Settings-Wechsel die Karte auch ohne
+    // Datenänderung neu berechnet.
+    void agPlanungEinstellungen;
+    return berechneAgPlanung(
+      { jobs, lotsen, aktuelleFahrt, abteilungen, seeSchiffe, seestationLotsen, seeAbteilungen, vNrStart, verbrauchteVNrn },
+      jetzt,
+      settings,
+    );
+  }, [
+    jobs,
+    lotsen,
+    aktuelleFahrt,
+    abteilungen,
+    seeSchiffe,
+    seestationLotsen,
+    seeAbteilungen,
+    vNrStart,
+    verbrauchteVNrn,
+    jetzt,
+    agPlanungEinstellungen,
+  ]);
   const [offenesPanel, setOffenesPanel] = useState<OffenesPanel>(null);
   const meldungenRef = useRef<HTMLDivElement>(null);
   const agPlanungRef = useRef<HTMLDivElement>(null);
@@ -201,6 +218,8 @@ export function DashboardCard({ tonAn }: DashboardCardProps) {
             offen={offenesPanel?.typ === "ag-planung"}
             onToggle={toggleAgPlanung}
             containerRef={agPlanungRef}
+            einstellungen={agPlanungEinstellungen}
+            setEinstellungen={setAgPlanungEinstellungen}
           />
           <ZahlenTile
             label="Einsatzstation"

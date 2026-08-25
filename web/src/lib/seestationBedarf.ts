@@ -14,7 +14,18 @@ import type { AbteilzeitSettings } from "@wache/core";
 import type { JobEintrag, SeeSchiff } from "../data/types";
 import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "./coreJob";
 import type { MeldungsDaten, MeldungsStufe } from "./meldungen";
-import { ANFAHRT_SEESTATION_MS, PLANUNGS_HORIZONT_MS, TENDER_VORLAUF_MS, VORLAUF_AUF_STATION_MS, VORLAUF_WARNUNG_MS, planungsEta, sortiereSeestation, zeilenAusAbteilungen, zeilenAusSeestationLotsen } from "./seestation";
+import {
+  effektiveAnfahrtPauschaleMs,
+  effektiverPlanungsHorizontMs,
+  effektiverVorlaufZielMs,
+  planungsEta,
+  sortiereSeestation,
+  TENDER_VORLAUF_MS,
+  traegerAnfahrtMs,
+  VORLAUF_AUF_STATION_MS,
+  zeilenAusAbteilungen,
+  zeilenAusSeestationLotsen,
+} from "./seestation";
 import { planeSeestation, schiffePriorisiert } from "./seestationAbteilen";
 import { vorschauZeilen } from "./vorschau";
 
@@ -70,16 +81,24 @@ export interface SeestationDefizit {
  * fehlenden Lotsen bliebe von einem Split nur eine unnötige 1-Lotsen-Gruppe
  * übrig, daher bleibt es dort bei einem Träger für den vollen Bedarf.
  */
+/** Trägerkandidat mit seiner (ggf. auto-/matrixbasierten) Anfahrt zur
+ *  Seestation — siehe seestation.ts::traegerAnfahrtMs. */
+export interface TraegerKandidat {
+  eintrag: JobEintrag;
+  abteilzeit: Date;
+  anfahrtMs: number;
+}
+
 export function planeAgTraeger(
-  kandidatenAufsteigend: { eintrag: JobEintrag; abteilzeit: Date }[],
+  kandidatenAufsteigend: TraegerKandidat[],
   fehlt: number,
   /** Abt.Zeit des Schiffs — bei E3/St bereits die um 1,5 Std. vorgezogene
    *  Zeit (siehe seestation.ts::planungsEta), sonst die rohe ETA. */
   schiffAbtZeit: Date,
 ): AgZuteilung[] {
   if (kandidatenAufsteigend.length === 0) return [];
-  function zuteilung(traeger: { eintrag: JobEintrag; abteilzeit: Date }, anzahl: number): AgZuteilung {
-    const wartezeitMs = schiffAbtZeit.getTime() - (traeger.abteilzeit.getTime() + ANFAHRT_SEESTATION_MS);
+  function zuteilung(traeger: TraegerKandidat, anzahl: number): AgZuteilung {
+    const wartezeitMs = schiffAbtZeit.getTime() - (traeger.abteilzeit.getTime() + traeger.anfahrtMs);
     return { traeger, anzahl, wartezeitMs, ueberWarteziel: wartezeitMs > WARTE_MAX_AG_MS };
   }
   const beste = kandidatenAufsteigend[kandidatenAufsteigend.length - 1];
@@ -126,10 +145,10 @@ export function berechneSeestationsDefizite(
     ...verplante,
   ]);
   const schiffe = schiffePriorisiert(daten.seeSchiffe, abgeteiltProSchiff, jetzt);
-  // Projizierte (verplante) Lotsen fließen nur innerhalb des 12-Std-
-  // Horizonts in die Rechnung ein — dieselbe Grenze wie die Vorschau der
-  // Seestations-Seite (siehe PLANUNGS_HORIZONT_MS).
-  const planungsHorizont = new Date(jetzt.getTime() + PLANUNGS_HORIZONT_MS);
+  // Projizierte (verplante) Lotsen fließen nur innerhalb des (per
+  // AG-Planungs-Settings übersteuerbaren) Planungshorizonts in die Rechnung
+  // ein — Standard 12 Std. (siehe effektiverPlanungsHorizontMs).
+  const planungsHorizont = new Date(jetzt.getTime() + effektiverPlanungsHorizontMs());
   const projektion = planeSeestation(
     schiffe,
     pool,
@@ -152,14 +171,19 @@ export function berechneSeestationsDefizite(
   );
   const abgeteiltProJob = new Map<number, number>();
   for (const a of daten.abteilungen) abgeteiltProJob.set(a.jobId, (abgeteiltProJob.get(a.jobId) ?? 0) + 1);
-  const traeger = sortiereEintraege(daten.jobs, settings).filter(
-    (p): p is { eintrag: JobEintrag; abteilzeit: Date } =>
-      (p.eintrag.liste === "hamburg" || p.eintrag.liste === "nok") &&
-      p.abteilzeit !== undefined &&
-      p.abteilzeit.getTime() >= jetzt.getTime() &&
-      !traegerGenutzt.has(p.eintrag.id) &&
-      benoetigteLotsenAnzahl(p.eintrag) - (abgeteiltProJob.get(p.eintrag.id) ?? 0) > 0,
-  );
+  const traeger: TraegerKandidat[] = sortiereEintraege(daten.jobs, settings)
+    .filter(
+      (p): p is { eintrag: JobEintrag; abteilzeit: Date } =>
+        (p.eintrag.liste === "hamburg" || p.eintrag.liste === "nok") &&
+        p.abteilzeit !== undefined &&
+        p.abteilzeit.getTime() >= jetzt.getTime() &&
+        !traegerGenutzt.has(p.eintrag.id) &&
+        benoetigteLotsenAnzahl(p.eintrag) - (abgeteiltProJob.get(p.eintrag.id) ?? 0) > 0,
+    )
+    // Anfahrt je Kandidat einmalig vorab berechnen (hängt nur vom Träger
+    // selbst ab, nicht vom jeweils betrachteten Schiff) — im Auto-Modus die
+    // matrixbasierte Fahrzeit, sonst die feste Pauschale.
+    .map((p) => ({ ...p, anfahrtMs: traegerAnfahrtMs(p.eintrag, p.abteilzeit, daten.jobs) }));
 
   const defizite: SeestationDefizit[] = [];
   for (const schiff of daten.seeSchiffe) {
@@ -178,15 +202,19 @@ export function berechneSeestationsDefizite(
     // rohen ETA — bei E3/St-Schiffen müssen die Lotsen 1,5 Std. früher
     // bereitstehen, auch wenn das Schiff noch nicht angemeldet ist.
     const schiffAbtZeit = planungsEta(schiff);
-    const ankunftsFrist = schiffAbtZeit.getTime() - VORLAUF_WARNUNG_MS;
+    const ankunftsFrist = schiffAbtZeit.getTime() - effektiverVorlaufZielMs();
 
     // Handlungsoptionen: späteste AG-Abteilzeit = Ankunftsfrist − Anfahrt;
     // Tender-AG muss bis Ankunftsfrist − (Vorlauf + Anfahrt) eingeplant
     // sein — der Tender fährt frühestens 3 Std. nach Planung ab und braucht
-    // dann selbst noch die Anfahrt.
-    const abfahrtsFrist = ankunftsFrist - ANFAHRT_SEESTATION_MS;
+    // dann selbst noch die Anfahrt. Für die Filterung/Tender-Frist gilt die
+    // Pauschale (Schätzung, bevor ein konkreter Träger feststeht) — die
+    // tatsächliche (ggf. auto-/matrixbasierte) Anfahrt je Kandidat steckt
+    // schon in dessen anfahrtMs und wirkt erst in planeAgTraeger.
+    const anfahrtPauschaleMs = effektiveAnfahrtPauschaleMs();
+    const abfahrtsFrist = ankunftsFrist - anfahrtPauschaleMs;
     const kandidaten = traeger.filter((p) => p.abteilzeit.getTime() <= abfahrtsFrist);
-    const tenderFrist = ankunftsFrist - TENDER_VORLAUF_MS - ANFAHRT_SEESTATION_MS;
+    const tenderFrist = ankunftsFrist - TENDER_VORLAUF_MS - anfahrtPauschaleMs;
     const tenderMoeglich = jetzt.getTime() <= tenderFrist;
 
     if (kandidaten.length === 0 && !tenderMoeglich) {
@@ -229,7 +257,7 @@ export function traegerLabel(p: { eintrag: JobEintrag }): string {
 }
 
 /** Ein Lotse ist zwar zugeteilt, kommt aber später als der angestrebte
- *  Vorlauf (siehe VORLAUF_WARNUNG_MS) vor dem Schiffs-ETA an. */
+ *  Vorlauf (siehe effektiverVorlaufZielMs) vor dem Schiffs-ETA an. */
 export interface KnapperVorlauf {
   schiff: SeeSchiff;
   lotsenName: string;
@@ -267,7 +295,7 @@ export function knappeVorlaeufe(daten: MeldungsDaten, jetzt: Date): KnapperVorla
       // Wer schon auf der Station steht, hat keinen Vorlauf-Nachteil.
       if (slot.zeile.aufStation || slot.zeile.etaStn === undefined) continue;
       const vorlauf = planungsEta(schiff).getTime() - slot.zeile.etaStn.getTime();
-      if (vorlauf >= VORLAUF_WARNUNG_MS) continue;
+      if (vorlauf >= effektiverVorlaufZielMs()) continue;
       knapp.push({
         schiff,
         lotsenName: slot.zeile.name,

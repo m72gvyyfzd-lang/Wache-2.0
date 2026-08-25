@@ -14,6 +14,8 @@ import type {
 } from "../data/types";
 import { agAbteilzeitVon, setHwBrbAktuell, setZeitrechnung } from "../lib/coreJob";
 import type { ZeitOverrides, ZeitrechnungsModus } from "../lib/coreJob";
+import { setAgPlanungEinstellungen as setAgPlanungEinstellungenSingleton } from "../lib/seestation";
+import type { AgPlanungEinstellungen } from "../lib/seestation";
 import { toernFeldFuerTypLabel } from "../lib/listenvergabe";
 import { tauschePositionen, verschiebeHinter } from "../lib/lotsenOrdnung";
 import {
@@ -144,6 +146,11 @@ interface DataContextValue {
   /** Session-Overrides der Fallback-Offsets (nicht persistiert) */
   zeitOverrides: ZeitOverrides;
   setZeitOverrides: (overrides: ZeitOverrides) => void;
+  /** Settings-Knopf der AG-Planungs-Kachel: Planungshorizont, Vorlauf-Ziel,
+   *  Anfahrt zur Seestation (Session-Override, nicht persistiert — wie
+   *  zeitOverrides gilt er nur für die laufende Sitzung). */
+  agPlanungEinstellungen: AgPlanungEinstellungen;
+  setAgPlanungEinstellungen: (einstellungen: AgPlanungEinstellungen) => void;
   /** Vorschau-Projektion aktiv — geteilt zwischen der Seestations-Seite und
    *  der Seestations-Kachel des Dashboards, damit beide dasselbe zeigen. */
   vorschau: boolean;
@@ -215,6 +222,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Synchron im Render (wie setHwBrbAktuell): die Kinder rechnen im selben
   // Durchlauf bereits mit dem neuen Stand.
   setZeitrechnung(zeitModus, zeitOverrides);
+
+  // AG-Planungs-Einstellungen: derselbe Session-Override-Mechanismus wie
+  // die Zeitrechnung (Modul-Singleton, nicht persistiert).
+  const [agPlanungEinstellungen, setAgPlanungEinstellungen] = useState<AgPlanungEinstellungen>({});
+  setAgPlanungEinstellungenSingleton(agPlanungEinstellungen);
 
   // Persistenter ID-Zähler: einmal vergebene IDs werden nie wiederverwendet,
   // damit spätere Verweise (z.B. AG-Verknüpfung) eindeutig bleiben.
@@ -423,6 +435,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // Wache — Reset und "Neue Wache" stellen die Standardwerte wieder her.
     setZeitModus("automatisch");
     setZeitOverrides({});
+    setAgPlanungEinstellungen({});
     const neuerStart = letzteVNr + 1;
     setVNrStartState(neuerStart);
     speichereVNrStart(neuerStart);
@@ -482,6 +495,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setZeitModus,
         zeitOverrides,
         setZeitOverrides,
+        agPlanungEinstellungen,
+        setAgPlanungEinstellungen,
         setHwBrb,
         vorschau,
         setVorschau,

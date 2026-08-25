@@ -17,7 +17,7 @@
 import type { AbteilzeitSettings } from "@wache/core";
 import { formatUhrzeit } from "./format";
 import type { MeldungsDaten, MeldungsStufe } from "./meldungen";
-import { ANFAHRT_SEESTATION_MS, TENDER_VORLAUF_MS, planungsEta } from "./seestation";
+import { effektiveAnfahrtPauschaleMs, TENDER_VORLAUF_MS, planungsEta } from "./seestation";
 import { MIN_TENDER_LOTSEN, berechneSeestationsDefizite, traegerLabel } from "./seestationBedarf";
 import type { SeestationDefizit } from "./seestationBedarf";
 
@@ -95,7 +95,7 @@ export function berechneAgPlanung(daten: MeldungsDaten, jetzt: Date, settings: A
   for (const d of tenderBedarf) {
     const letzte = fahrten[fahrten.length - 1];
     if (letzte) {
-      const fruehesteNeueAbfahrt = letzte.abfahrt.getTime() + ANFAHRT_SEESTATION_MS + TENDER_VORLAUF_MS;
+      const fruehesteNeueAbfahrt = letzte.abfahrt.getTime() + effektiveAnfahrtPauschaleMs() + TENDER_VORLAUF_MS;
       if (letzte.anzahl < MIN_TENDER_LOTSEN || fruehesteNeueAbfahrt > d.tenderEmpfehlung.abfahrt.getTime()) {
         letzte.mitglieder.push(d);
         letzte.anzahl += d.fehlt;

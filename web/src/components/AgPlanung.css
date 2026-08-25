@@ -1,0 +1,71 @@
+/* AG-Planungs-Kachel: dezenter "Settings"-Knopf in der Kopfzeile + das
+   Bearbeitungsfenster für Planungshorizont/Vorlauf-Ziel/Anfahrt. */
+
+.meldungs-tile__settings-btn {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 0.66rem;
+  padding: 2px 7px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.meldungs-tile__settings-btn:hover {
+  background: var(--surface-2);
+  color: var(--ink-muted);
+}
+
+.ag-einstellungen {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ag-einstellungen__zeile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ag-einstellungen__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+/* Segmented-Switch im Stil des Zeitrechnung-Modus-Umschalters: Pille mit
+   N Optionen, die aktive farbig gefüllt. */
+.ag-einstellungen__switch {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.ag-einstellungen__switch-btn {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.ag-einstellungen__switch-btn:not(:first-child) {
+  border-left: 1px solid var(--line);
+}
+
+.ag-einstellungen__switch-btn--aktiv {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.ag-einstellungen__hinweis {
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
