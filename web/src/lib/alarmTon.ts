@@ -108,10 +108,10 @@ function spieleSilbe(
  *  kleine Pause, "oh" (dunkler, tiefer, länger). Bewusst eine Synthese-
  *  Annäherung, kein Sample. */
 function spieleUhOh(c: BaseAudioContext, t0: number): void {
-  // "uh": offener Zentralvokal, Formanten ~845/1430 Hz (höher gepitcht, vgl. Vorgängerwerte 650/1100)
-  spieleSilbe(c, t0, 0.16, 429, 390, [845, 1430], 0.85);
-  // "oh": dunkles o, Formanten ~560/1040 Hz, deutlich tiefer und länger (vgl. Vorgängerwerte 430/800)
-  spieleSilbe(c, t0 + 0.24, 0.3, 341, 286, [560, 1040], 0.95);
+  // "uh": offener Zentralvokal, Formanten ~1300/2200 Hz (doppelte Tonhöhe ggü. Originalwerten 650/1100)
+  spieleSilbe(c, t0, 0.16, 660, 600, [1300, 2200], 0.85);
+  // "oh": dunkles o, Formanten ~860/1600 Hz, deutlich tiefer und länger (doppelte Tonhöhe ggü. Originalwerten 430/800)
+  spieleSilbe(c, t0 + 0.24, 0.3, 524, 440, [860, 1600], 0.95);
 }
 
 /** Freundlicher, aufsteigender Dreiklang (weiche Sinustöne). */
