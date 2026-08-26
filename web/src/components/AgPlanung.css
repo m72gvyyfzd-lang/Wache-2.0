@@ -1,20 +1,24 @@
 /* AG-Planungs-Kachel: dezenter "Settings"-Knopf in der Kopfzeile + das
    Bearbeitungsfenster für Planungshorizont/Vorlauf-Ziel/Anfahrt. */
 
+/* Dezenter Rahmen im Stil des Vorschau-Schalters der Seestations-Kachel
+   (siehe ZahlenTile.css: zahlen-tile__vorschau-btn). */
 .meldungs-tile__settings-btn {
   flex-shrink: 0;
-  border: none;
-  background: transparent;
-  color: var(--ink-faint);
-  font-size: 0.66rem;
-  padding: 2px 7px;
+  padding: 2px 8px;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--line);
   border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-muted);
   cursor: pointer;
 }
 
 .meldungs-tile__settings-btn:hover {
-  background: var(--surface-2);
-  color: var(--ink-muted);
+  background: var(--surface);
+  color: var(--ink);
 }
 
 .ag-einstellungen {

@@ -79,7 +79,6 @@ function EinstellungsSwitch<T extends string | number>({
 
 export function AgPlanungTile({ gruppen, offen, onToggle, containerRef, einstellungen, setEinstellungen }: AgPlanungTileProps) {
   const stufe = gruppen.length === 0 ? "leer" : gruppen.some((g) => g.stufe === "warnung") ? "warnung" : "vorschlag";
-  const horizontStd = einstellungen.horizontStd ?? 12;
 
   const [settingsOffen, setSettingsOffen] = useState(false);
   const [draft, setDraft] = useState<AgPlanungEinstellungen>(einstellungen);
@@ -107,9 +106,7 @@ export function AgPlanungTile({ gruppen, offen, onToggle, containerRef, einstell
       onClick={onToggle}
     >
       <div className="meldungs-tile__kopf">
-        <span className="meldungs-tile__label">
-          AG-Planung <span className="meldungs-tile__horizont">(max. {horizontStd} Std. voraus)</span>
-        </span>
+        <span className="meldungs-tile__label">AG-Planung</span>
         <button
           type="button"
           className="meldungs-tile__settings-btn"
