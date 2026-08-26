@@ -135,6 +135,18 @@ export function istBunkernPausiert(eintrag: JobEintrag): boolean {
   return eintrag.liste === "nok" && Boolean(eintrag.geplBunkern);
 }
 
+/** Letzter Checkpoint erreicht (Hamburg: Stade, NOK: Kuden) — das Schiff
+ *  steht kurz vor der Übergabe (siehe Tafel Brb, Jobs.tsx::CheckpointListe;
+ *  auch von Einsatzplanung.tsx für die gleiche Fett-Markierung genutzt).
+ *  Bunkern-pausierte NOK-Jobs bleiben dezent, auch wenn Kuden zufällig
+ *  gesetzt ist. */
+export function istLetzterCheckpointErreicht(eintrag: JobEintrag): boolean {
+  if (istBunkernPausiert(eintrag)) return false;
+  if (eintrag.liste === "hamburg") return eintrag.stade !== undefined;
+  if (eintrag.liste === "nok") return eintrag.kuden !== undefined;
+  return false;
+}
+
 export function abteilzeitVon(eintrag: JobEintrag, settings: AbteilzeitSettings): Date | undefined {
   if (istBunkernPausiert(eintrag)) return undefined;
   return berechneAbteilzeit(zuCoreJob(eintrag), effektiveSettings(settings), hwFuerRechnung());

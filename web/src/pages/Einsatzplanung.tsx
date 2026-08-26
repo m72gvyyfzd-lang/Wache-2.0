@@ -5,15 +5,19 @@ import { AbtZeitModal } from "../components/AbtZeitModal";
 import { AnStationModal } from "../components/AnStationModal";
 import { Badge } from "../components/Badge";
 import { FrageModal } from "../components/FrageModal";
+import { JobFormAndere } from "../components/JobFormAndere";
+import { JobFormHamburg } from "../components/JobFormHamburg";
+import { JobFormNok } from "../components/JobFormNok";
 import { LotsenAnzahlModal } from "../components/LotsenAnzahlModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
-import type { JobEintrag, LotsenEintrag } from "../data/types";
+import type { JobEintrag, JobListe, LotsenEintrag } from "../data/types";
 import {
   benoetigteLotsenAnzahl,
   istAgJob,
   istCuxVergabe,
+  istLetzterCheckpointErreicht,
   istOhneVNrJob,
   seeReiseInfoVon,
   sortiereEintraege,
@@ -28,6 +32,14 @@ import { useData } from "../state/DataContext";
 import "./Einsatzplanung.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
+
+// Feste, listenbezogene Überschrift für das per Doppelklick geöffnete
+// Bearbeitungsfenster — identisch zu Tafel Brb (siehe Jobs.tsx).
+const JOB_DIALOG_TITEL: Record<JobListe, string> = {
+  hamburg: "Hamburg / Bützfleth",
+  nok: "NOK",
+  andere: "Andere Jobs",
+};
 
 /** "Planung Einsatzstation": zugewiesene Lotsen dezent hinter dem
  *  Schiffsnamen, mehrere durch ", " getrennt. */
@@ -54,8 +66,18 @@ function LotseHinweis({ kategorie, eh, abrufStunden }: { kategorie: string; eh: 
 
 
 export function Einsatzplanung() {
-  const { jobs, lotsen, aktuelleFahrt, updateJob, updateLotse, vNrStart, abteilungen, teileAb, verbrauchteVNrn } =
-    useData();
+  const {
+    jobs,
+    lotsen,
+    aktuelleFahrt,
+    updateJob,
+    deleteJob,
+    updateLotse,
+    vNrStart,
+    abteilungen,
+    teileAb,
+    verbrauchteVNrn,
+  } = useData();
   // Zeit-Tick für die Überfällig-Hervorhebungen (Abt. Zeit / gepl. Abruf),
   // damit sie auch ohne Datenänderung umspringen — wie im Dashboard.
   const [jetzt, setJetzt] = useState(() => new Date());
@@ -69,9 +91,9 @@ export function Einsatzplanung() {
   for (const a of abteilungen) abgeteiltProJob.set(a.jobId, (abgeteiltProJob.get(a.jobId) ?? 0) + 1);
   // Cux-Vergaben laufen von Cuxhaven-Seite: sie erscheinen hier nicht —
   // als wäre der Job nicht da (sichtbar bleibt er grün in "Andere Jobs").
+  const sichtbar = (j: JobEintrag) => benoetigteLotsenAnzahl(j) - (abgeteiltProJob.get(j.id) ?? 0) > 0;
   const jobsSortiert = sortiereEintraege(jobs, settings).filter(
-    ({ eintrag }) =>
-      !istCuxVergabe(eintrag) && benoetigteLotsenAnzahl(eintrag) - (abgeteiltProJob.get(eintrag.id) ?? 0) > 0,
+    ({ eintrag }) => !istCuxVergabe(eintrag) && sichtbar(eintrag),
   );
   // Komplette Lotsenliste der Einsatzstation: 1. Prio Fahrt ≠ leer (in der
   // dort geltenden Fahrt-Rotationsreihenfolge), 2. Prio Fahrt = leer — genau
@@ -125,6 +147,16 @@ export function Einsatzplanung() {
   const [anStationLotse, setAnStationLotse] = useState<LotseMitOrdnung | null>(null);
   // "Abteilen": Rückfrage vor dem Verbinden von Job + Lotse
   const [abteilenFrage, setAbteilenFrage] = useState(false);
+  // Doppelklick auf einen Job (Nr./Von-Type/Schiffsname/Kat.) öffnet dasselbe
+  // volle Bearbeitungsfenster wie auf Tafel Brb (siehe Jobs.tsx) — die
+  // schmaleren Quick-Edits (Abt. Zeit, Lots.) bleiben daneben bestehen.
+  const [jobEditDialog, setJobEditDialog] = useState<JobEintrag | null>(null);
+  // Mögliche Trägerschiffe für die AG-Verknüpfung im "Andere Jobs"-Formular
+  // — identische Auswahlregel wie auf Tafel Brb (siehe Jobs.tsx).
+  const verknuepfbar = jobs.filter(
+    (j) =>
+      (j.liste !== "andere" || j.typ === "Sonstige") && (sichtbar(j) || j.id === jobEditDialog?.agJobId),
+  );
 
   // Aktuelle Auswahl für das Abteilen — Button erscheint, sobald ein Job
   // und mindestens ein Lotse markiert sind. Aktiv wird er erst, wenn genau
@@ -248,6 +280,21 @@ export function Einsatzplanung() {
     setAbtZeitJob(null);
   }
 
+  function handleJobDoppelklick(job: JobEintrag) {
+    setJobAuswahl(job.id);
+    setJobEditDialog(job);
+  }
+
+  function handleJobEditSubmit(job: JobEintrag) {
+    if (jobEditDialog) updateJob(jobEditDialog.id, job);
+    setJobEditDialog(null);
+  }
+
+  function handleJobEditDelete() {
+    if (jobEditDialog) deleteJob(jobEditDialog.id);
+    setJobEditDialog(null);
+  }
+
   // "Lotsen abrufen": An Stn. = jetzt + Abrufzeit, gepl. Abruf zeigt danach
   // "–". "Abruf zurück": beide Felder zurücksetzen — das entspricht wieder
   // dem berechneten Ausgangszustand.
@@ -361,7 +408,9 @@ export function Einsatzplanung() {
               const paar = jobsSortiert[i];
               const lotse = lotsenSortiert[i];
               const jobKlasse =
-                "einsatz-table__seite" + (paar && jobAuswahl === paar.eintrag.id ? " ist-ausgewaehlt" : "");
+                "einsatz-table__seite" +
+                (paar && jobAuswahl === paar.eintrag.id ? " ist-ausgewaehlt" : "") +
+                (paar && istLetzterCheckpointErreicht(paar.eintrag) ? " job-fett" : "");
               // Live-Vorschau nur für die Zeile des gerade gewählten Jobs,
               // und erst sobald mindestens ein Lotse markiert ist.
               const istAuswahlZiel =
@@ -398,17 +447,33 @@ export function Einsatzplanung() {
                 <tr key={i}>
                   {paar ? (
                     <>
-                      <td className={`${jobKlasse} num muted`} onClick={jobKlick}>
+                      <td
+                        className={`${jobKlasse} num muted`}
+                        onClick={jobKlick}
+                        onDoubleClick={() => handleJobDoppelklick(paar.eintrag)}
+                      >
                         {i + 1}
                       </td>
-                      <td className={`${jobKlasse} zentriert schmal`} onClick={jobKlick}>
+                      <td
+                        className={`${jobKlasse} zentriert schmal`}
+                        onClick={jobKlick}
+                        onDoubleClick={() => handleJobDoppelklick(paar.eintrag)}
+                      >
                         <Badge>{vonTypeLabel(paar.eintrag)}</Badge>
                       </td>
-                      <td className={`${jobKlasse} cell-name`} onClick={jobKlick}>
+                      <td
+                        className={`${jobKlasse} cell-name`}
+                        onClick={jobKlick}
+                        onDoubleClick={() => handleJobDoppelklick(paar.eintrag)}
+                      >
                         {paar.eintrag.schiffsname ?? "–"}
                         <PlanungHinweis namen={vorschlagsNamen} />
                       </td>
-                      <td className={`${jobKlasse} num muted zentriert`} onClick={jobKlick}>
+                      <td
+                        className={`${jobKlasse} num muted zentriert`}
+                        onClick={jobKlick}
+                        onDoubleClick={() => handleJobDoppelklick(paar.eintrag)}
+                      >
                         {paar.eintrag.kategorie ?? "·"}
                       </td>
                       <td
@@ -523,6 +588,38 @@ export function Einsatzplanung() {
         </table>
         </div>
       </Panel>
+
+      {jobEditDialog && (
+        // Identisches Bearbeitungsfenster wie auf Tafel Brb (Jobs.tsx) —
+        // gleiche Breite/Formulare, nur von hier per Doppelklick erreichbar.
+        <Modal title={JOB_DIALOG_TITEL[jobEditDialog.liste]} onClose={() => setJobEditDialog(null)} maxWidth="640px">
+          {jobEditDialog.liste === "hamburg" && (
+            <JobFormHamburg
+              initial={jobEditDialog}
+              onSubmit={handleJobEditSubmit}
+              onDelete={handleJobEditDelete}
+              onCancel={() => setJobEditDialog(null)}
+            />
+          )}
+          {jobEditDialog.liste === "nok" && (
+            <JobFormNok
+              initial={jobEditDialog}
+              onSubmit={handleJobEditSubmit}
+              onDelete={handleJobEditDelete}
+              onCancel={() => setJobEditDialog(null)}
+            />
+          )}
+          {jobEditDialog.liste === "andere" && (
+            <JobFormAndere
+              initial={jobEditDialog}
+              verknuepfbareJobs={verknuepfbar}
+              onSubmit={handleJobEditSubmit}
+              onDelete={handleJobEditDelete}
+              onCancel={() => setJobEditDialog(null)}
+            />
+          )}
+        </Modal>
+      )}
 
       {lotsenAnzahlJob && (
         <Modal

@@ -146,6 +146,13 @@
   cursor: not-allowed;
 }
 
+/* Letzter Checkpoint erreicht (Hamburg: Stade, NOK: Kuden) — dieselbe
+   Fett-Markierung wie auf Tafel Brb (siehe Jobs.css: job-letzter-checkpoint),
+   hier über jobKlasse auf alle Job-Zellen der Zeile angewendet. */
+.einsatz-table td.job-fett {
+  font-weight: 700;
+}
+
 /* Überschrittene Abt. Zeit (Jobs) bzw. überschrittener gepl. Abruf
    (Lotsen, solange nicht abgerufen): fett und rot — Gegenstück zur
    Alarmierung im Dashboard. */
