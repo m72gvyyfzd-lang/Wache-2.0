@@ -65,9 +65,13 @@ const ZEIT_RE = /^\d{1,2}:\d{2}$/;
  *  führen dasselbe Muster in einer rechten Spalte — eine falsch
  *  hochgeladene Datei würde sonst als gültige Tendertafel durchgehen. */
 const DATUM_ZEIT_RE = /^(\d{1,2}\.\d{1,2}\.)\s+(\d{1,2}:\d{2})$/;
-/** V-Nrn sind zwei- bis dreistellig (mit optionalem Zusatz A–D). Einstellige
- *  Zahlen bleiben bewusst außen vor — das sind die Kategorien. */
-const VNR_RE = /^\d{2,3}\s*[A-D]?$/i;
+/** V-Nrn sind mindestens zweistellig (mit optionalem Zusatz A–D) — meist
+ *  drei-, inzwischen auch vierstellig, sobald der Zähler über 999 läuft.
+ *  Nach oben bewusst offen, damit ein weiterer Stellenzuwachs künftig nicht
+ *  erneut zum selben Fehlbild führt (V-Nr. landet im Schiffsnamen, siehe
+ *  parseBlock). Einstellige Zahlen bleiben außen vor — das sind die
+ *  Kategorien. */
+const VNR_RE = /^\d{2,}\s*[A-D]?$/i;
 /** Neben H (Hamburg), K (Kanal/NOK) und EH (Elbehafen) schreibt die Tafel
  *  auch ausgeschriebene Kurzziele in die Bestimmungs-Spalte ("BÜTZ" =
  *  Bützfleth, "STADE") — ohne Erkennung würden sie dem Schiffsnamen

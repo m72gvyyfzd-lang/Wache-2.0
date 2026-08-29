@@ -330,8 +330,10 @@ export function SeestationLotseNeuModal({
   const [etaStn, setEtaStn] = useState("");
   const [warnung, setWarnung] = useState<string | null>(null);
 
+  // Kein Stellenlimit mehr — die V-Nr. ist inzwischen auch vierstellig
+  // möglich (siehe Settings.tsx::handleChange).
   function handleVNr(wert: string) {
-    setVNr(wert.replace(/\D/g, "").slice(0, 3));
+    setVNr(wert.replace(/\D/g, ""));
     setWarnung(null);
   }
 

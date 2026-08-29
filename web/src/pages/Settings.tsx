@@ -81,8 +81,11 @@ export function Settings() {
     setResetMeldung(`Reset ausgeführt — alle Listen geleert, nächste V-Nr.: ${formatVNr(letzteVNr + 1)}.`);
   }
 
+  // Kein Stellenlimit mehr: der Zähler war lange dreistellig, läuft
+  // inzwischen aber auch vierstellig (>999) weiter — eine feste Obergrenze
+  // hätte genau das wieder verhindert.
   function handleChange(wert: string) {
-    setEingabe(wert.replace(/\D/g, "").slice(0, 3));
+    setEingabe(wert.replace(/\D/g, ""));
   }
 
   /** Pflichtfeld: bei leerem Feld beim Verlassen auf den letzten gültigen
