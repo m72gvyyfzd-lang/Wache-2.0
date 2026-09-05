@@ -63,6 +63,10 @@ export interface JobEintrag {
    *  zur Seestation zu fahren — setzt beim Abteilen automatisch "Ankert"
    *  der entstehenden Abteilung (siehe lib/vorschau.ts, Versetzliste). */
   ehfWache?: boolean;
+  /** EHF: Anzahl benötigter Lotsen (Standard 1, max. 2) — der zweite Lotse
+   *  unterliegt derselben ehfLotseBenoetigt-Regel wie der erste (siehe
+   *  lib/planungEinsatzstation.ts::eignungsWarnung). */
+  ehfLotsenAnzahl?: number;
   /** BHF: Besetz-Zeit */
   bhfBesetzZeit?: Date;
 

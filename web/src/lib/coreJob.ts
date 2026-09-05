@@ -248,11 +248,17 @@ export function istAgJob(eintrag: JobEintrag): boolean {
 }
 
 /** Anzahl benötigter Lotsen (Einsatzplanung, Spalte "Lots."). Jeder Job
- *  braucht standardmäßig genau einen Lotsen — Ausnahme AG/AG (Tender),
- *  dort zählt agLotsenAnzahl (einstellbar im Job-Formular oder per
- *  Quick-Edit in der Einsatzplanung — beide schreiben dasselbe Feld). */
+ *  braucht standardmäßig genau einen Lotsen — Ausnahmen: AG/AG (Tender)
+ *  (agLotsenAnzahl, einstellbar im Job-Formular oder per Quick-Edit in der
+ *  Einsatzplanung — beide schreiben dasselbe Feld) und EHF (ehfLotsenAnzahl,
+ *  Standard 1, max. 2, nur im Job-Formular einstellbar). Die generische
+ *  FIFO-Zuteilung (planungEinsatzstation.ts) weist bei mehreren benötigten
+ *  Lotsen jedem Weiteren dieselbe Eignungsprüfung zu wie dem ersten — ein
+ *  zweiter EHF-Lotse unterliegt damit automatisch derselben
+ *  ehfLotseBenoetigt-Regel. */
 export function benoetigteLotsenAnzahl(eintrag: JobEintrag): number {
   if (istAgJob(eintrag)) return eintrag.agLotsenAnzahl ?? 1;
+  if (eintrag.liste === "andere" && eintrag.typ === "EHF") return eintrag.ehfLotsenAnzahl ?? 1;
   return 1;
 }
 

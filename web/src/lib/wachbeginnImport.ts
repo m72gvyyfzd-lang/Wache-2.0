@@ -7,7 +7,10 @@
  *    aus Bem.; Platzhalter-Schiffsnamen "HH-n"/"NOK-n", Rest arbeitet der
  *    User nach). Leer-Slots (nur Nr.) werden übersprungen.
  *  - Tafel Anmeldungen → Andere Jobs (Typ-Übersetzung, Datum/Zeit →
- *    Abt.Zeit, Lotsenanzahl nur bei AG-Typen).
+ *    Abt.Zeit; bei BHF → Besetz-Zeit, bei EHF → best. Abgang [+1h], die
+ *    Abt.Zeit ergibt sich jeweils aus derselben Kaskade wie im Formular.
+ *    EHF: "EHF-Lotse benötigt" automatisch ab Kat. 4. Lotsenanzahl bei
+ *    AG-Typen sowie — falls lesbar — bei EHF (max. 2).
  *  - Tafel Lotsenliste → Einsatzstation: Tafel-Nr. = aktuelle Fahrt,
  *    BB-Nr. = Bereitschafts-Reihenfolge, BB "A" = abgerufen (+ Zeit aus
  *    Bem. als "An Stn."), Abrufzeit "x,xh" aus Bem., Zahl hinter dem Namen
@@ -23,7 +26,7 @@
  *  Bemerkungen bzw. als Warnung in `meldungen` — nichts geht still
  *  verloren. */
 
-import { SCHIFFS_KATEGORIEN } from "@wache/core";
+import { SCHIFFS_KATEGORIEN, schiffsRang } from "@wache/core";
 import type { AnmeldungsTyp } from "@wache/core";
 import type {
   Abteilung,
@@ -323,6 +326,8 @@ function baueAndereJobs(
   const iKat = spaltenIndex(sektion, "kat");
   const iLotse = spaltenIndex(sektion, "lotse");
   const iDatum = spaltenIndex(sektion, "datum");
+  let ehfAutoEh = 0;
+  let ehfAutoLotsen = 0;
   for (const zeile of sektion.zeilen) {
     const typText = zeile[iTyp] ?? "";
     const katText = zeile[iKat] ?? "";
@@ -337,22 +342,56 @@ function baueAndereJobs(
     else if (typText !== "") job.bemerkung = `Typ: ${typText}`;
     if (katText !== "" && katText !== "-" && katText !== "–") job.kategorie = normalisiereSchiffsKat(katText);
 
-    // "02.08.2026 1659" bzw. "02.08. 16:59" → Abt.Zeit
+    // "02.08.2026 1659" bzw. "02.08. 16:59" → gelesener Zeitpunkt. Bei BHF/
+    // EHF ist das NICHT direkt die Abt.Zeit, sondern Besetz-Zeit bzw.
+    // best. Abgang − 1 Std. (dieselben Kaskaden wie im Job-Formular,
+    // JobFormAndere.tsx::handleBesetzZeit/handleBestAbgang) — sonst würde
+    // die spätere Bearbeitung im Formular die Abt.Zeit unbemerkt verschieben.
+    let gelesenerZeitpunkt: Date | undefined;
     const dz = datumZeitText.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})?\s+(\d{1,2}):?(\d{2})$/);
     if (dz) {
       const jahr = dz[3] ? (dz[3].length === 2 ? 2000 + Number(dz[3]) : Number(dz[3])) : jetzt.getFullYear();
-      job.abtZeitManuell = new Date(jahr, Number(dz[2]) - 1, Number(dz[1]), Number(dz[4]), Number(dz[5]));
+      gelesenerZeitpunkt = new Date(jahr, Number(dz[2]) - 1, Number(dz[1]), Number(dz[4]), Number(dz[5]));
     } else if (datumZeitText !== "") {
       const nurZeit = parseZeitMitTag(datumZeitText, jetzt);
-      if (nurZeit) job.abtZeitManuell = nurZeit;
+      if (nurZeit) gelesenerZeitpunkt = nurZeit;
       else meldungen.push({ stufe: "warnung", text: `Anmeldung "${typText}": Zeit "${datumZeitText}" nicht lesbar` });
     }
+    if (typ === "BHF") {
+      job.bhfBesetzZeit = gelesenerZeitpunkt;
+      job.abtZeitManuell = gelesenerZeitpunkt && new Date(gelesenerZeitpunkt.getTime() + 1_800_000);
+    } else if (typ === "EHF") {
+      job.ehfBestAbgang = gelesenerZeitpunkt && new Date(gelesenerZeitpunkt.getTime() + 3_600_000);
+      job.abtZeitManuell = gelesenerZeitpunkt;
+    } else {
+      job.abtZeitManuell = gelesenerZeitpunkt;
+    }
 
-    // Lotsenanzahl nur bei AG-Typen übernehmen (User-Regel)
+    // EHF: EH-Pflicht automatisch nach der bekannten Regel (Kat. >= 4 = EH
+    // erforderlich, siehe lib/planungEinsatzstation.ts::eignungsWarnung).
+    if (typ === "EHF" && job.kategorie !== undefined && schiffsRang(job.kategorie) >= 4) {
+      job.ehfLotseBenoetigt = true;
+      ehfAutoEh += 1;
+    }
+
+    // Lotsenanzahl: bei AG-Typen wie gehabt, bei EHF (falls in derselben
+    // Spalte lesbar) auf max. 2 begrenzt.
     if ((typ === "AG" || typ === "AG (Tender)") && /^\d+$/.test(lotseText)) {
       job.agLotsenAnzahl = Number(lotseText);
+    } else if (typ === "EHF" && /^\d+$/.test(lotseText)) {
+      job.ehfLotsenAnzahl = Math.min(2, Math.max(1, Number(lotseText)));
+      ehfAutoLotsen += 1;
     }
     jobs.push(job);
+  }
+  if (ehfAutoEh > 0) {
+    meldungen.push({
+      stufe: "info",
+      text: `Anmeldungen: ${ehfAutoEh}× EHF automatisch mit "EHF-Lotse benötigt" markiert (Kat. ≥ 4)`,
+    });
+  }
+  if (ehfAutoLotsen > 0) {
+    meldungen.push({ stufe: "info", text: `Anmeldungen: ${ehfAutoLotsen}× EHF-Lotsenanzahl aus der Tafel übernommen` });
   }
 }
 

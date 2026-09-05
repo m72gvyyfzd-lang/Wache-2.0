@@ -65,6 +65,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
   const [ehfBestAbgang, setEhfBestAbgang] = useState(toLocalInput(initial?.ehfBestAbgang));
   const [ehfLotse, setEhfLotse] = useState(initial?.ehfLotseBenoetigt ?? false);
   const [ehfWache, setEhfWache] = useState(initial?.ehfWache ?? false);
+  const [ehfLotsen, setEhfLotsen] = useState(String(initial?.ehfLotsenAnzahl ?? 1));
   const [bhfBesetzZeit, setBhfBesetzZeit] = useState(toLocalInput(initial?.bhfBesetzZeit));
   const [abtZeitDatum, setAbtZeitDatum] = useState(toLocalDateInput(initial?.abtZeitManuell));
   const [abtZeitZeit, setAbtZeitZeit] = useState(toLocalTimeInput(initial?.abtZeitManuell));
@@ -135,6 +136,13 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
     if (besetzt) setzeAbtZeit(new Date(besetzt.getTime() + 1_800_000));
   }
 
+  /** EHF: max. 2 Lotsen planbar — direkt beim Tippen begrenzen statt erst
+   *  beim Speichern, damit das Feld nie einen ungültigen Wert anzeigt. */
+  function handleEhfLotsen(wert: string) {
+    const ziffern = wert.replace(/\D/g, "");
+    setEhfLotsen(ziffern === "" ? "" : String(Math.min(2, Math.max(1, Number(ziffern)))));
+  }
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (typ === "") return;
@@ -151,6 +159,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
       ehfBestAbgang: typ === "EHF" ? fromLocalInput(ehfBestAbgang) : undefined,
       ehfLotseBenoetigt: typ === "EHF" ? ehfLotse : undefined,
       ehfWache: typ === "EHF" ? ehfWache : undefined,
+      ehfLotsenAnzahl: typ === "EHF" ? (ehfLotsen === "" ? 1 : Number(ehfLotsen)) : undefined,
       bhfBesetzZeit: typ === "BHF" ? fromLocalInput(bhfBesetzZeit) : undefined,
       vergabeCux: istListenvergabeTyp(typ) && cux ? true : undefined,
       abtZeitManuell: ausDatumUndZeit(abtZeitDatum, abtZeitZeit),
@@ -251,6 +260,10 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
             </label>
             <Switch label="EHF-Lotse benötigt" checked={ehfLotse} onChange={setEhfLotse} />
             <Switch label="EHF-Wache" checked={ehfWache} onChange={setEhfWache} />
+            <label className="job-form__ehf-lotsen">
+              Lotsen
+              <input type="number" min={1} max={2} value={ehfLotsen} onChange={(e) => handleEhfLotsen(e.target.value)} required />
+            </label>
           </>
         )}
         {typ === "BHF" && (

@@ -102,6 +102,14 @@
   text-align: right;
 }
 
+/* EHF-Zeile: "Lotsen" bekommt eine schmale feste Breite (wie "Speed" in
+   Ebene 1 ein kompaktes Zusatzfeld neben breiteren Elementen ist) — best.
+   Abgang und die beiden Schalter bleiben flex:1 und teilen sich den Rest,
+   dadurch bleibt genug Platz für Datum bzw. Schalter-Beschriftung. */
+.job-form__row > .job-form__ehf-lotsen {
+  flex: 0 0 82px;
+}
+
 /* BHF-Besetz-Zeit: als einziges Feld seiner Zeile würde es sich über die
    ganze Breite strecken. Es bekommt deshalb dieselbe Breite wie das
    "best. Abgang"-Feld der EHF-Zeile (dort ein flex:1-Label neben zwei
