@@ -99,6 +99,13 @@ function lotsenAusJson(raw: string): LotsenEintrag[] {
     const lotse: Record<string, unknown> = { ...eintrag };
     const wert = eintrag.anStationZeit;
     lotse.anStationZeit = typeof wert === "string" ? new Date(wert) : undefined;
+    // verhinderungTaFt.datum: verschachteltes Date-Feld, wird sonst beim
+    // Laden als bloßer ISO-String zurückgegeben (istVerhindert() ruft
+    // darauf getFullYear() auf und stürzt dann ab).
+    const taFt = eintrag.verhinderungTaFt as { datum?: unknown; fahrt?: unknown } | undefined;
+    if (taFt && typeof taFt.datum === "string") {
+      lotse.verhinderungTaFt = { ...taFt, datum: new Date(taFt.datum) };
+    }
     return lotse as unknown as LotsenEintrag;
   });
 }
