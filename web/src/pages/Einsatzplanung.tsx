@@ -124,6 +124,8 @@ export function Einsatzplanung() {
     zuweisungen,
     vNrStart,
     verbrauchteVNrn,
+    aktuelleFahrt,
+    jetzt,
   );
 
   // "gepl. Abruf": Abt.Zeit des zugewiesenen Jobs minus die Abrufzeit des

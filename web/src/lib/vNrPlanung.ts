@@ -1,20 +1,25 @@
 /**
  * Potentielle V-Nrn der Einsatzstations-Lotsen: fortlaufend ab vNrStart,
- * aber Lotsen mit einer Zuweisung aus OHNE_V_NR_TYPEN bekommen keine — der
- * Zähler bleibt für sie stehen und geht an den nächsten Lotsen ohne diese
- * Restriktion (statt der V-Nr. zeigt die Einsatzplanung dann die Kurzform
- * des Job-Typs). Beim Abteilen vergebene Nummern sind dauerhaft verbraucht
- * (siehe verbrauchteVNrn) und werden übersprungen — auch wenn sich die vNr
- * einer Abteilung später ändert (z.B. durch Verschieben auf der Seestation)
+ * aber Lotsen mit einer Zuweisung aus OHNE_V_NR_TYPEN sowie verhinderte
+ * Lotsen (siehe lib/verhinderung.ts) bekommen keine — der Zähler bleibt
+ * für sie stehen und geht an den nächsten Lotsen ohne diese Restriktion
+ * (statt der V-Nr. zeigt die Einsatzplanung dann die Kurzform des
+ * Job-Typs bzw. bei Verhinderung eine leere Zelle). Wird eine Verhinderung
+ * aufgehoben, rutscht die Nummerierung beim nächsten Neuberechnen einfach
+ * wieder entsprechend der Listenposition nach — kein gesonderter Zustand.
+ * Beim Abteilen vergebene Nummern sind dauerhaft verbraucht (siehe
+ * verbrauchteVNrn) und werden übersprungen — auch wenn sich die vNr einer
+ * Abteilung später ändert (z.B. durch Verschieben auf der Seestation)
  * oder rückgängig gemacht wird, wird die Nummer nicht wieder frei.
  *
  * Gemeinsame Grundlage für die V-Nr.-Spalte der Einsatzplanung und die
  * Einsortierung der Vorschau-Lotsen in der Seestation — beide müssen
  * dieselben Nummern zeigen.
  */
-import type { LotsenEintrag } from "../data/types";
+import type { AktuelleFahrt, LotsenEintrag } from "../data/types";
 import { istOhneVNrJob, vonTypeLabel, type EintragMitAbteilzeit } from "./coreJob";
 import type { LotseMitOrdnung } from "./lotsenOrdnung";
+import { istVerhindert } from "./verhinderung";
 
 export interface VNrPlanung {
   /** Lotse -> potentielle V-Nr. (in Listenreihenfolge vergeben) */
@@ -31,6 +36,8 @@ export function berechnePotentielleVNrn(
   zuweisungen: Map<number, LotsenEintrag[]>,
   vNrStart: number,
   verbrauchteVNrn: number[],
+  aktuelleFahrt: AktuelleFahrt,
+  jetzt: Date,
 ): VNrPlanung {
   const ohneVNr = new Set<LotsenEintrag>();
   const typProLotse = new Map<LotsenEintrag, string>();
@@ -46,7 +53,7 @@ export function berechnePotentielleVNrn(
   const vNrProLotse = new Map<LotsenEintrag, number>();
   let naechsteVNr = vNrStart;
   for (const { eintrag } of lotsenSortiert) {
-    if (ohneVNr.has(eintrag)) continue;
+    if (ohneVNr.has(eintrag) || istVerhindert(eintrag, aktuelleFahrt, jetzt)) continue;
     while (vergebeneVNrn.has(naechsteVNr)) naechsteVNr += 1;
     vNrProLotse.set(eintrag, naechsteVNr);
     naechsteVNr += 1;

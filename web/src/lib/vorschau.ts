@@ -56,7 +56,7 @@ export function vorschauZeilen(
     ({ eintrag }) => benoetigteLotsenAnzahl(eintrag) - (abgeteiltProJob.get(eintrag.id) ?? 0) > 0,
   );
   const lotsenSortiert = sortiereUndNummeriere(lotsen, aktuelleFahrt);
-  const { vNrProLotse } = berechnePotentielleVNrn(jobsSortiert, lotsenSortiert, zuweisungen, vNrStart, verbrauchteVNrn);
+  const { vNrProLotse } = berechnePotentielleVNrn(jobsSortiert, lotsenSortiert, zuweisungen, vNrStart, verbrauchteVNrn, aktuelleFahrt, jetzt);
 
   // Gemeinsame Zeilen-Fabrik: negative Kunst-IDs kollidieren nie mit echten
   // Datensätzen (die Zeilen sind ohnehin nicht anklickbar); ohne potentielle
