@@ -30,6 +30,7 @@ import {
 } from "@wache/core";
 import type { AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
 import { abteilzeitVon, benoetigteLotsenAnzahl } from "./coreJob";
+import { istVerhindert } from "./verhinderung";
 
 /** Größe der Kandidaten-Gruppe ("die ersten 4 Lotsen"). */
 export const VERGABE_GRUPPE = 4;
@@ -57,8 +58,16 @@ function nimmtTeil(lotse: LotsenEintrag, typ: ListenvergabeTyp): boolean {
   return darfJobTyp(typ, lotse.kategorie) && toernStand(lotse, typ) > 0;
 }
 
-function istGeeignet(job: JobEintrag, lotse: LotsenEintrag, typ: ListenvergabeTyp): boolean {
-  return nimmtTeil(lotse, typ) && darfFahren(job.kategorie ?? "", lotse.kategorie);
+function istGeeignet(
+  job: JobEintrag,
+  lotse: LotsenEintrag,
+  typ: ListenvergabeTyp,
+  aktuelleFahrt: AktuelleFahrt,
+  jetzt: Date,
+): boolean {
+  return (
+    nimmtTeil(lotse, typ) && darfFahren(job.kategorie ?? "", lotse.kategorie) && !istVerhindert(lotse, aktuelleFahrt, jetzt)
+  );
 }
 
 /**
@@ -145,6 +154,7 @@ export function planeListenvergabe(
   alleJobs: JobEintrag[],
   settings: AbteilzeitSettings,
   aktuelleFahrt: AktuelleFahrt,
+  jetzt: Date,
   abgeteiltProJob?: Map<number, number>,
 ): VergabePlanung {
   const typ = job.typ as ListenvergabeTyp;
@@ -177,7 +187,7 @@ export function planeListenvergabe(
   const gruppe: LotsenEintrag[] = [];
   for (const lotse of reihe) {
     if (gruppe.length >= VERGABE_GRUPPE) break;
-    if (istGeeignet(job, lotse, typ)) gruppe.push(lotse);
+    if (istGeeignet(job, lotse, typ, aktuelleFahrt, jetzt)) gruppe.push(lotse);
   }
 
   // geringster Törnstand gewinnt; bei Gleichstand die frühere Listenposition

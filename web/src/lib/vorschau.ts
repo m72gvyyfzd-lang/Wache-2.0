@@ -48,7 +48,7 @@ export function vorschauZeilen(
 ): VorschauZeilen {
   const abgeteiltProJob = new Map<number, number>();
   for (const a of abteilungen) abgeteiltProJob.set(a.jobId, (abgeteiltProJob.get(a.jobId) ?? 0) + 1);
-  const zuweisungen = planeEinsatzstation(jobs, lotsen, aktuelleFahrt, settings, abgeteiltProJob);
+  const zuweisungen = planeEinsatzstation(jobs, lotsen, aktuelleFahrt, settings, jetzt, abgeteiltProJob);
   const verplantSet = new Set<LotsenEintrag>();
   for (const liste of zuweisungen.values()) for (const lotse of liste) verplantSet.add(lotse);
 

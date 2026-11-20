@@ -31,6 +31,7 @@
 import type { AktuelleFahrt, Fahrt, LotsenEintrag } from "../data/types";
 import { FAHRT_ZEILE_KLASSE } from "./lotsenOrdnung";
 import type { LotseMitOrdnung } from "./lotsenOrdnung";
+import { istVerhindert } from "./verhinderung";
 
 export interface EinzufuegenEintrag {
   id: string;
@@ -91,6 +92,24 @@ export function geschuetzteKandidaten(kandidaten: KandidatZeile[], aktuelleFahrt
   for (const z of kandidaten) {
     if (z.art !== "lotse") continue;
     if (z.eintrag.abgerufen || z.eintrag.fahrt === aktuelleFahrt) ergebnis.add(z.id);
+  }
+  return ergebnis;
+}
+
+/** Zeilen, die "Fahrtaufmachung: Nein" tragen (§30/FT/TA-FT, siehe
+ *  lib/verhinderung.ts) — ihr Häkchen bleibt gesperrt, "Vorschau
+ *  generieren" schlägt sie nie vor. Anders als geschuetzteKandidaten
+ *  betrifft das NICHT das Durchstreichen: ein verhinderter Lotse kann wie
+ *  jeder andere nicht bestätigte Kandidat aus der Liste fallen. */
+export function verhinderteKandidaten(
+  kandidaten: KandidatZeile[],
+  aktuelleFahrt: AktuelleFahrt,
+  jetzt: Date,
+): Set<string> {
+  const ergebnis = new Set<string>();
+  for (const z of kandidaten) {
+    if (z.art !== "lotse") continue;
+    if (istVerhindert(z.eintrag, aktuelleFahrt, jetzt)) ergebnis.add(z.id);
   }
   return ergebnis;
 }

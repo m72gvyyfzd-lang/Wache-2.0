@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LOTSEN_KATEGORIEN } from "@wache/core";
 import { FrageModal } from "../components/FrageModal";
 import { LotseForm } from "../components/LotseForm";
@@ -16,6 +16,7 @@ import {
   formatAbrufzeit,
   sortiereUndNummeriere,
 } from "../lib/lotsenOrdnung";
+import { istVerhindert } from "../lib/verhinderung";
 import { useData } from "../state/DataContext";
 import "./Einsatzstation.css";
 
@@ -59,6 +60,14 @@ interface QuickEdit {
 export function Einsatzstation() {
   const { lotsen, addLotse, updateLotse, deleteLotse, tauscheLotsen, verschiebeLotse, aktuelleFahrt, setAktuelleFahrt } =
     useData();
+  // Zeit-Tick für die TA/FT-Datumsprüfung der Verhinderungs-Spalte (siehe
+  // lib/verhinderung.ts) — wie in Einsatzplanung.tsx, damit der Tageswechsel
+  // nicht erst beim nächsten Dateneingriff ankommt.
+  const [jetzt, setJetzt] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setJetzt(new Date()), 15_000);
+    return () => clearInterval(id);
+  }, []);
   const [query, setQuery] = useState("");
   const [dialog, setDialog] = useState<{ index?: number; lotse?: LotsenEintrag } | null>(null);
   // Markierung wie in den übrigen Listen: Klick wählt aus, max. zwei
@@ -215,12 +224,13 @@ export function Einsatzstation() {
                 <th>Name</th>
                 <th className="num">Kat.</th>
                 <th className="num">Abr.</th>
-                <th className="num">EH</th>
+                <th className="num eh-breite">EH</th>
                 <th className="num">2+2</th>
                 <th className="num">WB</th>
                 <th className="num">WR</th>
                 <th className="num">HuLo</th>
                 <th className="num">BB</th>
+                <th className="num eh-breite">Verh.</th>
                 <th>Bemerkungen</th>
               </tr>
             </thead>
@@ -252,7 +262,7 @@ export function Einsatzstation() {
                     <td className="num muted" onDoubleClick={quick("abrufStunden")}>
                       {formatAbrufzeit(eintrag.abrufStunden) || "·"}
                     </td>
-                    <td className="num" onDoubleClick={quick("elbehafen")}>
+                    <td className="num eh-breite" onDoubleClick={quick("elbehafen")}>
                       {eintrag.elbehafen ? "✓" : ""}
                     </td>
                     <td className="num muted" onDoubleClick={quick("toern2Plus2")}>
@@ -268,6 +278,9 @@ export function Einsatzstation() {
                       {zaehlerZelle(eintrag.toernHulo)}
                     </td>
                     <td className="num muted">{bb ?? "·"}</td>
+                    <td className="num eh-breite" title="Verhinderung: Listenvergabe/Fahrtaufmachung/Abteilung Einsatzstation = Nein">
+                      {istVerhindert(eintrag, aktuelleFahrt, jetzt) ? "✓" : ""}
+                    </td>
                     <td className="muted" onDoubleClick={quick("bemerkung")}>
                       {eintrag.bemerkung}
                     </td>
@@ -276,7 +289,7 @@ export function Einsatzstation() {
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={11} style={{ textAlign: "center", padding: 20 }} className="muted">
+                  <td colSpan={12} style={{ textAlign: "center", padding: 20 }} className="muted">
                     keine Treffer
                   </td>
                 </tr>

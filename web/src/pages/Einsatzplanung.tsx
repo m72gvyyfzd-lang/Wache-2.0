@@ -102,7 +102,7 @@ export function Einsatzplanung() {
   const lotsenSortiert = sortiereUndNummeriere(lotsen, aktuelleFahrt);
   const zeilen = Math.max(jobsSortiert.length, lotsenSortiert.length);
   // "Planung Einsatzstation" — wird bei jeder Änderung neu berechnet
-  const { zuweisungen, vergaben } = planeEinsatzstationMitVergaben(jobs, lotsen, aktuelleFahrt, settings, abgeteiltProJob);
+  const { zuweisungen, vergaben } = planeEinsatzstationMitVergaben(jobs, lotsen, aktuelleFahrt, settings, jetzt, abgeteiltProJob);
   const zugewieseneLotsen = new Set(Array.from(zuweisungen.values()).flat());
 
   // "in der Zählung": Lotse -> Listenvergabe-Gruppen, in denen er steht
@@ -186,7 +186,7 @@ export function Einsatzplanung() {
   // Warnung, wenn gewählte Lotsen die Anforderungen des Jobs nicht
   // erfüllen (Kat., Job-Typ, EH) — abteilen bleibt trotzdem möglich.
   const abteilenWarnungen = abteilenJob
-    ? abteilenLotsen.map((l) => eignungsWarnung(abteilenJob, l.eintrag)).filter((w): w is string => w !== undefined)
+    ? abteilenLotsen.map((l) => eignungsWarnung(abteilenJob, l.eintrag, aktuelleFahrt, jetzt)).filter((w): w is string => w !== undefined)
     : [];
   const abteilenWarnung =
     abteilenWarnungen.length > 0 ? Array.from(new Set(abteilenWarnungen)).join(" / ") : undefined;

@@ -107,6 +107,14 @@ tbody tr.ist-ausgewaehlt td {
   width: 1%;
 }
 
+/* "EH" und "Verh.": exakt gleiche Breite — ohne diese Regel würde "Verh."
+   durch den längeren Kopftext breiter als "EH" ausfallen (beide Spalten
+   sind sonst nur inhaltsbasiert über .num, nicht fest, bemessen). */
+.lotsen-table th.eh-breite,
+.lotsen-table td.eh-breite {
+  width: 66px;
+}
+
 .lotsen-table td.cell-name,
 .lotsen-table th:nth-child(2),
 .lotsen-table td:last-child,

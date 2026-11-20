@@ -33,3 +33,11 @@ export function ausDatumUndZeit(datum: string, zeit: string): Date | undefined {
   const ergebnis = new Date(`${datum}T${zeit}`);
   return Number.isNaN(ergebnis.getTime()) ? undefined : ergebnis;
 }
+
+/** Reine Datums-Eingabe (type="date", keine Uhrzeit) zu einem Date
+ *  (Mitternacht, lokale Zeit). */
+export function ausDatum(datum: string): Date | undefined {
+  if (!datum) return undefined;
+  const ergebnis = new Date(`${datum}T00:00`);
+  return Number.isNaN(ergebnis.getTime()) ? undefined : ergebnis;
+}

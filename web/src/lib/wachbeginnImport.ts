@@ -15,6 +15,8 @@
  *    BB-Nr. = Bereitschafts-Reihenfolge, BB "A" = abgerufen (+ Zeit aus
  *    Bem. als "An Stn."), Abrufzeit "x,xh" aus Bem., Zahl hinter dem Namen
  *    = Kat. CB-Lotsen und Lotsen ohne Tafel-/BB-Eintrag bleiben draußen.
+ *    Verhinderung (§30/"<Zahl>FT"/"TA/FT <Datum> <Fahrt>") ebenfalls aus
+ *    Bem. (siehe lib/verhinderung.ts).
  *  - Tendertafel → ETA Seestation (Doppeldecker-Zusammenfassung, EH,
  *    fett = angemeldet) und über den Marker-Abgleich mit dem ersten
  *    Einsatzstations-Lotsen: "letzte V-Nr." + Liste "Auf Seestation"
@@ -422,6 +424,7 @@ function baueLotsen(
   const fahrtLotsen: { nr: number; lotse: LotsenEintrag }[] = [];
   const abgerufene: LotsenEintrag[] = [];
   const bereitschaft: { nr: number; lotse: LotsenEintrag }[] = [];
+  let verhinderungErkannt = 0;
 
   for (const zeile of sektion.zeilen) {
     const tafelText = zeile[iTafel] ?? "";
@@ -470,6 +473,38 @@ function baueLotsen(
         rest = rest.replace(zeitMatch[0], " ");
       }
     }
+    // Verhinderung: §30, "<Zahl>FT" (Freie Tage) und "TA/FT <Datum> <Fahrt>"
+    // (siehe lib/verhinderung.ts) — TA/FT zuerst prüfen, sonst würde das
+    // "FT" darin zusätzlich als eigenständiges FT-Kürzel durchschlagen.
+    const taFtMatch = rest.match(/TA\s*\/\s*FT\s+(\d{1,2})\.(\d{1,2})\.(\d{2,4})?\s*([A-Za-zÄÖÜäöü]+)/i);
+    if (taFtMatch) {
+      const taFtJahr = taFtMatch[3]
+        ? taFtMatch[3].length === 2
+          ? 2000 + Number(taFtMatch[3])
+          : Number(taFtMatch[3])
+        : jetzt.getFullYear();
+      const taFtFahrt = FAHRT_MAP[taFtMatch[4].toLowerCase().replace(/[^a-z]/g, "")];
+      if (taFtFahrt) {
+        lotse.verhinderungTaFt = {
+          datum: new Date(taFtJahr, Number(taFtMatch[2]) - 1, Number(taFtMatch[1])),
+          fahrt: taFtFahrt,
+        };
+        rest = rest.replace(taFtMatch[0], " ");
+        verhinderungErkannt += 1;
+      }
+    } else {
+      if (/§\s*30/.test(rest)) {
+        lotse.verhinderungParagraph30 = true;
+        rest = rest.replace(/§\s*30/, " ");
+        verhinderungErkannt += 1;
+      }
+      const ftMatch = rest.match(/\d+\s*ft\b/i);
+      if (ftMatch) {
+        lotse.verhinderungFt = true;
+        rest = rest.replace(ftMatch[0], " ");
+        verhinderungErkannt += 1;
+      }
+    }
     if (rest.trim() !== "") lotse.bemerkung = bemText;
 
     if (tafelNr !== undefined) fahrtLotsen.push({ nr: tafelNr, lotse });
@@ -482,6 +517,12 @@ function baueLotsen(
   // Reihenfolge: aktuelle Fahrt (Tafel-Nr.), dann abgerufene Bereitschafts-
   // Lotsen (stehen als Nächste an), dann Bereitschaft nach BB-Nr.
   ergebnis.lotsen = [...fahrtLotsen.map((f) => f.lotse), ...abgerufene, ...bereitschaft.map((b) => b.lotse)];
+  if (verhinderungErkannt > 0) {
+    meldungen.push({
+      stufe: "info",
+      text: `Lotsenliste: ${verhinderungErkannt}× Verhinderung erkannt (§30/FT/TA-FT) — Listenvergabe, Fahrtaufmachung, Abteilung Einsatzstation auf Nein`,
+    });
+  }
   return ergebnis;
 }
 

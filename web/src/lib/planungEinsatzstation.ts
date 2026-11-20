@@ -17,13 +17,19 @@ import type { AktuelleFahrt, JobEintrag, LotsenEintrag } from "../data/types";
 import { benoetigteLotsenAnzahl, istBunkernPausiert, istCuxVergabe, sortiereEintraege, type EintragMitAbteilzeit } from "./coreJob";
 import { istListenvergabeJob, planeListenvergabe, toernStand, type VergabePlanung } from "./listenvergabe";
 import { sortiereUndNummeriere } from "./lotsenOrdnung";
+import { istVerhindert } from "./verhinderung";
 
 /** Prüft dieselben Bedingungen wie die Planung, liefert aber den Grund als
  *  Warnungstext (für das Abteilen-Fragefenster). undefined = alles passt.
  *  Jeder Lotse (auch weitere AG-Lotsen) braucht die volle Kat. — die
  *  Zweitlotsen-Regel (ab Kat. 3+) gilt nur für echte Schiffe mit 2 Lotsen
  *  (siehe lib/seestationAbteilen.ts), nicht für AG-Jobs. */
-export function eignungsWarnung(job: JobEintrag, lotse: LotsenEintrag): string | undefined {
+export function eignungsWarnung(
+  job: JobEintrag,
+  lotse: LotsenEintrag,
+  aktuelleFahrt: AktuelleFahrt,
+  jetzt: Date,
+): string | undefined {
   const schiffsKat = job.kategorie ?? "";
   // Sonderradar/Nebelradar sind Lotsen-Dienste ohne festes Schiff — die
   // eingegebene Kat. (Schiff) ist reine Zusatzinfo und darf die Zuweisung
@@ -34,11 +40,12 @@ export function eignungsWarnung(job: JobEintrag, lotse: LotsenEintrag): string |
   if (job.ehfLotseBenoetigt && schiffsRang(schiffsKat) >= 4 && !lotse.elbehafen) return "Lotse nicht in EH-Liste";
   if (job.liste === "andere" && istListenvergabeTyp(job.typ) && toernStand(lotse, job.typ) <= 0)
     return `Lotse nimmt nicht am ${job.typ}-Dienst teil (Törn 0)`;
+  if (istVerhindert(lotse, aktuelleFahrt, jetzt)) return "Lotse ist verhindert";
   return undefined;
 }
 
-function istGeeignet(job: JobEintrag, lotse: LotsenEintrag): boolean {
-  return eignungsWarnung(job, lotse) === undefined;
+function istGeeignet(job: JobEintrag, lotse: LotsenEintrag, aktuelleFahrt: AktuelleFahrt, jetzt: Date): boolean {
+  return eignungsWarnung(job, lotse, aktuelleFahrt, jetzt) === undefined;
 }
 
 export interface EinsatzstationPlanung {
@@ -62,6 +69,7 @@ export function planeEinsatzstationMitVergaben(
   lotsen: LotsenEintrag[],
   aktuelleFahrt: AktuelleFahrt,
   settings: AbteilzeitSettings,
+  jetzt: Date,
   abgeteiltProJob?: Map<number, number>,
 ): EinsatzstationPlanung {
   const jobsSortiert = sortiereEintraege(jobs, settings);
@@ -83,7 +91,7 @@ export function planeEinsatzstationMitVergaben(
       zuweisungen.set(job.id, []);
       continue;
     }
-    const planung = planeListenvergabe(job, kandidaten, jobs, settings, aktuelleFahrt, abgeteiltProJob);
+    const planung = planeListenvergabe(job, kandidaten, jobs, settings, aktuelleFahrt, jetzt, abgeteiltProJob);
     vergaben.set(job.id, planung);
     zuweisungen.set(job.id, planung.gewinner ? [planung.gewinner] : []);
     if (planung.gewinner) kandidaten = kandidaten.filter((l) => l !== planung.gewinner);
@@ -102,7 +110,7 @@ export function planeEinsatzstationMitVergaben(
     const zugewiesen: LotsenEintrag[] = [];
     const uebrig: LotsenEintrag[] = [];
     for (const kandidat of kandidaten) {
-      if (zugewiesen.length < benoetigt && istGeeignet(job, kandidat)) {
+      if (zugewiesen.length < benoetigt && istGeeignet(job, kandidat, aktuelleFahrt, jetzt)) {
         zugewiesen.push(kandidat);
       } else {
         uebrig.push(kandidat);
@@ -123,9 +131,10 @@ export function planeEinsatzstation(
   lotsen: LotsenEintrag[],
   aktuelleFahrt: AktuelleFahrt,
   settings: AbteilzeitSettings,
+  jetzt: Date,
   abgeteiltProJob?: Map<number, number>,
 ): Map<number, LotsenEintrag[]> {
-  return planeEinsatzstationMitVergaben(jobs, lotsen, aktuelleFahrt, settings, abgeteiltProJob).zuweisungen;
+  return planeEinsatzstationMitVergaben(jobs, lotsen, aktuelleFahrt, settings, jetzt, abgeteiltProJob).zuweisungen;
 }
 
 /** Ordnet jedem zugewiesenen Lotsen die Abteilzeit seines Jobs zu — Basis für

@@ -99,7 +99,7 @@ function abrufMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitS
     ({ eintrag }) =>
       !istCuxVergabe(eintrag) && benoetigteLotsenAnzahl(eintrag) - (abgeteiltProJob.get(eintrag.id) ?? 0) > 0,
   );
-  const zuweisungen = planeEinsatzstation(daten.jobs, daten.lotsen, daten.aktuelleFahrt, settings, abgeteiltProJob);
+  const zuweisungen = planeEinsatzstation(daten.jobs, daten.lotsen, daten.aktuelleFahrt, settings, jetzt, abgeteiltProJob);
 
   for (const { eintrag: job, abteilzeit } of jobsSortiert) {
     if (!abteilzeit) continue;
@@ -359,7 +359,7 @@ function namensMeldungen(daten: MeldungsDaten): Meldung[] {
  * - die 4er-Gruppe muss voll besetzt werden können — stehen weniger als 4
  *   geeignete Lotsen zur Verfügung, ist das ein Alarm.
  */
-function listenvergabeMeldungen(daten: MeldungsDaten, settings: AbteilzeitSettings): Meldung[] {
+function listenvergabeMeldungen(daten: MeldungsDaten, jetzt: Date, settings: AbteilzeitSettings): Meldung[] {
   const meldungen: Meldung[] = [];
   const vergaben = daten.jobs
     .map((job) => ({ job, abteilzeit: abteilzeitVon(job, settings) }))
@@ -376,6 +376,7 @@ function listenvergabeMeldungen(daten: MeldungsDaten, settings: AbteilzeitSettin
     daten.lotsen,
     daten.aktuelleFahrt,
     settings,
+    jetzt,
     abgeteiltProJob,
   );
   for (const { job, abteilzeit } of vergaben) {
@@ -463,7 +464,7 @@ export function berechneMeldungen(daten: MeldungsDaten, jetzt: Date, settings: A
     ...seestationsMeldungen(daten, jetzt, settings),
     ...vorlaufMeldungen(daten, jetzt),
     ...namensMeldungen(daten),
-    ...listenvergabeMeldungen(daten, settings),
+    ...listenvergabeMeldungen(daten, jetzt, settings),
   ]);
 }
 

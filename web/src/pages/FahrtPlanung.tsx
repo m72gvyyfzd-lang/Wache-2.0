@@ -32,6 +32,7 @@ import {
   boertVorschlag,
   geschuetzteKandidaten,
   mergeKandidaten,
+  verhinderteKandidaten,
   vorschauFahrtKlasse,
   type EinzufuegenEintrag,
 } from "../lib/boertVorschau";
@@ -298,6 +299,10 @@ export function FahrtPlanung() {
   // alle Lotsen der aktuellen Fahrt (wechseln ohnehin geschlossen mit).
   // Sie bekommen kein Häkchen und werden nie durchgestrichen.
   const geschuetzt = useMemo(() => geschuetzteKandidaten(kandidaten, aktuelle), [kandidaten, aktuelle]);
+  // "Fahrtaufmachung: Nein" (§30/FT/TA-FT, siehe lib/verhinderung.ts): kein
+  // Häkchen, nie als Vorschlag — anders als geschuetzt aber weiterhin ganz
+  // normal durchstreichbar (siehe verhinderteKandidaten).
+  const verhindert = useMemo(() => verhinderteKandidaten(kandidaten, aktuelle, jetzt), [kandidaten, aktuelle, jetzt]);
   const durchgestrichen = useMemo(
     () => berechneDurchgestrichen(kandidaten, bestaetigt, geschuetzt),
     [kandidaten, bestaetigt, geschuetzt],
@@ -314,14 +319,14 @@ export function FahrtPlanung() {
   }, [kandidaten, bestaetigt]);
 
   function handleVorschauGenerieren() {
-    setBestaetigt(boertVorschlag(kandidaten, grenze, fahrtAnforderung, geschuetzt));
+    setBestaetigt(boertVorschlag(kandidaten, grenze, fahrtAnforderung, new Set([...geschuetzt, ...verhindert])));
     setGeneriert(true);
   }
 
   /** Ein Häkchen betrifft ausschließlich die eigene Zeile — keine
    *  automatische Auffüll- oder Verdrängungslogik. */
   function toggleHaekchen(id: string) {
-    if (geschuetzt.has(id)) return;
+    if (geschuetzt.has(id) || verhindert.has(id)) return;
     setBestaetigt((s) => {
       const neu = new Set(s);
       if (neu.has(id)) neu.delete(id);
@@ -722,13 +727,15 @@ export function FahrtPlanung() {
                         <input
                           type="checkbox"
                           checked={bestaetigt.has(zeile.id)}
-                          disabled={geschuetzt.has(zeile.id)}
+                          disabled={geschuetzt.has(zeile.id) || verhindert.has(zeile.id)}
                           title={
                             geschuetzt.has(zeile.id)
                               ? zeile.art === "lotse" && zeile.eintrag.abgerufen
                                 ? "abgerufen — bleibt in der Liste"
                                 : "in der aktuellen Fahrt — wechselt ohnehin mit"
-                              : undefined
+                              : verhindert.has(zeile.id)
+                                ? "verhindert (§30 / FT / TA-FT) — Fahrtaufmachung: Nein"
+                                : undefined
                           }
                           onChange={() => toggleHaekchen(zeile.id)}
                         />

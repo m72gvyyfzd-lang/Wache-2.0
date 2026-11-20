@@ -138,6 +138,22 @@ export interface LotsenEintrag {
    *  Einsatzstation ausgeblendet — Rückgängigmachen stellt alles wieder
    *  her. */
   abgeteilt?: boolean;
+
+  /** "Verhinderung": aus der Bemerkung erkannte (oder manuell gesetzte)
+   *  Markierungen, die Listenvergabe, Fahrtaufmachung und Abteilung
+   *  Einsatzstation gemeinsam auf "Nein" schalten, sobald mindestens eine
+   *  davon aktiv ist (siehe lib/verhinderung.ts::istVerhindert) — die drei
+   *  Felder sind unabhängig voneinander schaltbar, aber für die
+   *  Nein-Wirkung gleichbedeutend. Unabhängig vom Bemerkungstext selbst,
+   *  der unverändert sichtbar bleibt. */
+  verhinderungParagraph30?: boolean;
+  /** "<Zahl>FT" (Freie Tage) — die Anzahl selbst wird nicht gespeichert,
+   *  nur die Tatsache, dass der Lotse frei hat. */
+  verhinderungFt?: boolean;
+  /** "TA/FT" + Datum + Fahrt: die Verhinderung gilt nur, solange weder das
+   *  Datum der heutige Tag ist, noch die Fahrt die direkt auf die aktuelle
+   *  Fahrt folgende ist — an diesem Punkt ist der Lotse zurück. */
+  verhinderungTaFt?: { datum: Date; fahrt: AktuelleFahrt };
 }
 
 /**
