@@ -13,11 +13,12 @@
  *
  *  Export/Import: die App hat keine eigene zentrale Datenhaltung (rein
  *  lokal je Gerät) — Export/Import ist deshalb der Weg, die EH-Liste
- *  zwischen Geräten abzugleichen, ohne sie auf jedem Gerät neu aus der
- *  Einsatzstation aufzubauen. Export zeigt die Liste als Text zum
- *  Kopieren, Import ersetzt die komplette lokale Liste durch den
- *  eingefügten Text (mit Vorschau vor dem Übernehmen). */
-import { useState } from "react";
+ *  zwischen Geräten abzugleichen. "Export" lädt die Liste als Text-Datei
+ *  herunterladen; "Import" liest eine solche Datei wieder ein und
+ *  sortiert ihre (noch unbekannten) Einträge in dieselbe Update-Tabelle
+ *  ein wie "Check Update" — Prüfung per Häkchen, "Übertragen" übernimmt
+ *  sie dann ganz regulär in die EH-Liste. */
+import { useRef, useState } from "react";
 import { FrageModal } from "../components/FrageModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
@@ -40,13 +41,13 @@ function formatStand(stand: Date | undefined): string {
   return `${t(stand.getDate())}.${t(stand.getMonth() + 1)}.${stand.getFullYear()}`;
 }
 
-/** Wandelt die EH-Liste in einen kopierbaren Text (JSON). */
+/** Wandelt die EH-Liste in den Datei-Inhalt (JSON) um. */
 function exportText(ehListe: EhListeDaten): string {
   return JSON.stringify(ehListe);
 }
 
-/** Liest den Export-Text eines anderen Geräts zurück ein. null = Text ist
- *  kein gültiger EH-Listen-Export. */
+/** Liest den Datei-Inhalt eines Exports von einem anderen Gerät ein. null =
+ *  Inhalt ist kein gültiger EH-Listen-Export. */
 function parseImport(text: string): EhListeDaten | null {
   try {
     const roh = JSON.parse(text) as { eintraege?: unknown; stand?: unknown };
@@ -71,10 +72,9 @@ export function EhListe() {
   const [auswahl, setAuswahl] = useState<number | null>(null);
   const [loeschFrage, setLoeschFrage] = useState(false);
   const [bearbeiteName, setBearbeiteName] = useState<string | null>(null);
-  const [exportOffen, setExportOffen] = useState(false);
-  const [exportKopiert, setExportKopiert] = useState(false);
-  const [importOffen, setImportOffen] = useState(false);
-  const [importText, setImportText] = useState("");
+  const [importFehler, setImportFehler] = useState<string | null>(null);
+  const [importMeldung, setImportMeldung] = useState<string | null>(null);
+  const importDateiRef = useRef<HTMLInputElement>(null);
 
   const eintraege = ehListe.eintraege;
   // Streng verglichen (voller Name): "Behnke, J-M" und "Behnke, J-H" sind
@@ -131,25 +131,59 @@ export function EhListe() {
     setUpdateListe((prev) => prev?.map((u, i) => (i === index ? { ...u, gewaehlt: !u.gewaehlt } : u)) ?? prev);
   }
 
-  async function handleExportKopieren() {
-    try {
-      await navigator.clipboard.writeText(exportText(ehListe));
-      setExportKopiert(true);
-    } catch {
-      // Clipboard-Zugriff kann blockiert sein (z.B. kein sicherer Kontext) —
-      // der Text steht trotzdem sichtbar im Feld zum manuellen Kopieren.
-      setExportKopiert(false);
-    }
+  function handleExportDatei() {
+    const blob = new Blob([exportText(ehListe)], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const heute = new Date();
+    const datum = `${heute.getFullYear()}-${String(heute.getMonth() + 1).padStart(2, "0")}-${String(heute.getDate()).padStart(2, "0")}`;
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `eh-liste-${datum}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
-  const importVorschau = importText.trim() === "" ? null : parseImport(importText);
+  function handleImportKlick() {
+    importDateiRef.current?.click();
+  }
 
-  function handleImportUebernehmen() {
-    if (!importVorschau) return;
-    setEhListe(importVorschau);
-    setImportOffen(false);
-    setImportText("");
-    setAuswahl(null);
+  /** Datei einlesen: neue (= noch nicht in der EH-Liste und noch nicht in
+   *  der Update-Tabelle stehende) Einträge landen in der Update-Tabelle —
+   *  wie bei "Check Update" zunächst unangehakt, zur bewussten Prüfung.
+   *  "Übertragen" übernimmt sie von dort ganz regulär in die EH-Liste. */
+  async function handleImportDatei(event: React.ChangeEvent<HTMLInputElement>) {
+    const datei = event.target.files?.[0];
+    event.target.value = ""; // dieselbe Datei danach erneut wählbar machen
+    if (!datei) return;
+    setImportFehler(null);
+    setImportMeldung(null);
+    let geparst: EhListeDaten | null = null;
+    try {
+      geparst = parseImport(await datei.text());
+    } catch {
+      geparst = null;
+    }
+    if (!geparst) {
+      setImportFehler(`"${datei.name}" ist kein gültiger EH-Listen-Export.`);
+      return;
+    }
+    const bisher = updateListe ?? [];
+    const neue: UpdateZeile[] = [];
+    for (const kandidat of geparst.eintraege) {
+      if (eintraege.some((e) => passtNameGenau(e.name, kandidat.name))) continue;
+      if (bisher.some((u) => passtNameGenau(u.name, kandidat.name))) continue;
+      if (neue.some((n) => passtNameGenau(n.name, kandidat.name))) continue;
+      neue.push({ name: kandidat.name, kategorie: kandidat.kategorie, gewaehlt: false });
+    }
+    setUpdateListe([...bisher, ...neue]);
+    const uebersprungen = geparst.eintraege.length - neue.length;
+    const neueWort = neue.length === 1 ? "neuer Eintrag" : "neue Einträge";
+    setImportMeldung(
+      `${neue.length} ${neueWort} aus "${datei.name}" in die Update-Tabelle übernommen` +
+        (uebersprungen > 0 ? ` (${uebersprungen} bereits vorhanden, übersprungen).` : "."),
+    );
   }
 
   return (
@@ -194,31 +228,44 @@ export function EhListe() {
             <button
               type="button"
               className="btn"
-              onClick={() => {
-                setExportKopiert(false);
-                setExportOffen(true);
-              }}
+              onClick={handleExportDatei}
               data-testid="eh-export"
-              title="EH-Liste als Text zum Kopieren auf ein anderes Gerät"
+              title="EH-Liste als Text-Datei herunterladen, zum Übertragen auf ein anderes Gerät"
             >
               Export
             </button>
             <button
               type="button"
               className="btn"
-              onClick={() => {
-                setImportText("");
-                setImportOffen(true);
-              }}
+              onClick={handleImportKlick}
               data-testid="eh-import"
-              title="EH-Liste von einem anderen Gerät übernehmen (ersetzt die lokale Liste)"
+              title="EH-Listen-Datei von einem anderen Gerät einlesen — neue Einträge landen in der Update-Tabelle"
             >
               Import
             </button>
+            <input
+              ref={importDateiRef}
+              type="file"
+              accept=".txt,.json,text/plain,application/json"
+              style={{ display: "none" }}
+              onChange={handleImportDatei}
+              data-testid="eh-import-datei"
+            />
             <span className="ehliste__stand" data-testid="eh-stand">
               letzter Stand: {formatStand(ehListe.stand)}
             </span>
           </div>
+
+          {importFehler && (
+            <div className="ehliste__warnung" data-testid="eh-import-fehler">
+              {importFehler}
+            </div>
+          )}
+          {importMeldung && (
+            <div className="ehliste__info" data-testid="eh-import-meldung">
+              {importMeldung}
+            </div>
+          )}
 
           {hatDuplikate && (
             <div className="ehliste__warnung" data-testid="eh-duplikat-warnung">
@@ -331,77 +378,6 @@ export function EhListe() {
                 disabled={bearbeiteName.trim() === ""}
                 onClick={handleUmbenennen}
                 data-testid="eh-name-ok"
-              >
-                Übernehmen
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {exportOffen && (
-        <Modal title="EH-Liste exportieren" onClose={() => setExportOffen(false)} maxWidth="480px">
-          <div className="ehliste__bearbeiten">
-            <p className="ehliste__export-hinweis">
-              Text kopieren und auf dem anderen Gerät über "Import" wieder einfügen.
-            </p>
-            <textarea
-              className="ehliste__export-feld"
-              value={exportText(ehListe)}
-              readOnly
-              rows={6}
-              onFocus={(e) => e.currentTarget.select()}
-              data-testid="eh-export-feld"
-            />
-            <div className="ehliste__bearbeiten-aktionen">
-              {exportKopiert && <span className="ehliste__export-kopiert">kopiert ✓</span>}
-              <button type="button" className="btn btn--ghost" onClick={() => setExportOffen(false)}>
-                Schließen
-              </button>
-              <button type="button" className="btn btn--accent" onClick={handleExportKopieren} data-testid="eh-export-kopieren">
-                Kopieren
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {importOffen && (
-        <Modal title="EH-Liste importieren" onClose={() => setImportOffen(false)} maxWidth="480px">
-          <div className="ehliste__bearbeiten">
-            <p className="ehliste__export-hinweis">
-              Export-Text von einem anderen Gerät einfügen — ersetzt die komplette lokale EH-Liste.
-            </p>
-            <textarea
-              className="ehliste__export-feld"
-              value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-              rows={6}
-              placeholder="Hier den kopierten Export-Text einfügen …"
-              autoFocus
-              data-testid="eh-import-feld"
-            />
-            {importText.trim() !== "" && !importVorschau && (
-              <p className="ehliste__export-fehler" data-testid="eh-import-fehler">
-                Text ist kein gültiger EH-Listen-Export.
-              </p>
-            )}
-            {importVorschau && (
-              <p className="ehliste__export-vorschau" data-testid="eh-import-vorschau">
-                {importVorschau.eintraege.length} Einträge, Stand: {formatStand(importVorschau.stand)} — ersetzt die
-                aktuelle Liste ({eintraege.length} Einträge).
-              </p>
-            )}
-            <div className="ehliste__bearbeiten-aktionen">
-              <button type="button" className="btn btn--ghost" onClick={() => setImportOffen(false)}>
-                Abbrechen
-              </button>
-              <button
-                type="button"
-                className="btn btn--accent"
-                disabled={!importVorschau}
-                onClick={handleImportUebernehmen}
-                data-testid="eh-import-uebernehmen"
               >
                 Übernehmen
               </button>
