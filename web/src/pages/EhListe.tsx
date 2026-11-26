@@ -13,21 +13,27 @@
  *  Export/Import: die App hat keine eigene zentrale Datenhaltung (rein
  *  lokal je Gerät) — Export/Import ist deshalb der Weg, die EH-Liste
  *  zwischen Geräten abzugleichen. "Export" lädt die Liste als Text-Datei
- *  herunter; "Import" liest eine solche Datei wieder ein und ERSETZT die
- *  Update-Tabelle durch den vollständigen Abgleich: neu (nur in der Datei)
- *  grün und angehakt, vorhanden (in beiden) grau und gesperrt. Lotsen, die
- *  nur noch lokal stehen, erscheinen rot in der EH-Lotsen-Tabelle (Austritt).
+ *  herunter (mit Speicherort-Wahl, siehe handleExportDatei); "Import" liest
+ *  eine solche Datei wieder ein und ERSETZT die Update-Tabelle durch den
+ *  vollständigen Abgleich: neu (nur in der Datei) grün und angehakt,
+ *  vorhanden (in beiden) grau und gesperrt. Lotsen, die nur noch lokal
+ *  stehen, erscheinen rot in der EH-Lotsen-Tabelle (Austritt). Solange diese
+ *  Update-Tabelle vom Import stammt und noch nicht übertragen ist, ist
+ *  "Check Update" gesperrt (würde sie sonst überschreiben).
  *
  *  "Übertragen" prüft vorab per Namensabgleich, welche Einsatzstations-
  *  Lotsen betroffen wären, und zeigt das Ergebnis (Aufnahme/Austritt/
- *  Konflikte bei doppelten Namen) im Bestätigen-Fenster. Erst bei
- *  Bestätigung wird die EH-Liste geändert und das EH-Häkchen in der
- *  Einsatzstation mitgezogen — Konflikte bleiben unangetastet. */
+ *  Konflikte bei doppelten Namen) im Bestätigen-Fenster — je Austritt-Zeile
+ *  mit Schalter "Austritt ignorieren" (z.B. für manuell schon aufgenommene
+ *  Lotsen, die der Export nicht kennt). Erst bei Bestätigung wird die
+ *  EH-Liste geändert, das EH-Häkchen in der Einsatzstation mitgezogen und
+ *  die Update-Tabelle komplett geleert — Konflikte bleiben unangetastet. */
 import { useRef, useState } from "react";
 import { FrageModal } from "../components/FrageModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
+import { Switch } from "../components/SeestationModals";
 import type { EhListe as EhListeDaten } from "../data/types";
 import { passtNameGenau } from "../lib/wachbeginnImport";
 import { useData } from "../state/DataContext";
@@ -90,8 +96,13 @@ export function EhListe() {
   const [loeschFrage, setLoeschFrage] = useState(false);
   const [bearbeiteName, setBearbeiteName] = useState<string | null>(null);
   const [importFehler, setImportFehler] = useState<string | null>(null);
-  const [importMeldung, setImportMeldung] = useState<string | null>(null);
+  // true, solange die Update-Tabelle vom letzten Import stammt und noch
+  // nicht übertragen wurde — "Check Update" würde sie sonst überschreiben.
+  const [importAktiv, setImportAktiv] = useState(false);
   const [vorschau, setVorschau] = useState<Vorschau | null>(null);
+  // Im Bestätigen-Fenster per Schalter als "Austritt ignorieren" markierte
+  // Namen — bleiben bei "Bestätigen" unangetastet in der EH-Liste.
+  const [austrittIgnoriert, setAustrittIgnoriert] = useState<Set<string>>(new Set());
   const importDateiRef = useRef<HTMLInputElement>(null);
 
   const eintraege = ehListe.eintraege;
@@ -110,6 +121,7 @@ export function EhListe() {
   const zaehleTreffer = (name: string) => lotsen.filter((l) => passtNameGenau(l.name, name)).length;
 
   function handleCheckUpdate() {
+    if (importAktiv) return; // Update-Tabelle stammt vom Import, nicht überschreiben
     // Kandidaten: alle EH-markierten Einsatzstations-Lotsen (inkl. bereits
     // abgeteilter — die Zugehörigkeit ist personenbezogen), die noch nicht
     // in der EH-Liste stehen.
@@ -140,15 +152,18 @@ export function EhListe() {
       else austrittOk.push(a);
     }
 
+    setAustrittIgnoriert(new Set());
     setVorschau({ aufnahme, austritt: austrittOk, konflikte });
   }
 
   /** Wendet die im Vorschau-Fenster angezeigten Änderungen an: EH-Liste
    *  ergänzen/bereinigen und das EH-Häkchen in der Einsatzstation mitziehen
-   *  (nur bei eindeutigem Namenstreffer — Konflikte bleiben offen). */
+   *  (nur bei eindeutigem Namenstreffer — Konflikte bleiben offen, per
+   *  Schalter "Austritt ignorieren" markierte Namen bleiben unangetastet). */
   function handleBestaetigen() {
     if (!vorschau) return;
-    const { aufnahme, austritt: austrittOk, konflikte } = vorschau;
+    const { aufnahme, austritt: austrittKandidaten, konflikte } = vorschau;
+    const austrittOk = austrittKandidaten.filter((a) => !austrittIgnoriert.has(a.name));
 
     const bereinigt = eintraege.filter((e) => !austrittOk.some((a) => passtNameGenau(a.name, e.name)));
     const erweitert = [...bereinigt, ...aufnahme].sort((a, b) => a.name.localeCompare(b.name, "de"));
@@ -162,14 +177,12 @@ export function EhListe() {
       }),
     );
 
-    setUpdateListe(
-      (prev) =>
-        prev?.filter((u) => {
-          if (u.typ !== "neu" || !u.gewaehlt) return true;
-          return konflikte.some((k) => passtNameGenau(k, u.name));
-        }) ?? prev,
-    );
+    // Nur noch ungeklärte Konflikte bleiben als Austritt-Kandidat offen (rot
+    // markiert) — übertragene und ignorierte Namen verschwinden aus der
+    // Markierung, die Update-Tabelle wird komplett geleert.
     setAustritt((prev) => prev.filter((a) => konflikte.some((k) => passtNameGenau(k, a.name))));
+    setUpdateListe(null);
+    setImportAktiv(false);
 
     setVorschau(null);
     setAuswahl(null);
@@ -198,14 +211,52 @@ export function EhListe() {
     );
   }
 
-  function handleExportDatei() {
-    const blob = new Blob([exportText(ehListe)], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
+  /** Lädt die EH-Liste als Text-Datei herunter — möglichst mit Wahl des
+   *  Speicherorts statt eines stillen Downloads in den Standardordner:
+   *  Desktop (Chrome/Edge) bekommt einen echten "Speichern unter"-Dialog;
+   *  iPad/iPhone (kein showSaveFilePicker) stattdessen das native
+   *  Teilen-Menü, worüber sich z.B. "In Dateien sichern" wählen lässt.
+   *  Nur wenn beides fehlt (alte Browser): stiller Direkt-Download wie bisher. */
+  async function handleExportDatei() {
+    const inhalt = exportText(ehListe);
     const heute = new Date();
     const datum = `${heute.getFullYear()}-${String(heute.getMonth() + 1).padStart(2, "0")}-${String(heute.getDate()).padStart(2, "0")}`;
+    const dateiname = `eh-liste-${datum}.txt`;
+
+    type SpeicherHandle = { createWritable: () => Promise<{ write: (daten: string) => Promise<void>; close: () => Promise<void> }> };
+    const saveFilePicker = (window as unknown as { showSaveFilePicker?: (opts: unknown) => Promise<SpeicherHandle> })
+      .showSaveFilePicker;
+    if (saveFilePicker) {
+      try {
+        const handle = await saveFilePicker({
+          suggestedName: dateiname,
+          types: [{ description: "Text-Datei", accept: { "text/plain": [".txt"] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(inhalt);
+        await writable.close();
+        return;
+      } catch (fehler) {
+        if (fehler instanceof DOMException && fehler.name === "AbortError") return; // Nutzer hat abgebrochen
+        // sonst: unten weiter mit dem nächsten Weg versuchen
+      }
+    }
+
+    const datei = new File([inhalt], dateiname, { type: "text/plain" });
+    if (navigator.canShare?.({ files: [datei] })) {
+      try {
+        await navigator.share({ files: [datei] });
+        return;
+      } catch (fehler) {
+        if (fehler instanceof DOMException && fehler.name === "AbortError") return;
+      }
+    }
+
+    const blob = new Blob([inhalt], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `eh-liste-${datum}.txt`;
+    link.download = dateiname;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -226,7 +277,6 @@ export function EhListe() {
     event.target.value = ""; // dieselbe Datei danach erneut wählbar machen
     if (!datei) return;
     setImportFehler(null);
-    setImportMeldung(null);
     let geparst: EhListeDaten | null = null;
     try {
       geparst = parseImport(await datei.text());
@@ -254,9 +304,7 @@ export function EhListe() {
 
     setUpdateListe([...vorhanden, ...neu]);
     setAustritt(ausgetreten);
-    setImportMeldung(
-      `"${datei.name}" eingelesen: ${neu.length} neu, ${vorhanden.length} bereits vorhanden, ${ausgetreten.length} nicht mehr enthalten.`,
-    );
+    setImportAktiv(true);
   }
 
   return (
@@ -266,7 +314,14 @@ export function EhListe() {
       <Panel className="eh-panel">
         <div className="ehliste">
           <div className="ehliste__aktionen">
-            <button type="button" className="btn btn--accent" onClick={handleCheckUpdate} data-testid="eh-check-update">
+            <button
+              type="button"
+              className="btn btn--accent"
+              disabled={importAktiv}
+              onClick={handleCheckUpdate}
+              data-testid="eh-check-update"
+              title={importAktiv ? "Gesperrt, solange die Update-Tabelle vom Import stammt — erst übertragen" : undefined}
+            >
               Check Update
             </button>
             <button
@@ -332,11 +387,6 @@ export function EhListe() {
           {importFehler && (
             <div className="ehliste__warnung" data-testid="eh-import-fehler">
               {importFehler}
-            </div>
-          )}
-          {importMeldung && (
-            <div className="ehliste__info" data-testid="eh-import-meldung">
-              {importMeldung}
             </div>
           )}
 
@@ -490,9 +540,23 @@ export function EhListe() {
                 Austritt aus der EH-Liste: {vorschau.austritt.length} {vorschau.austritt.length === 1 ? "Lotse" : "Lotsen"}
               </h4>
               {vorschau.austritt.length > 0 && (
-                <ul>
+                <ul className="ehliste__austritt-liste">
                   {vorschau.austritt.map((a) => (
-                    <li key={a.name}>{a.name}</li>
+                    <li key={a.name} className="ehliste__austritt-zeile">
+                      <span>{a.name}</span>
+                      <Switch
+                        label="Austritt ignorieren"
+                        checked={austrittIgnoriert.has(a.name)}
+                        onChange={(wert) =>
+                          setAustrittIgnoriert((prev) => {
+                            const next = new Set(prev);
+                            if (wert) next.add(a.name);
+                            else next.delete(a.name);
+                            return next;
+                          })
+                        }
+                      />
+                    </li>
                   ))}
                 </ul>
               )}

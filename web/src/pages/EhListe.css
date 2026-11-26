@@ -115,18 +115,6 @@
   gap: 10px;
 }
 
-/* Rückmeldung nach Datei-Import: neutral/positiv, im selben Kastenstil wie
-   .ehliste__warnung (nur ohne Alarmfarbe). */
-.ehliste__info {
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: var(--surface-2);
-  color: var(--ink-muted);
-  font-size: 0.88rem;
-}
-
 /* Übertragen-Vorschau: drei Gruppen (Aufnahme/Austritt/Konflikte) mit
    Überschrift + Namensliste, Farben wie die Zeilen-Hervorhebung oben. */
 .ehliste__vorschau {
@@ -139,6 +127,29 @@
   margin: 4px 0 0;
   padding-left: 20px;
   font-size: 0.9rem;
+}
+
+/* Austritt-Liste: je Zeile Name + Schalter "Austritt ignorieren" statt
+   einer schlichten Aufzählung — keine Bullets, stattdessen flex-Zeilen. */
+.ehliste__vorschau-gruppe ul.ehliste__austritt-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 0;
+  list-style: none;
+}
+
+.ehliste__austritt-zeile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ehliste__austritt-zeile .seestation-switch {
+  width: auto;
+  font-size: 0.82rem;
+  color: var(--ink-muted);
 }
 
 .ehliste__vorschau-titel {
