@@ -94,6 +94,46 @@
   gap: 10px;
 }
 
+/* Export/Import: Hinweistext + Textfeld für den kopierbaren Listen-Export */
+.ehliste__export-hinweis {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+
+.ehliste__export-feld {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  resize: vertical;
+}
+
+.ehliste__export-kopiert {
+  margin-right: auto;
+  align-self: center;
+  color: #2e8b57;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.ehliste__export-fehler {
+  margin: 0;
+  color: #b5432f;
+  font-size: 0.85rem;
+}
+
+.ehliste__export-vorschau {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+}
+
 /* Schmale Bildschirme: die beiden Listen untereinander */
 @media (max-width: 720px) {
   .ehliste__spalten {

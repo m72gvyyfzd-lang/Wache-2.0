@@ -9,12 +9,20 @@
  *  Häkchen setzen → "Übertragen" ergänzt die EH-Liste und stempelt
  *  "letzter Stand". Einträge sind löschbar; bei doppelten Namen (können
  *  z.B. durch Bearbeiten entstehen) warnt die Seite und gibt NUR dann
- *  das Bearbeiten des Namens frei. */
+ *  das Bearbeiten des Namens frei.
+ *
+ *  Export/Import: die App hat keine eigene zentrale Datenhaltung (rein
+ *  lokal je Gerät) — Export/Import ist deshalb der Weg, die EH-Liste
+ *  zwischen Geräten abzugleichen, ohne sie auf jedem Gerät neu aus der
+ *  Einsatzstation aufzubauen. Export zeigt die Liste als Text zum
+ *  Kopieren, Import ersetzt die komplette lokale Liste durch den
+ *  eingefügten Text (mit Vorschau vor dem Übernehmen). */
 import { useState } from "react";
 import { FrageModal } from "../components/FrageModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
+import type { EhListe as EhListeDaten } from "../data/types";
 import { passtNameGenau } from "../lib/wachbeginnImport";
 import { useData } from "../state/DataContext";
 import "./Versetzliste.css";
@@ -32,6 +40,30 @@ function formatStand(stand: Date | undefined): string {
   return `${t(stand.getDate())}.${t(stand.getMonth() + 1)}.${stand.getFullYear()}`;
 }
 
+/** Wandelt die EH-Liste in einen kopierbaren Text (JSON). */
+function exportText(ehListe: EhListeDaten): string {
+  return JSON.stringify(ehListe);
+}
+
+/** Liest den Export-Text eines anderen Geräts zurück ein. null = Text ist
+ *  kein gültiger EH-Listen-Export. */
+function parseImport(text: string): EhListeDaten | null {
+  try {
+    const roh = JSON.parse(text) as { eintraege?: unknown; stand?: unknown };
+    if (!Array.isArray(roh.eintraege)) return null;
+    const eintraege = roh.eintraege.map((e) => {
+      if (typeof e !== "object" || e === null) throw new Error("ungültiger Eintrag");
+      const { name, kategorie } = e as Record<string, unknown>;
+      if (typeof name !== "string" || name.trim() === "") throw new Error("ungültiger Eintrag");
+      return { name, kategorie: typeof kategorie === "string" ? kategorie : "" };
+    });
+    const stand = typeof roh.stand === "string" ? new Date(roh.stand) : undefined;
+    return { eintraege, stand: stand && !Number.isNaN(stand.getTime()) ? stand : undefined };
+  } catch {
+    return null;
+  }
+}
+
 export function EhListe() {
   const { lotsen, ehListe, setEhListe } = useData();
   // null = noch kein "Check Update" in dieser Sitzung ausgeführt
@@ -39,6 +71,10 @@ export function EhListe() {
   const [auswahl, setAuswahl] = useState<number | null>(null);
   const [loeschFrage, setLoeschFrage] = useState(false);
   const [bearbeiteName, setBearbeiteName] = useState<string | null>(null);
+  const [exportOffen, setExportOffen] = useState(false);
+  const [exportKopiert, setExportKopiert] = useState(false);
+  const [importOffen, setImportOffen] = useState(false);
+  const [importText, setImportText] = useState("");
 
   const eintraege = ehListe.eintraege;
   // Streng verglichen (voller Name): "Behnke, J-M" und "Behnke, J-H" sind
@@ -95,6 +131,27 @@ export function EhListe() {
     setUpdateListe((prev) => prev?.map((u, i) => (i === index ? { ...u, gewaehlt: !u.gewaehlt } : u)) ?? prev);
   }
 
+  async function handleExportKopieren() {
+    try {
+      await navigator.clipboard.writeText(exportText(ehListe));
+      setExportKopiert(true);
+    } catch {
+      // Clipboard-Zugriff kann blockiert sein (z.B. kein sicherer Kontext) —
+      // der Text steht trotzdem sichtbar im Feld zum manuellen Kopieren.
+      setExportKopiert(false);
+    }
+  }
+
+  const importVorschau = importText.trim() === "" ? null : parseImport(importText);
+
+  function handleImportUebernehmen() {
+    if (!importVorschau) return;
+    setEhListe(importVorschau);
+    setImportOffen(false);
+    setImportText("");
+    setAuswahl(null);
+  }
+
   return (
     <div>
       <PageHeader title="EH-Liste" centered />
@@ -133,6 +190,30 @@ export function EhListe() {
               data-testid="eh-loeschen"
             >
               Löschen
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                setExportKopiert(false);
+                setExportOffen(true);
+              }}
+              data-testid="eh-export"
+              title="EH-Liste als Text zum Kopieren auf ein anderes Gerät"
+            >
+              Export
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                setImportText("");
+                setImportOffen(true);
+              }}
+              data-testid="eh-import"
+              title="EH-Liste von einem anderen Gerät übernehmen (ersetzt die lokale Liste)"
+            >
+              Import
             </button>
             <span className="ehliste__stand" data-testid="eh-stand">
               letzter Stand: {formatStand(ehListe.stand)}
@@ -250,6 +331,77 @@ export function EhListe() {
                 disabled={bearbeiteName.trim() === ""}
                 onClick={handleUmbenennen}
                 data-testid="eh-name-ok"
+              >
+                Übernehmen
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {exportOffen && (
+        <Modal title="EH-Liste exportieren" onClose={() => setExportOffen(false)} maxWidth="480px">
+          <div className="ehliste__bearbeiten">
+            <p className="ehliste__export-hinweis">
+              Text kopieren und auf dem anderen Gerät über "Import" wieder einfügen.
+            </p>
+            <textarea
+              className="ehliste__export-feld"
+              value={exportText(ehListe)}
+              readOnly
+              rows={6}
+              onFocus={(e) => e.currentTarget.select()}
+              data-testid="eh-export-feld"
+            />
+            <div className="ehliste__bearbeiten-aktionen">
+              {exportKopiert && <span className="ehliste__export-kopiert">kopiert ✓</span>}
+              <button type="button" className="btn btn--ghost" onClick={() => setExportOffen(false)}>
+                Schließen
+              </button>
+              <button type="button" className="btn btn--accent" onClick={handleExportKopieren} data-testid="eh-export-kopieren">
+                Kopieren
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {importOffen && (
+        <Modal title="EH-Liste importieren" onClose={() => setImportOffen(false)} maxWidth="480px">
+          <div className="ehliste__bearbeiten">
+            <p className="ehliste__export-hinweis">
+              Export-Text von einem anderen Gerät einfügen — ersetzt die komplette lokale EH-Liste.
+            </p>
+            <textarea
+              className="ehliste__export-feld"
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              rows={6}
+              placeholder="Hier den kopierten Export-Text einfügen …"
+              autoFocus
+              data-testid="eh-import-feld"
+            />
+            {importText.trim() !== "" && !importVorschau && (
+              <p className="ehliste__export-fehler" data-testid="eh-import-fehler">
+                Text ist kein gültiger EH-Listen-Export.
+              </p>
+            )}
+            {importVorschau && (
+              <p className="ehliste__export-vorschau" data-testid="eh-import-vorschau">
+                {importVorschau.eintraege.length} Einträge, Stand: {formatStand(importVorschau.stand)} — ersetzt die
+                aktuelle Liste ({eintraege.length} Einträge).
+              </p>
+            )}
+            <div className="ehliste__bearbeiten-aktionen">
+              <button type="button" className="btn btn--ghost" onClick={() => setImportOffen(false)}>
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                className="btn btn--accent"
+                disabled={!importVorschau}
+                onClick={handleImportUebernehmen}
+                data-testid="eh-import-uebernehmen"
               >
                 Übernehmen
               </button>
