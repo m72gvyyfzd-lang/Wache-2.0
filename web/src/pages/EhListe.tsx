@@ -5,19 +5,24 @@
  *  per Namensabgleich vor (nur Vorbelegung, danach frei änderbar).
  *
  *  Arbeitsablauf: EH wie gehabt in der Einsatzstation pflegen →
- *  "Check Update" listet alle EH-markierten Lotsen, die noch fehlen →
- *  Häkchen setzen → "Übertragen" ergänzt die EH-Liste und stempelt
- *  "letzter Stand". Einträge sind löschbar; bei doppelten Namen (können
- *  z.B. durch Bearbeiten entstehen) warnt die Seite und gibt NUR dann
- *  das Bearbeiten des Namens frei.
+ *  "Check Update" listet alle EH-markierten Lotsen, die noch fehlen (grün,
+ *  angehakt). Einträge sind löschbar; bei doppelten Namen (können z.B.
+ *  durch Bearbeiten entstehen) warnt die Seite und gibt NUR dann das
+ *  Bearbeiten des Namens frei.
  *
  *  Export/Import: die App hat keine eigene zentrale Datenhaltung (rein
  *  lokal je Gerät) — Export/Import ist deshalb der Weg, die EH-Liste
  *  zwischen Geräten abzugleichen. "Export" lädt die Liste als Text-Datei
- *  herunterladen; "Import" liest eine solche Datei wieder ein und
- *  sortiert ihre (noch unbekannten) Einträge in dieselbe Update-Tabelle
- *  ein wie "Check Update" — Prüfung per Häkchen, "Übertragen" übernimmt
- *  sie dann ganz regulär in die EH-Liste. */
+ *  herunter; "Import" liest eine solche Datei wieder ein und ERSETZT die
+ *  Update-Tabelle durch den vollständigen Abgleich: neu (nur in der Datei)
+ *  grün und angehakt, vorhanden (in beiden) grau und gesperrt. Lotsen, die
+ *  nur noch lokal stehen, erscheinen rot in der EH-Lotsen-Tabelle (Austritt).
+ *
+ *  "Übertragen" prüft vorab per Namensabgleich, welche Einsatzstations-
+ *  Lotsen betroffen wären, und zeigt das Ergebnis (Aufnahme/Austritt/
+ *  Konflikte bei doppelten Namen) im Bestätigen-Fenster. Erst bei
+ *  Bestätigung wird die EH-Liste geändert und das EH-Häkchen in der
+ *  Einsatzstation mitgezogen — Konflikte bleiben unangetastet. */
 import { useRef, useState } from "react";
 import { FrageModal } from "../components/FrageModal";
 import { Modal } from "../components/Modal";
@@ -33,6 +38,15 @@ interface UpdateZeile {
   name: string;
   kategorie: string;
   gewaehlt: boolean;
+  // "neu" = noch nicht in der EH-Liste (ankreuzbar); "vorhanden" = steht
+  // bereits in der EH-Liste (gesperrt, nur zur Übersicht beim Import-Abgleich).
+  typ: "neu" | "vorhanden";
+}
+
+interface Vorschau {
+  aufnahme: { name: string; kategorie: string }[];
+  austritt: { name: string; kategorie: string }[];
+  konflikte: string[];
 }
 
 function formatStand(stand: Date | undefined): string {
@@ -66,14 +80,18 @@ function parseImport(text: string): EhListeDaten | null {
 }
 
 export function EhListe() {
-  const { lotsen, ehListe, setEhListe } = useData();
+  const { lotsen, setLotsenListe, ehListe, setEhListe } = useData();
   // null = noch kein "Check Update" in dieser Sitzung ausgeführt
   const [updateListe, setUpdateListe] = useState<UpdateZeile[] | null>(null);
+  // Einträge, die in der EH-Liste stehen, aber im zuletzt importierten
+  // Stand eines anderen Geräts fehlen — in der EH-Lotsen-Tabelle rot markiert.
+  const [austritt, setAustritt] = useState<{ name: string; kategorie: string }[]>([]);
   const [auswahl, setAuswahl] = useState<number | null>(null);
   const [loeschFrage, setLoeschFrage] = useState(false);
   const [bearbeiteName, setBearbeiteName] = useState<string | null>(null);
   const [importFehler, setImportFehler] = useState<string | null>(null);
   const [importMeldung, setImportMeldung] = useState<string | null>(null);
+  const [vorschau, setVorschau] = useState<Vorschau | null>(null);
   const importDateiRef = useRef<HTMLInputElement>(null);
 
   const eintraege = ehListe.eintraege;
@@ -82,9 +100,14 @@ export function EhListe() {
   const istDuplikat = (index: number) =>
     eintraege.some((e, j) => j !== index && passtNameGenau(e.name, eintraege[index].name));
   const hatDuplikate = eintraege.some((_, i) => istDuplikat(i));
+  const istAustritt = (name: string) => austritt.some((a) => passtNameGenau(a.name, name));
 
   const ausgewaehlt = auswahl !== null ? (eintraege[auswahl] ?? null) : null;
   const gewaehlteUpdates = updateListe?.filter((u) => u.gewaehlt) ?? [];
+  // Wie oft ein Name in der Einsatzstation vorkommt — 2+ Treffer sind ein
+  // Konflikt (doppelte Namen dort), dann bleibt der Lotse für diese Runde
+  // unangetastet (weder EH-Liste noch Einsatzstation).
+  const zaehleTreffer = (name: string) => lotsen.filter((l) => passtNameGenau(l.name, name)).length;
 
   function handleCheckUpdate() {
     // Kandidaten: alle EH-markierten Einsatzstations-Lotsen (inkl. bereits
@@ -95,18 +118,60 @@ export function EhListe() {
       if (!l.elbehafen) continue;
       if (eintraege.some((e) => passtNameGenau(e.name, l.name))) continue;
       if (neue.some((n) => passtNameGenau(n.name, l.name))) continue;
-      neue.push({ name: l.name, kategorie: l.kategorie, gewaehlt: false });
+      neue.push({ name: l.name, kategorie: l.kategorie, gewaehlt: false, typ: "neu" });
     }
     setUpdateListe(neue);
   }
 
-  function handleUebertragen() {
-    if (!updateListe || gewaehlteUpdates.length === 0) return;
-    const erweitert = [...eintraege, ...gewaehlteUpdates.map(({ name, kategorie }) => ({ name, kategorie }))].sort(
-      (a, b) => a.name.localeCompare(b.name, "de"),
-    );
+  /** Prüft vorab, was "Übertragen" bewirken würde (inkl. Einsatzstations-
+   *  Konflikte durch doppelte Namen), und öffnet dafür das Bestätigen-Fenster. */
+  function handleUebertragenKlick() {
+    if (gewaehlteUpdates.length === 0 && austritt.length === 0) return;
+    const aufnahme: { name: string; kategorie: string }[] = [];
+    const austrittOk: { name: string; kategorie: string }[] = [];
+    const konflikte: string[] = [];
+
+    for (const u of gewaehlteUpdates) {
+      if (zaehleTreffer(u.name) >= 2) konflikte.push(u.name);
+      else aufnahme.push({ name: u.name, kategorie: u.kategorie });
+    }
+    for (const a of austritt) {
+      if (zaehleTreffer(a.name) >= 2) konflikte.push(a.name);
+      else austrittOk.push(a);
+    }
+
+    setVorschau({ aufnahme, austritt: austrittOk, konflikte });
+  }
+
+  /** Wendet die im Vorschau-Fenster angezeigten Änderungen an: EH-Liste
+   *  ergänzen/bereinigen und das EH-Häkchen in der Einsatzstation mitziehen
+   *  (nur bei eindeutigem Namenstreffer — Konflikte bleiben offen). */
+  function handleBestaetigen() {
+    if (!vorschau) return;
+    const { aufnahme, austritt: austrittOk, konflikte } = vorschau;
+
+    const bereinigt = eintraege.filter((e) => !austrittOk.some((a) => passtNameGenau(a.name, e.name)));
+    const erweitert = [...bereinigt, ...aufnahme].sort((a, b) => a.name.localeCompare(b.name, "de"));
     setEhListe({ eintraege: erweitert, stand: new Date() });
-    setUpdateListe(updateListe.filter((u) => !u.gewaehlt));
+
+    setLotsenListe(
+      lotsen.map((l) => {
+        if (aufnahme.some((a) => passtNameGenau(a.name, l.name))) return { ...l, elbehafen: true };
+        if (austrittOk.some((a) => passtNameGenau(a.name, l.name))) return { ...l, elbehafen: false };
+        return l;
+      }),
+    );
+
+    setUpdateListe(
+      (prev) =>
+        prev?.filter((u) => {
+          if (u.typ !== "neu" || !u.gewaehlt) return true;
+          return konflikte.some((k) => passtNameGenau(k, u.name));
+        }) ?? prev,
+    );
+    setAustritt((prev) => prev.filter((a) => konflikte.some((k) => passtNameGenau(k, a.name))));
+
+    setVorschau(null);
     setAuswahl(null);
   }
 
@@ -128,7 +193,9 @@ export function EhListe() {
   }
 
   function toggleUpdate(index: number) {
-    setUpdateListe((prev) => prev?.map((u, i) => (i === index ? { ...u, gewaehlt: !u.gewaehlt } : u)) ?? prev);
+    setUpdateListe(
+      (prev) => prev?.map((u, i) => (i === index && u.typ !== "vorhanden" ? { ...u, gewaehlt: !u.gewaehlt } : u)) ?? prev,
+    );
   }
 
   function handleExportDatei() {
@@ -149,10 +216,11 @@ export function EhListe() {
     importDateiRef.current?.click();
   }
 
-  /** Datei einlesen: neue (= noch nicht in der EH-Liste und noch nicht in
-   *  der Update-Tabelle stehende) Einträge landen in der Update-Tabelle —
-   *  wie bei "Check Update" zunächst unangehakt, zur bewussten Prüfung.
-   *  "Übertragen" übernimmt sie von dort ganz regulär in die EH-Liste. */
+  /** Datei einlesen und die Update-Tabelle durch den vollständigen Abgleich
+   *  mit der eigenen EH-Liste ERSETZEN (nicht nur ergänzen): neue Einträge
+   *  (nur in der Datei) angehakt und grün, bereits vorhandene (in beiden)
+   *  gesperrt und grau. Einträge, die nur noch lokal stehen (in der Datei
+   *  fehlen), erscheinen nicht hier, sondern rot in der EH-Lotsen-Tabelle. */
   async function handleImportDatei(event: React.ChangeEvent<HTMLInputElement>) {
     const datei = event.target.files?.[0];
     event.target.value = ""; // dieselbe Datei danach erneut wählbar machen
@@ -169,20 +237,25 @@ export function EhListe() {
       setImportFehler(`"${datei.name}" ist kein gültiger EH-Listen-Export.`);
       return;
     }
-    const bisher = updateListe ?? [];
-    const neue: UpdateZeile[] = [];
-    for (const kandidat of geparst.eintraege) {
+
+    const importiert = geparst.eintraege;
+    const neu: UpdateZeile[] = [];
+    for (const kandidat of importiert) {
       if (eintraege.some((e) => passtNameGenau(e.name, kandidat.name))) continue;
-      if (bisher.some((u) => passtNameGenau(u.name, kandidat.name))) continue;
-      if (neue.some((n) => passtNameGenau(n.name, kandidat.name))) continue;
-      neue.push({ name: kandidat.name, kategorie: kandidat.kategorie, gewaehlt: false });
+      if (neu.some((n) => passtNameGenau(n.name, kandidat.name))) continue;
+      neu.push({ name: kandidat.name, kategorie: kandidat.kategorie, gewaehlt: true, typ: "neu" });
     }
-    setUpdateListe([...bisher, ...neue]);
-    const uebersprungen = geparst.eintraege.length - neue.length;
-    const neueWort = neue.length === 1 ? "neuer Eintrag" : "neue Einträge";
+    const vorhanden: UpdateZeile[] = eintraege
+      .filter((e) => importiert.some((k) => passtNameGenau(k.name, e.name)))
+      .map((e) => ({ name: e.name, kategorie: e.kategorie, gewaehlt: false, typ: "vorhanden" }));
+    const ausgetreten = eintraege
+      .filter((e) => !importiert.some((k) => passtNameGenau(k.name, e.name)))
+      .map(({ name, kategorie }) => ({ name, kategorie }));
+
+    setUpdateListe([...vorhanden, ...neu]);
+    setAustritt(ausgetreten);
     setImportMeldung(
-      `${neue.length} ${neueWort} aus "${datei.name}" in die Update-Tabelle übernommen` +
-        (uebersprungen > 0 ? ` (${uebersprungen} bereits vorhanden, übersprungen).` : "."),
+      `"${datei.name}" eingelesen: ${neu.length} neu, ${vorhanden.length} bereits vorhanden, ${ausgetreten.length} nicht mehr enthalten.`,
     );
   }
 
@@ -199,8 +272,8 @@ export function EhListe() {
             <button
               type="button"
               className="btn btn--accent"
-              disabled={gewaehlteUpdates.length === 0}
-              onClick={handleUebertragen}
+              disabled={gewaehlteUpdates.length === 0 && austritt.length === 0}
+              onClick={handleUebertragenKlick}
               data-testid="eh-uebertragen"
             >
               Übertragen
@@ -291,7 +364,12 @@ export function EhListe() {
                       key={`${e.name}-${i}`}
                       onClick={() => setAuswahl((aktiv) => (aktiv === i ? null : i))}
                       className={
-                        (auswahl === i ? "ist-ausgewaehlt " : "") + (istDuplikat(i) ? "ehliste__zeile--duplikat" : "")
+                        (auswahl === i ? "ist-ausgewaehlt " : "") +
+                        (istDuplikat(i)
+                          ? "ehliste__zeile--duplikat"
+                          : istAustritt(e.name)
+                            ? "ehliste__zeile--austritt"
+                            : "")
                       }
                     >
                       <td>{e.name}</td>
@@ -320,11 +398,17 @@ export function EhListe() {
                 </thead>
                 <tbody>
                   {(updateListe ?? []).map((u, i) => (
-                    <tr key={`${u.name}-${i}`} onClick={() => toggleUpdate(i)}>
+                    <tr key={`${u.name}-${i}`} onClick={() => toggleUpdate(i)} className={`ehliste__zeile--${u.typ}`}>
                       <td>{u.name}</td>
                       <td className="zentriert">{u.kategorie === "" ? "–" : u.kategorie}</td>
                       <td className="zentriert">
-                        <input type="checkbox" checked={u.gewaehlt} onChange={() => toggleUpdate(i)} onClick={(e) => e.stopPropagation()} />
+                        <input
+                          type="checkbox"
+                          checked={u.gewaehlt}
+                          disabled={u.typ === "vorhanden"}
+                          onChange={() => toggleUpdate(i)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -380,6 +464,62 @@ export function EhListe() {
                 data-testid="eh-name-ok"
               >
                 Übernehmen
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {vorschau && (
+        <Modal title="EH-Listen Update" onClose={() => setVorschau(null)} maxWidth="440px" titelZentriert>
+          <div className="ehliste__vorschau" data-testid="eh-vorschau">
+            <div className="ehliste__vorschau-gruppe">
+              <h4 className="ehliste__vorschau-titel ehliste__vorschau-titel--neu">
+                Aufnahme in EH-Liste: {vorschau.aufnahme.length} {vorschau.aufnahme.length === 1 ? "Lotse" : "Lotsen"}
+              </h4>
+              {vorschau.aufnahme.length > 0 && (
+                <ul>
+                  {vorschau.aufnahme.map((a) => (
+                    <li key={a.name}>{a.name}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="ehliste__vorschau-gruppe">
+              <h4 className="ehliste__vorschau-titel ehliste__vorschau-titel--austritt">
+                Austritt aus der EH-Liste: {vorschau.austritt.length} {vorschau.austritt.length === 1 ? "Lotse" : "Lotsen"}
+              </h4>
+              {vorschau.austritt.length > 0 && (
+                <ul>
+                  {vorschau.austritt.map((a) => (
+                    <li key={a.name}>{a.name}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="ehliste__vorschau-gruppe">
+              <h4 className="ehliste__vorschau-titel ehliste__vorschau-titel--konflikt">
+                Konflikte: {vorschau.konflikte.length} {vorschau.konflikte.length === 1 ? "Lotse" : "Lotsen"}
+              </h4>
+              {vorschau.konflikte.length > 0 && (
+                <>
+                  <ul>
+                    {vorschau.konflikte.map((name) => (
+                      <li key={name}>{name}</li>
+                    ))}
+                  </ul>
+                  <p className="ehliste__vorschau-hinweis">
+                    Name kommt mehrfach in der Einsatzstation vor — bitte dort klären, bleibt bis dahin unangetastet.
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="ehliste__bearbeiten-aktionen">
+              <button type="button" className="btn btn--ghost" onClick={() => setVorschau(null)} data-testid="eh-vorschau-abbrechen">
+                Abbrechen
+              </button>
+              <button type="button" className="btn btn--accent" onClick={handleBestaetigen} data-testid="eh-vorschau-bestaetigen">
+                Bestätigen
               </button>
             </div>
           </div>

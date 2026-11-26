@@ -67,6 +67,27 @@
   background: color-mix(in srgb, var(--alarm, #b5432f) 14%, var(--surface));
 }
 
+/* Austritt: lokal vorhanden, im zuletzt importierten Stand nicht mehr
+   enthalten. Gleicher Rotton wie bei "ETA Update" für bereits Abgeteilte. */
+.ehliste__zeile--austritt td {
+  background: rgba(181, 67, 47, 0.12);
+}
+
+/* Update-Tabelle: "neu" = grün und ankreuzbar, "vorhanden" = grau und
+   gesperrt (dieselben Farben wie bei "ETA Update"). */
+.ehliste__zeile--neu td {
+  background: rgba(61, 138, 78, 0.1);
+}
+
+.ehliste__zeile--vorhanden td {
+  color: var(--ink-muted);
+}
+
+.ehliste__zeile--vorhanden input[type="checkbox"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .ehliste__leer td {
   color: var(--ink-faint);
   font-style: italic;
@@ -104,6 +125,44 @@
   background: var(--surface-2);
   color: var(--ink-muted);
   font-size: 0.88rem;
+}
+
+/* Übertragen-Vorschau: drei Gruppen (Aufnahme/Austritt/Konflikte) mit
+   Überschrift + Namensliste, Farben wie die Zeilen-Hervorhebung oben. */
+.ehliste__vorschau {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ehliste__vorschau-gruppe ul {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  font-size: 0.9rem;
+}
+
+.ehliste__vorschau-titel {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.ehliste__vorschau-titel--neu {
+  color: #3d8a4e;
+}
+
+.ehliste__vorschau-titel--austritt {
+  color: #b5432f;
+}
+
+.ehliste__vorschau-titel--konflikt {
+  color: var(--ink-muted);
+}
+
+.ehliste__vorschau-hinweis {
+  margin: 6px 0 0;
+  color: var(--ink-faint);
+  font-size: 0.82rem;
+  font-style: italic;
 }
 
 /* Schmale Bildschirme: die beiden Listen untereinander */
