@@ -38,6 +38,11 @@ export function eignungsWarnung(
   if (!istRadar && !darfFahren(schiffsKat, lotse.kategorie)) return "Kat. des Lotsen zu klein";
   if (job.typ !== undefined && !darfJobTyp(job.typ, lotse.kategorie)) return `Kat. des Lotsen reicht nicht für ${job.typ}`;
   if (job.ehfLotseBenoetigt && schiffsRang(schiffsKat) >= 4 && !lotse.elbehafen) return "Lotse nicht in EH-Liste";
+  // AG (EHF): anders als beim EHF-Job (ehfLotseBenoetigt, an Kat. 4+
+  // gekoppelt) gilt die EH-Pflicht hier IMMER — der Job existiert exakt für
+  // den Fall, dass ein EH-Schiff auf der Seestation sonst ohne EH-Lotsen
+  // dastünde (siehe lib/seestationBedarf.ts).
+  if (job.typ === "AG (EHF)" && !lotse.elbehafen) return "Lotse nicht in EH-Liste";
   if (job.liste === "andere" && istListenvergabeTyp(job.typ) && toernStand(lotse, job.typ) <= 0)
     return `Lotse nimmt nicht am ${job.typ}-Dienst teil (Törn 0)`;
   if (istVerhindert(lotse, aktuelleFahrt, jetzt)) return "Lotse ist verhindert";

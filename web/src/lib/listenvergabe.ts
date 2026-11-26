@@ -81,7 +81,7 @@ function istGeeignet(
  * - EHF/Sonderradar/Nebelradar/AG (Tender): 1 Std. vor Abteilzeit liegt
  *   vor der Vergabezeit.
  * - BHF: 1 Std. vor der Besetz-Zeit liegt vor der Vergabezeit.
- * - AG: wie ihr Trägerschiff (die Lotsenanzahl zählt über
+ * - AG, AG (EHF): wie ihr Trägerschiff (die Lotsenanzahl zählt über
  *   benoetigteLotsenAnzahl mehrfach).
  * - Listenvergabe-Jobs selbst zählen nie als abgerufen.
  */
@@ -101,7 +101,7 @@ export function istAbgerufen(
   }
   // Liste "Andere"
   if (istListenvergabeTyp(job.typ)) return false;
-  if (job.typ === "AG") {
+  if (job.typ === "AG" || job.typ === "AG (EHF)") {
     const traeger = alleJobs.find((j) => j.id === job.agJobId);
     return traeger ? istAbgerufen(traeger, vergabeZeit, alleJobs, settings) : false;
   }

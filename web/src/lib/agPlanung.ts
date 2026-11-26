@@ -24,7 +24,12 @@ import type { SeestationDefizit } from "./seestationBedarf";
 export interface AgPlanungsGruppe {
   id: string;
   stufe: Exclude<MeldungsStufe, "alarm" | "info">;
-  /** "MS TRAEGER (Abt. 21:36)" bzw. "Tender-AG bis 20:10" */
+  /** "AG" normalerweise, "AG (EHF)" wenn die Gruppe speziell einen
+   *  EH-Engpass auf der Seestation deckt (siehe fehltEhBedingt). */
+  typLabel: string;
+  /** "MS TRAEGER (Abt. 21:36)" bzw. "Tender-AG bis 20:10" — bei AG (EHF)
+   *  zusätzlich die namentlich vorgeschlagenen EH-Lotsen, sofern welche
+   *  verfügbar sind. */
   empfehlung: string;
   /** Summe der AG-Lotsen, die über diesen Träger fahren sollen */
   anzahl: number;
@@ -40,6 +45,7 @@ export function berechneAgPlanung(daten: MeldungsDaten, jetzt: Date, settings: A
   const gruppen = new Map<string, AgPlanungsGruppe>();
   function eintragen(
     key: string,
+    typLabel: string,
     empfehlung: string,
     anzahl: number,
     stufe: MeldungsStufe,
@@ -58,6 +64,7 @@ export function berechneAgPlanung(daten: MeldungsDaten, jetzt: Date, settings: A
       gruppen.set(key, {
         id: key,
         stufe: stufe as Exclude<MeldungsStufe, "alarm" | "info">,
+        typLabel,
         empfehlung,
         anzahl,
         schiffsNamen: [schiffsname],
@@ -69,10 +76,38 @@ export function berechneAgPlanung(daten: MeldungsDaten, jetzt: Date, settings: A
 
   for (const d of defizite) {
     if (d.tenderEmpfehlung) continue; // Tender-Bedarfe werden unten zu Fahrten gebündelt
+    // Der EH-bedingte Anteil des Defizits (siehe fehltEhBedingt) wird, so
+    // weit er reicht, den Zuteilungen der Reihe nach entnommen und als
+    // eigene "AG (EHF)"-Gruppe geführt — der Rest bleibt normale AG. Ein
+    // Schiff mit z.B. 1 von 2 fehlenden Lotsen EH-bedingt erzeugt so zwei
+    // Zeilen für denselben Träger statt einer unklar gemischten.
+    let ehRest = d.fehltEhBedingt;
+    let ehNamenRest = d.ehLotsenVorschlag;
     for (const z of d.zuteilungen) {
-      const key = `traeger-${z.traeger.eintrag.id}`;
-      const empfehlung = `${traegerLabel(z.traeger)} (Abt. ${formatUhrzeit(z.traeger.abteilzeit)})`;
-      eintragen(key, empfehlung, z.anzahl, d.stufe, d.schiff.schiffsname, planungsEta(d.schiff), z.ueberWarteziel);
+      const ehAnteil = Math.min(z.anzahl, ehRest);
+      const regulaerAnteil = z.anzahl - ehAnteil;
+      ehRest -= ehAnteil;
+      if (ehAnteil > 0) {
+        const namen = ehNamenRest.slice(0, ehAnteil);
+        ehNamenRest = ehNamenRest.slice(ehAnteil);
+        const zusatz = namen.length > 0 ? ` — z.B. ${namen.join(", ")}` : " — kein EH-Lotse an der Einsatzstation verfügbar!";
+        const empfehlung = `${traegerLabel(z.traeger)} (Abt. ${formatUhrzeit(z.traeger.abteilzeit)})${zusatz}`;
+        eintragen(
+          `traeger-ehf-${z.traeger.eintrag.id}`,
+          "AG (EHF)",
+          empfehlung,
+          ehAnteil,
+          namen.length < ehAnteil ? "warnung" : d.stufe,
+          d.schiff.schiffsname,
+          planungsEta(d.schiff),
+          z.ueberWarteziel,
+        );
+      }
+      if (regulaerAnteil > 0) {
+        const key = `traeger-${z.traeger.eintrag.id}`;
+        const empfehlung = `${traegerLabel(z.traeger)} (Abt. ${formatUhrzeit(z.traeger.abteilzeit)})`;
+        eintragen(key, "AG", empfehlung, regulaerAnteil, d.stufe, d.schiff.schiffsname, planungsEta(d.schiff), z.ueberWarteziel);
+      }
     }
   }
 
@@ -106,9 +141,14 @@ export function berechneAgPlanung(daten: MeldungsDaten, jetzt: Date, settings: A
   }
   fahrten.forEach((fahrt, i) => {
     const planenBis = new Date(fahrt.abfahrt.getTime() - TENDER_VORLAUF_MS);
+    // Tender-Fahrten bündeln mehrere Schiffe zu einer Fahrt — ein eventuell
+    // EH-bedingter Anteil wird hier (anders als bei der Träger-Zuteilung
+    // oben) nicht gesondert ausgewiesen; die EH-Pflicht gilt aber trotzdem
+    // automatisch, sobald der Tender-AG-Job als "AG (EHF)" angelegt wird
+    // (siehe lib/planungEinsatzstation.ts::eignungsWarnung).
     const empfehlung = `Tender (planen bis ${formatUhrzeit(planenBis)}, Abfahrt/Abt. ${formatUhrzeit(fahrt.abfahrt)})`;
     for (const d of fahrt.mitglieder) {
-      eintragen(`tenderfahrt-${i}`, empfehlung, d.fehlt, d.stufe, d.schiff.schiffsname, planungsEta(d.schiff), false);
+      eintragen(`tenderfahrt-${i}`, "AG", empfehlung, d.fehlt, d.stufe, d.schiff.schiffsname, planungsEta(d.schiff), false);
     }
   });
 

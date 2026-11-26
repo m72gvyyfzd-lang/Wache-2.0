@@ -317,7 +317,8 @@ function seestationsMeldungen(daten: MeldungsDaten, jetzt: Date, settings: Abtei
     if (d.stufe !== "alarm") continue;
     const abtZeit = planungsEta(d.schiff);
     const e3stZusatz = abtZeit.getTime() !== d.schiff.eta.getTime() ? " (E3/St, Abt.Zeit)" : "";
-    const fehltText = `um ${formatUhrzeit(abtZeit)} fehl${d.fehlt === 1 ? "t" : "en"} ${d.fehlt} Lotse${d.fehlt === 1 ? "" : "n"} für ${d.schiff.schiffsname}${e3stZusatz}`;
+    const ehZusatz = d.fehltEhBedingt > 0 ? ` (davon ${d.fehltEhBedingt} EH-bedingt, siehe AG (EHF))` : "";
+    const fehltText = `um ${formatUhrzeit(abtZeit)} fehl${d.fehlt === 1 ? "t" : "en"} ${d.fehlt} Lotse${d.fehlt === 1 ? "" : "n"} für ${d.schiff.schiffsname}${e3stZusatz}${ehZusatz}`;
     meldungen.push({
       id: `seestation-defizit-${d.schiff.id}`,
       stufe: "alarm",

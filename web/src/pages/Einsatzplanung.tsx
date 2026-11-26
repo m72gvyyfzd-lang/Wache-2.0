@@ -261,10 +261,11 @@ export function Einsatzplanung() {
     } else {
       const verknuepft = jobs.find((j) => j.id === lotsenAnzahlJob.agJobId);
       const basis = verknuepft?.schiffsname ?? "";
+      const zusatz = lotsenAnzahlJob.typ === "AG (EHF)" ? "AG EHF" : "AG";
       updateJob(lotsenAnzahlJob.id, {
         ...lotsenAnzahlJob,
         agLotsenAnzahl: wert,
-        schiffsname: basis ? `${basis} (${wert} AG)` : undefined,
+        schiffsname: basis ? `${basis} (${wert} ${zusatz})` : undefined,
       });
     }
     setJobAuswahl(null);

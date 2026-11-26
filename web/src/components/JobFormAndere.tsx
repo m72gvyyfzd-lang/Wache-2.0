@@ -10,11 +10,18 @@ import "./JobForm.css";
 
 const settings = getAbteilzeitSettings("Wechsel Tide");
 
-/** Typen ohne eigenen Schiffsnamen/Kategorie: AG leitet den Namen aus der
- *  Verknüpfung ab, AG (Tender) heißt fest "Tender", Nebelradar braucht
- *  beides schlicht nicht. */
+/** Typen ohne eigenen Schiffsnamen/Kategorie: AG (und AG (EHF), technisch
+ *  identisch) leiten den Namen aus der Verknüpfung ab, AG (Tender) heißt
+ *  fest "Tender", Nebelradar braucht beides schlicht nicht. */
 function ohneSchiffsfelder(typ: AnmeldungsTyp | ""): boolean {
-  return typ === "AG" || typ === "AG (Tender)" || typ === "Nebelradar";
+  return typ === "AG" || typ === "AG (Tender)" || typ === "AG (EHF)" || typ === "Nebelradar";
+}
+
+/** AG und AG (EHF) sind bis auf die EH-Pflicht bei der späteren Abteilung
+ *  (siehe lib/planungEinsatzstation.ts::eignungsWarnung) identisch —
+ *  Trägerschiff-Verknüpfung, Lotsenanzahl, Formular. */
+function istKlassischeAg(typ: AnmeldungsTyp | ""): boolean {
+  return typ === "AG" || typ === "AG (EHF)";
 }
 
 interface JobFormAndereProps {
@@ -91,9 +98,9 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
   }
 
   /** AG-Regel: Schiffsname wird aus der Verknüpfung abgeleitet — Name des
-   *  gewählten Schiffs + "(x AG)" (x = Anzahl Lotsen); die Abt. Zeit wird
-   *  vom verknüpften Schiff übernommen. Bei Abwahl werden beide wieder
-   *  geleert. */
+   *  gewählten Schiffs + "(x AG)" bzw. bei AG (EHF) "(x AG EHF)" (x = Anzahl
+   *  Lotsen); die Abt. Zeit wird vom verknüpften Schiff übernommen. Bei
+   *  Abwahl werden beide wieder geleert. */
   function aktualisiereAgVerknuepfung(jobIdText: string, lotsenText: string) {
     if (jobIdText === "") {
       setSchiffsname("");
@@ -101,7 +108,8 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
     }
     const job = verknuepfbareJobs.find((j) => String(j.id) === jobIdText);
     const basis = job?.schiffsname ?? "";
-    setSchiffsname(basis && lotsenText !== "" ? `${basis} (${lotsenText} AG)` : basis);
+    const zusatz = typ === "AG (EHF)" ? "AG EHF" : "AG";
+    setSchiffsname(basis && lotsenText !== "" ? `${basis} (${lotsenText} ${zusatz})` : basis);
   }
 
   function handleAgJobId(wert: string) {
@@ -154,8 +162,8 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
         typ === "AG (Tender)" ? "Tender" : typ === "Nebelradar" ? undefined : schiffsname.trim() || undefined,
       kategorie: ohneSchiffsfelder(typ) ? undefined : kategorie || undefined,
       bemerkung: bemerkung.trim() || undefined,
-      agJobId: typ === "AG" && agJobId !== "" ? Number(agJobId) : undefined,
-      agLotsenAnzahl: (typ === "AG" || typ === "AG (Tender)") && agLotsen !== "" ? Number(agLotsen) : undefined,
+      agJobId: istKlassischeAg(typ) && agJobId !== "" ? Number(agJobId) : undefined,
+      agLotsenAnzahl: (istKlassischeAg(typ) || typ === "AG (Tender)") && agLotsen !== "" ? Number(agLotsen) : undefined,
       ehfBestAbgang: typ === "EHF" ? fromLocalInput(ehfBestAbgang) : undefined,
       ehfLotseBenoetigt: typ === "EHF" ? ehfLotse : undefined,
       ehfWache: typ === "EHF" ? ehfWache : undefined,
@@ -224,7 +232,7 @@ export function JobFormAndere({ initial, verknuepfbareJobs, onSubmit, onDelete, 
       </div>
 
       <div className="job-form__row job-form__typfelder">
-        {typ === "AG" && (
+        {istKlassischeAg(typ) && (
           <>
             <label className="job-form__grow2">
               Trägerschiff

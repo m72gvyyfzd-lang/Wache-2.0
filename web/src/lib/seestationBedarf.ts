@@ -10,9 +10,11 @@
  * daher kein Zirkelbezug), meldungen.ts importiert von hier den Wert
  * berechneSeestationsDefizite.
  */
+import { schiffsRang } from "@wache/core";
 import type { AbteilzeitSettings } from "@wache/core";
 import type { JobEintrag, SeeSchiff } from "../data/types";
 import { benoetigteLotsenAnzahl, sortiereEintraege, vonTypeLabel } from "./coreJob";
+import { sortiereUndNummeriere } from "./lotsenOrdnung";
 import type { MeldungsDaten, MeldungsStufe } from "./meldungen";
 import {
   effektiveAnfahrtPauschaleMs,
@@ -26,7 +28,8 @@ import {
   zeilenAusAbteilungen,
   zeilenAusSeestationLotsen,
 } from "./seestation";
-import { planeSeestation, schiffePriorisiert } from "./seestationAbteilen";
+import { eignungsWarnungSeestationOhneEh, planeSeestation, schiffePriorisiert } from "./seestationAbteilen";
+import { istVerhindert } from "./verhinderung";
 import { vorschauZeilen } from "./vorschau";
 
 /** Ein AG-Lotse soll möglichst nicht länger als 6 Std. auf der Seestation
@@ -55,6 +58,16 @@ export interface AgZuteilung {
 export interface SeestationDefizit {
   schiff: SeeSchiff;
   fehlt: number;
+  /** Anteil von `fehlt`, der NICHT an der Lotsenanzahl liegt, sondern daran,
+   *  dass im Pool zwar kategorie-geeignete, aber keine EH-qualifizierten
+   *  Lotsen mehr übrig waren (nur bei EH-pflichtigen Schiffen ab Kat. 4
+   *  relevant — siehe berechneSeestationsDefizite). 0 = reines
+   *  Stückzahl-Defizit, normale AG/Tender-AG-Empfehlung reicht. */
+  fehltEhBedingt: number;
+  /** Nächste(r) verfügbare EH-Lotse(n) an der Einsatzstation für das
+   *  EH-bedingte Defizit (FIFO-Reihenfolge, unverhindert) — leer, wenn
+   *  fehltEhBedingt === 0 oder aktuell kein EH-Lotse verfügbar ist. */
+  ehLotsenVorschlag: string[];
   /** "alarm" = kein Trägerjob und Tender-AG nicht mehr rechtzeitig möglich */
   stufe: MeldungsStufe;
   /** Trägerschiff(e), auf die die fehlenden Lotsen aufgeteilt würden — leer,
@@ -157,16 +170,40 @@ export function berechneSeestationsDefizite(
     undefined,
     planungsHorizont,
   );
+  // Schatten-Simulation OHNE EH-Pflicht, auf demselben Pool/derselben
+  // Schiffs-Reihenfolge: die Differenz zum normalen "fehlt" je Schiff zeigt,
+  // wie viel des Defizits spezifisch am fehlenden EH-Lotsen liegt (siehe
+  // fehltEhBedingt unten) — kategorie-geeignete, aber nicht-EH-Lotsen bleiben
+  // in der echten Simulation ja im Pool liegen (werden nicht verbraucht) und
+  // könnten hier also noch zählen.
+  const projektionOhneEh = planeSeestation(
+    schiffe,
+    pool,
+    abgeteiltProSchiff,
+    VORLAUF_AUF_STATION_MS,
+    undefined,
+    planungsHorizont,
+    eignungsWarnungSeestationOhneEh,
+  );
+  // Nächste verfügbare EH-Lotsen an der Einsatzstation (FIFO-Reihenfolge,
+  // unverhindert) — wird unten je EH-bedingtem Defizit der Reihe nach
+  // "verbraucht", damit nicht derselbe Lotse für mehrere Schiffe
+  // gleichzeitig vorgeschlagen wird.
+  const ehLotsenPool = sortiereUndNummeriere(daten.lotsen, daten.aktuelleFahrt)
+    .filter(({ eintrag }) => eintrag.elbehafen && !istVerhindert(eintrag, daten.aktuelleFahrt, jetzt))
+    .map(({ eintrag }) => eintrag.name);
+  let ehLotsenIndex = 0;
 
   // AG-Trägerjobs: künftige Hamburg/NOK-Abfahrten, an die eine AG-Fahrt
-  // gehängt werden kann (aufsteigend nach Abteilzeit) — bereits per AG
-  // genutzte Träger werden nicht nochmal vorgeschlagen. Bereits abgeteilte
-  // Träger (eigener Lotse schon dispatcht, ohne dass dafür ein AG-Job
-  // angelegt wurde) fallen ebenfalls raus: die Fahrt ist schon losgefahren,
-  // ein nachträglich angelegter AG-Job könnte nicht mehr mitfahren.
+  // gehängt werden kann (aufsteigend nach Abteilzeit) — bereits per AG oder
+  // AG (EHF) genutzte Träger werden nicht nochmal vorgeschlagen. Bereits
+  // abgeteilte Träger (eigener Lotse schon dispatcht, ohne dass dafür ein
+  // AG-Job angelegt wurde) fallen ebenfalls raus: die Fahrt ist schon
+  // losgefahren, ein nachträglich angelegter AG-Job könnte nicht mehr
+  // mitfahren.
   const traegerGenutzt = new Set(
     daten.jobs
-      .filter((j) => j.liste === "andere" && j.typ === "AG" && j.agJobId !== undefined)
+      .filter((j) => j.liste === "andere" && (j.typ === "AG" || j.typ === "AG (EHF)") && j.agJobId !== undefined)
       .map((j) => j.agJobId),
   );
   const abgeteiltProJob = new Map<number, number>();
@@ -195,6 +232,17 @@ export function berechneSeestationsDefizite(
     const zuteilung = projektion.get(schiff.id);
     const fehlt = (zuteilung?.fehlt ?? 0) + (zuteilung?.zugewiesen.filter((s) => s.verspaetet).length ?? 0);
     if (fehlt <= 0) continue;
+
+    // EH-bedingter Anteil: nur relevant für Schiffe, die überhaupt einen
+    // EH-Lotsen brauchen (ehfLotseBenoetigt gilt erst ab Kat. 4, siehe
+    // eignungsWarnungSeestation) — sonst sind beide Simulationen ohnehin
+    // identisch und die Differenz 0.
+    const schiffBrauchtEh = Boolean(schiff.ehfLotseBenoetigt) && schiffsRang(schiff.kategorie ?? "") >= 4;
+    const fehltOhneEh = projektionOhneEh.get(schiff.id)?.fehlt ?? 0;
+    const fehltEhBedingt = schiffBrauchtEh ? Math.max(0, fehlt - fehltOhneEh) : 0;
+    const ehLotsenVorschlag =
+      fehltEhBedingt > 0 ? ehLotsenPool.slice(ehLotsenIndex, ehLotsenIndex + fehltEhBedingt) : [];
+    ehLotsenIndex += ehLotsenVorschlag.length;
     // Für die PLANUNG einer AG-Fahrt wird der angestrebte Vorlauf von einer
     // Stunde angesetzt, nicht die 15-Min.-Untergrenze der Zuteilung: sonst
     // schlüge die App Fahrten vor, die sie im selben Atemzug als "Vorlauf
@@ -218,7 +266,16 @@ export function berechneSeestationsDefizite(
     const tenderMoeglich = jetzt.getTime() <= tenderFrist;
 
     if (kandidaten.length === 0 && !tenderMoeglich) {
-      defizite.push({ schiff, fehlt, stufe: "alarm", zuteilungen: [], tenderMoeglich, tenderFrist });
+      defizite.push({
+        schiff,
+        fehlt,
+        fehltEhBedingt,
+        ehLotsenVorschlag,
+        stufe: "alarm",
+        zuteilungen: [],
+        tenderMoeglich,
+        tenderFrist,
+      });
       continue;
     }
 
@@ -239,10 +296,14 @@ export function berechneSeestationsDefizite(
     // Neben der üblichen Zeitnot eskaliert auch eine zu lange Wartezeit auf
     // der Seestation zur Warnung — außer die Tender-Empfehlung löst sie auf.
     const ueberWarteziel = zuteilungen.some((z) => z.ueberWarteziel);
+    // Kein EH-Lotse an der Einsatzstation verfügbar, obwohl das Defizit
+    // EH-bedingt ist: eskaliert unabhängig von der sonstigen Zeitnot, denn
+    // selbst der rechtzeitigste Träger hilft ohne einen EH-Lotsen nicht.
+    const ehLotseFehlt = fehltEhBedingt > 0 && ehLotsenVorschlag.length < fehltEhBedingt;
     const stufe: MeldungsStufe =
-      handlungsFrist - jetzt.getTime() <= AG_ESKALATION_MS || ueberWarteziel ? "warnung" : "vorschlag";
+      handlungsFrist - jetzt.getTime() <= AG_ESKALATION_MS || ueberWarteziel || ehLotseFehlt ? "warnung" : "vorschlag";
 
-    defizite.push({ schiff, fehlt, stufe, zuteilungen, tenderMoeglich, tenderFrist, tenderEmpfehlung });
+    defizite.push({ schiff, fehlt, fehltEhBedingt, ehLotsenVorschlag, stufe, zuteilungen, tenderMoeglich, tenderFrist, tenderEmpfehlung });
   }
   return defizite;
 }

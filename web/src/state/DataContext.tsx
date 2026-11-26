@@ -254,13 +254,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateJob = useCallback((id: number, job: JobEintrag) => {
     setJobs((prev) => {
       const aktualisiert = prev.map((j) => (j.id === id ? { ...job, id } : j));
-      // Kaskade: AG-Jobs, die mit diesem Job verknüpft sind, übernehmen dessen
-      // (neu berechnete) Abteilzeit — Hamburg/NOK-Jobs können selbst nicht
-      // AG-verknüpft sein, daher keine Rekursionsgefahr.
+      // Kaskade: AG-Jobs (inkl. AG (EHF)), die mit diesem Job verknüpft sind,
+      // übernehmen dessen (neu berechnete) Abteilzeit — Hamburg/NOK-Jobs
+      // können selbst nicht AG-verknüpft sein, daher keine Rekursionsgefahr.
       if (job.liste === "andere") return aktualisiert;
       const neueAbteilzeit = agAbteilzeitVon({ ...job, id }, settings);
       return aktualisiert.map((j) =>
-        j.liste === "andere" && j.typ === "AG" && j.agJobId === id ? { ...j, abtZeitManuell: neueAbteilzeit } : j,
+        j.liste === "andere" && (j.typ === "AG" || j.typ === "AG (EHF)") && j.agJobId === id
+          ? { ...j, abtZeitManuell: neueAbteilzeit }
+          : j,
       );
     });
   }, []);

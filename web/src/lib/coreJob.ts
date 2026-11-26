@@ -194,8 +194,9 @@ export interface SeeReiseInfo {
 export function seeReiseInfoVon(eintrag: JobEintrag, alleJobs: JobEintrag[]): SeeReiseInfo | undefined {
   if (eintrag.liste === "hamburg") return { herkunft: "HH", klasse: eintrag.geschwindigkeitsklasse };
   if (eintrag.liste === "nok") return { herkunft: "NOK", klasse: eintrag.geschwindigkeitsklasse };
-  // klassische AG: fährt mit dem Trägerschiff → dessen Herkunft + Speed
-  if (eintrag.typ === "AG") {
+  // klassische AG (und AG (EHF), dieselbe Trägerbindung): fährt mit dem
+  // Trägerschiff → dessen Herkunft + Speed
+  if (eintrag.typ === "AG" || eintrag.typ === "AG (EHF)") {
     const traeger = alleJobs.find((j) => j.id === eintrag.agJobId);
     return traeger ? seeReiseInfoVon(traeger, alleJobs) : undefined;
   }
@@ -221,14 +222,15 @@ export function etaSeestationMatrix(
 }
 
 /** Anzeige für die Spalte "Von / Type": Herkunftsliste bzw. Anmeldungs-Typ.
- *  Sonderradar/Nebelradar/AG (Tender) werden abgekürzt, damit die Spalte
- *  schmal bleibt. */
+ *  Sonderradar/Nebelradar/AG (Tender)/AG (EHF) werden abgekürzt, damit die
+ *  Spalte schmal bleibt. */
 export function vonTypeLabel(eintrag: JobEintrag): string {
   if (eintrag.liste === "hamburg") return eintrag.buetzfleth ? "Bütz" : "HH";
   if (eintrag.liste === "nok") return "NOK";
   if (eintrag.typ === "Sonderradar") return "SoRa";
   if (eintrag.typ === "Nebelradar") return "NeRa";
   if (eintrag.typ === "AG (Tender)") return "AG-T";
+  if (eintrag.typ === "AG (EHF)") return "AG-EH";
   if (eintrag.typ === "Sonstige") return "DIV";
   return eintrag.typ ?? "?";
 }
@@ -240,16 +242,17 @@ export function istCuxVergabe(eintrag: JobEintrag): boolean {
   return eintrag.liste === "andere" && istListenvergabeTyp(eintrag.typ) && Boolean(eintrag.vergabeCux);
 }
 
-/** AG-Jobs im weiteren Sinn: klassische AG (an einen Trägerjob gehängt)
- *  und AG (Tender) mit eigenem Tender — beide zählen agLotsenAnzahl und
- *  erlauben den Lots.-Quick-Edit in der Einsatzplanung. */
+/** AG-Jobs im weiteren Sinn: klassische AG (an einen Trägerjob gehängt),
+ *  AG (EHF) (technisch identisch, nur mit EH-Pflicht bei der Abteilung)
+ *  und AG (Tender) mit eigenem Tender — alle drei zählen agLotsenAnzahl
+ *  und erlauben den Lots.-Quick-Edit in der Einsatzplanung. */
 export function istAgJob(eintrag: JobEintrag): boolean {
-  return eintrag.liste === "andere" && (eintrag.typ === "AG" || eintrag.typ === "AG (Tender)");
+  return eintrag.liste === "andere" && (eintrag.typ === "AG" || eintrag.typ === "AG (Tender)" || eintrag.typ === "AG (EHF)");
 }
 
 /** Anzahl benötigter Lotsen (Einsatzplanung, Spalte "Lots."). Jeder Job
- *  braucht standardmäßig genau einen Lotsen — Ausnahmen: AG/AG (Tender)
- *  (agLotsenAnzahl, einstellbar im Job-Formular oder per Quick-Edit in der
+ *  braucht standardmäßig genau einen Lotsen — Ausnahmen: AG/AG (Tender)/
+ *  AG (EHF) (agLotsenAnzahl, einstellbar im Job-Formular oder per Quick-Edit in der
  *  Einsatzplanung — beide schreiben dasselbe Feld) und EHF (ehfLotsenAnzahl,
  *  Standard 1, max. 2, nur im Job-Formular einstellbar). Die generische
  *  FIFO-Zuteilung (planungEinsatzstation.ts) weist bei mehreren benötigten
@@ -271,11 +274,12 @@ export function istOhneVNrJob(job: JobEintrag): boolean {
   return job.liste === "andere" && job.typ !== undefined && OHNE_V_NR_TYPEN.has(job.typ);
 }
 
-/** True, wenn ein AG-Job auf einen inzwischen gelöschten Hamburg/NOK-Job
- *  verweist — seine Abteilzeit wird dann nicht mehr über die
- *  updateJob-Kaskade aktualisiert (siehe DataContext). */
+/** True, wenn ein AG- oder AG (EHF)-Job auf einen inzwischen gelöschten
+ *  Hamburg/NOK-Job verweist — seine Abteilzeit wird dann nicht mehr über
+ *  die updateJob-Kaskade aktualisiert (siehe DataContext). */
 export function istVerwaisterAgJob(eintrag: JobEintrag, alleJobs: JobEintrag[]): boolean {
-  if (eintrag.liste !== "andere" || eintrag.typ !== "AG" || eintrag.agJobId === undefined) return false;
+  if (eintrag.liste !== "andere" || (eintrag.typ !== "AG" && eintrag.typ !== "AG (EHF)") || eintrag.agJobId === undefined)
+    return false;
   return !alleJobs.some((j) => j.id === eintrag.agJobId);
 }
 

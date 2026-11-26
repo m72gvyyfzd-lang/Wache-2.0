@@ -254,6 +254,13 @@ const TYP_MAP: Record<string, AnmeldungsTyp> = {
   "2+2": "2+2",
   ag: "AG",
   agtender: "AG (Tender)",
+  // AG (EHF): auf der Tafel in mehreren Schreibweisen gesehen — nach der
+  // Normalisierung (nur a-z/0-9/+) fallen "EHF AG" und "EHF-AG" auf
+  // denselben Schlüssel, "EH-AG" und "AG (EHF)"/"AG EHF"/"AG-EHF" je auf
+  // ihren eigenen.
+  ehfag: "AG (EHF)",
+  ehag: "AG (EHF)",
+  agehf: "AG (EHF)",
 };
 
 // ------------------------------------------------------------ Tafel Brb
@@ -378,7 +385,7 @@ function baueAndereJobs(
 
     // Lotsenanzahl: bei AG-Typen wie gehabt, bei EHF (falls in derselben
     // Spalte lesbar) auf max. 2 begrenzt.
-    if ((typ === "AG" || typ === "AG (Tender)") && /^\d+$/.test(lotseText)) {
+    if ((typ === "AG" || typ === "AG (Tender)" || typ === "AG (EHF)") && /^\d+$/.test(lotseText)) {
       job.agLotsenAnzahl = Number(lotseText);
     } else if (typ === "EHF" && /^\d+$/.test(lotseText)) {
       job.ehfLotsenAnzahl = Math.min(2, Math.max(1, Number(lotseText)));

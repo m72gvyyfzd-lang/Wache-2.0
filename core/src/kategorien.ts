@@ -37,11 +37,18 @@ export type LotsenKategorie = (typeof LOTSEN_KATEGORIEN)[number];
 /** Anmeldungs-Typen der Liste "Andere Jobs". "AG (Tender)" ist eine AG
  *  ohne Trägerjob-Bindung: eigener Tender, Abteilzeit direkt eingetragen —
  *  das planbare Gegenstück zum Tender-AG-Vorschlag des Dashboards.
+ *  "AG (EHF)" ist technisch eine normale AG (Trägerjob-Bindung,
+ *  Lotsenanzahl) — der einzige Unterschied: der/die zugeteilten Lotsen
+ *  müssen EH-qualifiziert sein (siehe lib/planungEinsatzstation.ts::
+ *  eignungsWarnung). Für den Fall, dass auf der Seestation ein EH-Schiff
+ *  droht, ohne rechtzeitigen EH-Lotsen dazustehen (siehe lib/
+ *  seestationBedarf.ts).
  *  "Sonstige" (Kurzform DIV) ist der freie Job mit direkt eingetragener
  *  Abteilzeit: normale V-Nr.-Vergabe, als AG-Trägerschiff verwendbar. */
 export const ANMELDUNGS_TYPEN = [
   "AG",
   "AG (Tender)",
+  "AG (EHF)",
   "Sonderradar",
   "Nebelradar",
   "1+1",
@@ -140,7 +147,9 @@ export function darfZweiterLotse(
  * Mindest-Lotsenkategorie je Anmeldungs-Typ:
  * - Listenvergaben (1+1, 2+2, HuLo, WB, WR): wie ein Kat.-4-Schiff.
  * - Sonderradar, Nebelradar: min. Kat. 3+.
- * - alle übrigen Typen (AG, EHF, BHF): keine Kategorie-Anforderung.
+ * - alle übrigen Typen (AG, AG (EHF), EHF, BHF): keine Kategorie-Anforderung
+ *   (AG (EHF) hat stattdessen eine EH-Anforderung, siehe lib/
+ *   planungEinsatzstation.ts::eignungsWarnung).
  */
 export function darfJobTyp(typ: AnmeldungsTyp | string, lotsenKat: LotsenKategorie | string | undefined): boolean {
   if (istListenvergabeTyp(typ)) return lotsenRang(lotsenKat) >= 4;

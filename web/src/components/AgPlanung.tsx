@@ -122,7 +122,7 @@ export function AgPlanungTile({ gruppen, offen, onToggle, containerRef, einstell
           <div key={g.id} className="meldungs-tile__gruppe meldungs-tile__gruppe--statisch meldungs-tile__gruppe--mehrzeilig">
             <span className={`meldungs-punkt meldungs-punkt--${g.stufe}`} aria-hidden="true" />
             <span className="meldungs-tile__gruppe-text">
-              {g.anzahl}× AG mit {g.empfehlung}
+              {g.anzahl}× {g.typLabel} mit {g.empfehlung}
               {g.ueberWarteziel ? " ⚠️ Wartezeit > 6 Std." : ""}
             </span>
           </div>
@@ -135,7 +135,7 @@ export function AgPlanungTile({ gruppen, offen, onToggle, containerRef, einstell
             <div key={g.id} className="meldungs-liste__eintrag">
               <span className={`meldungs-punkt meldungs-punkt--${g.stufe}`} aria-hidden="true" />
               <span className="meldungs-liste__text">
-                {g.anzahl}× AG mit {g.empfehlung}
+                {g.anzahl}× {g.typLabel} mit {g.empfehlung}
                 {g.ueberWarteziel ? " ⚠️ Wartezeit > 6 Std." : ""} — für {g.schiffsNamen.join(", ")}
               </span>
             </div>

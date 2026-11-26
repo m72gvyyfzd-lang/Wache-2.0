@@ -37,6 +37,24 @@ export function eignungsWarnungSeestation(
   return undefined;
 }
 
+/** Wie eignungsWarnungSeestation, aber ohne die EH-Prüfung — Hilfsfunktion
+ *  für die Schatten-Simulation, die ermittelt, welcher Anteil eines
+ *  Seestations-Defizits spezifisch am fehlenden EH-Lotsen liegt (siehe
+ *  lib/seestationBedarf.ts::berechneSeestationsDefizite). Nur dafür
+ *  gedacht — die normale Zuteilung/Warnung nutzt weiterhin die volle
+ *  Prüfung oben. */
+export function eignungsWarnungSeestationOhneEh(
+  schiff: SeeSchiff,
+  lotse: Pick<SeestationZeile, "kategorie" | "elbehafen">,
+  istErster: boolean,
+): string | undefined {
+  const schiffsKat = schiff.kategorie ?? "";
+  const brauchtVolleKat = istErster || schiff.ehfLotseBenoetigt;
+  const passtKat = brauchtVolleKat ? darfFahren(schiffsKat, lotse.kategorie) : darfZweiterLotse(schiffsKat, lotse.kategorie);
+  if (!passtKat) return "Kat. des Lotsen zu klein";
+  return undefined;
+}
+
 /** Priorisierte Schiffsreihenfolge für die Lotsen-Zuteilung: angemeldete
  *  Schiffe zuerst — eine Anmeldung "reserviert" faktisch den nächsten
  *  freien Lotsen, auch wenn ein noch nicht angemeldetes Schiff früher ETA
@@ -131,6 +149,15 @@ export function planeSeestation(
    *  zugeteilt — projizierte (verplante/freie aus der Einsatzplanung)
    *  bleiben ihnen vorenthalten, so weit im Voraus wird nicht vorgeplant. */
   projektionBis?: Date,
+  /** Eignungsprüfung — Standard die volle Prüfung inkl. EH. Für die
+   *  Schatten-Simulation der EH-spezifischen Defizit-Erkennung (siehe
+   *  seestationBedarf.ts) reicht der Aufrufer eignungsWarnungSeestationOhneEh
+   *  durch. */
+  eignungPruefung: (
+    schiff: SeeSchiff,
+    lotse: SeestationZeile,
+    istErster: boolean,
+  ) => string | undefined = eignungsWarnungSeestation,
 ): Map<number, SeestationZuteilung> {
   const ergebnis = new Map<number, SeestationZuteilung>();
   let pool = lotsenZeilen;
@@ -148,9 +175,7 @@ export function planeSeestation(
     const nurEchte = projektionBis !== undefined && abtZeitVon(schiff).getTime() > projektionBis.getTime();
     for (let platz = 0; platz < benoetigt; platz++) {
       const istErster = bereits + platz === 0;
-      const index = pool.findIndex(
-        (k) => !(nurEchte && k.projiziert) && eignungsWarnungSeestation(schiff, k, istErster) === undefined,
-      );
+      const index = pool.findIndex((k) => !(nurEchte && k.projiziert) && eignungPruefung(schiff, k, istErster) === undefined);
       if (index === -1) {
         zuteilung.fehlt += 1;
         continue;
