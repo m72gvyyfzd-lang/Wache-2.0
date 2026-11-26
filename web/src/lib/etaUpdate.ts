@@ -12,7 +12,10 @@
  * - "abgeteilt"    — das Schiff hat auf der Seestation bereits alle Lotsen
  *                    erhalten, steht aber noch im PDF → ALARM; es wird beim
  *                    Übernehmen nicht angefasst.
- * Bestehende Schiffe, die im PDF fehlen, bleiben erhalten (nur ein Hinweis).
+ * - "fehlt"        — bestehendes Schiff steht nicht mehr im PDF; wird beim
+ *                    Übernehmen standardmäßig gelöscht (rot/durchgestrichen
+ *                    in der Vorschau), außer die Seite markiert es im
+ *                    Bestätigen-Fenster als "Behalten".
  */
 import type { SeeAbteilung, SeeSchiff } from "../data/types";
 import { formatUhrzeit } from "./format";
@@ -20,7 +23,7 @@ import type { SeestationPdfErgebnis } from "./seestationPdfParse";
 import { seeLotsenAnzahl } from "./seestationAbteilen";
 import { seeSchiffeAusTender, type ImportMeldung } from "./wachbeginnImport";
 
-export type EtaUpdateTyp = "neu" | "geaendert" | "unveraendert" | "abgeteilt";
+export type EtaUpdateTyp = "neu" | "geaendert" | "unveraendert" | "abgeteilt" | "fehlt";
 
 /** Felder, die das Update vergleichen und übernehmen darf. */
 export type EtaUpdateFeld = "eta" | "kategorie" | "angemeldet" | "e3st" | "ehfLotseBenoetigt" | "doppeldecker";
@@ -144,6 +147,19 @@ export function berechneEtaUpdate(
     ...neue.map((s) => ({ ...s, id: naechsteId++ })),
   ];
 
+  // Bestehende Schiffe, die nicht mehr im PDF stehen, bekommen eine eigene
+  // Vorschau-Zeile (rot/durchgestrichen) statt nur einer Info-Meldung — sie
+  // werden beim Übernehmen standardmäßig gelöscht, außer die Seite markiert
+  // sie im Bestätigen-Fenster als "Behalten" (dort entschieden, nicht hier:
+  // "neu" bleibt weiterhin die volle SeeSchiff-Form, Omit<SeeSchiff, "id">
+  // erlaubt das überzählige "id"-Feld bei Variablen anstelle von Literalen).
+  const fehlend = bestehende.filter(
+    (s) => !istVollAbgeteilt(s) && !ausPdf.some((n) => schluessel(n.schiffsname) === schluessel(s.schiffsname)),
+  );
+  for (const s of fehlend) {
+    zeilen.push({ typ: "fehlt", neu: s, alt: s, felder: [] });
+  }
+
   const anzahl = (typ: EtaUpdateTyp) => zeilen.filter((z) => z.typ === typ).length;
   const abgeteilte = zeilen.filter((z) => z.typ === "abgeteilt");
   if (abgeteilte.length > 0) {
@@ -155,18 +171,9 @@ export function berechneEtaUpdate(
         `${abgeteilte.map((z) => z.alt!.schiffsname).join(", ")} — wird beim Übernehmen nicht verändert`,
     });
   }
-  const fehlend = bestehende.filter(
-    (s) => !istVollAbgeteilt(s) && !ausPdf.some((n) => schluessel(n.schiffsname) === schluessel(s.schiffsname)),
-  );
-  if (fehlend.length > 0) {
-    meldungen.push({
-      stufe: "info",
-      text: `${fehlend.length} bestehende${fehlend.length === 1 ? "s" : ""} Schiff${fehlend.length === 1 ? "" : "e"} nicht im PDF (bleib${fehlend.length === 1 ? "t" : "en"} erhalten): ${fehlend.map((s) => s.schiffsname).join(", ")}`,
-    });
-  }
   meldungen.push({
     stufe: "info",
-    text: `Abgleich: ${anzahl("neu")} neu, ${anzahl("geaendert")} aktualisiert, ${anzahl("unveraendert")} unverändert`,
+    text: `Abgleich: ${anzahl("neu")} neu, ${anzahl("geaendert")} aktualisiert, ${anzahl("unveraendert")} unverändert, ${anzahl("fehlt")} fehlen im PDF`,
   });
 
   return { zeilen, seeSchiffe, meldungen };

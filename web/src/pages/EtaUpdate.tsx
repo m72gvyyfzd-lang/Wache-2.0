@@ -6,10 +6,10 @@
  *  Gleicher Aufbau wie der Wachbeginn-Tab (deshalb dessen CSS-Klassen). */
 import { useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
-import { FrageModal } from "../components/FrageModal";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
+import { Switch } from "../components/SeestationModals";
 import { berechneEtaUpdate, formatEtaFeld, type EtaUpdateFeld, type EtaUpdateZeile } from "../lib/etaUpdate";
 import { formatUhrzeit } from "../lib/format";
 import type { SeestationPdfErgebnis } from "../lib/seestationPdfParse";
@@ -28,6 +28,7 @@ const TYP_LABEL: Record<EtaUpdateZeile["typ"], string> = {
   geaendert: "aktualisiert",
   unveraendert: "unverändert",
   abgeteilt: "bereits abgeteilt!",
+  fehlt: "nicht im PDF",
 };
 
 const FELDER: { feld: EtaUpdateFeld; titel: string }[] = [
@@ -44,6 +45,10 @@ export function EtaUpdate() {
   const [upload, setUpload] = useState<UploadZustand>({ status: "leer" });
   const [frageOffen, setFrageOffen] = useState(false);
   const [fertig, setFertig] = useState(false);
+  // Im Bestätigen-Fenster per Schalter als "Behalten" markierte Namen der
+  // "fehlt"-Zeilen — bleiben beim Übernehmen in der ETA-Liste, alle anderen
+  // "fehlt"-Schiffe werden gelöscht.
+  const [fehltBehalten, setFehltBehalten] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleDatei(e: ChangeEvent<HTMLInputElement>) {
@@ -72,7 +77,11 @@ export function EtaUpdate() {
     () => (upload.status === "fertig" ? berechneEtaUpdate(upload.daten, seeSchiffe, seeAbteilungen, new Date()) : null),
     [upload, seeSchiffe, seeAbteilungen],
   );
-  const brauchbar = ergebnis !== null && ergebnis.zeilen.length > 0;
+  // Mindestens eine echte PDF-Zeile nötig — sonst würde ein leeres oder
+  // kaputtes Parsing-Ergebnis (zeilen nur aus "fehlt") als gültig durchgehen
+  // und beim Übernehmen die komplette bestehende Liste löschen wollen.
+  const brauchbar = ergebnis !== null && ergebnis.zeilen.some((z) => z.typ !== "fehlt");
+  const fehlende = ergebnis?.zeilen.filter((z) => z.typ === "fehlt").map((z) => z.alt!) ?? [];
   const ampel =
     upload.status === "leer"
       ? "offen"
@@ -84,7 +93,11 @@ export function EtaUpdate() {
 
   function handleUebernehmen() {
     if (!ergebnis) return;
-    ersetzeSeeSchiffe(ergebnis.seeSchiffe);
+    const fehlendeIds = new Set(fehlende.map((s) => s.id));
+    const bereinigt = ergebnis.seeSchiffe.filter(
+      (s) => !fehlendeIds.has(s.id) || fehltBehalten.has(s.schiffsname),
+    );
+    ersetzeSeeSchiffe(bereinigt);
     setFrageOffen(false);
     setFertig(true);
     setUpload({ status: "leer" });
@@ -116,7 +129,10 @@ export function EtaUpdate() {
               type="button"
               className="btn btn--accent"
               disabled={!brauchbar}
-              onClick={() => setFrageOffen(true)}
+              onClick={() => {
+                setFehltBehalten(new Set());
+                setFrageOffen(true);
+              }}
               data-testid="etaupdate-uebernehmen"
             >
               Update übernehmen
@@ -192,13 +208,64 @@ export function EtaUpdate() {
       </Panel>
 
       {frageOffen && ergebnis && (
-        <Modal title="Update übernehmen" onClose={() => setFrageOffen(false)} titelZentriert>
-          <FrageModal
-            zentriert
-            frage={`Soll die ETA-Liste jetzt aktualisiert werden (Stand ${formatUhrzeit(new Date())})?`}
-            onJa={handleUebernehmen}
-            onNein={() => setFrageOffen(false)}
-          />
+        <Modal title="Update übernehmen" onClose={() => setFrageOffen(false)} maxWidth="440px" titelZentriert>
+          <div className="etaupdate__bestaetigen" data-testid="etaupdate-bestaetigen">
+            <p className="etaupdate__bestaetigen-frage">
+              Soll die ETA-Liste jetzt aktualisiert werden (Stand {formatUhrzeit(new Date())})?
+            </p>
+
+            {fehlende.length > 0 && (
+              <div className="etaupdate__fehlt-gruppe">
+                <div className="etaupdate__fehlt-kopf">
+                  <h4 className="etaupdate__fehlt-titel">
+                    {fehlende.length} bestehende{fehlende.length === 1 ? "s" : ""} Schiff
+                    {fehlende.length === 1 ? "" : "e"} nicht im PDF
+                  </h4>
+                  <span className="etaupdate__fehlt-ignorieren-kopf">Behalten</span>
+                </div>
+                <ul className="etaupdate__fehlt-liste">
+                  {fehlende.map((s) => (
+                    <li key={s.id} className="etaupdate__fehlt-zeile">
+                      <span>{s.schiffsname}</span>
+                      <Switch
+                        checked={fehltBehalten.has(s.schiffsname)}
+                        onChange={(wert) =>
+                          setFehltBehalten((prev) => {
+                            const next = new Set(prev);
+                            if (wert) next.add(s.schiffsname);
+                            else next.delete(s.schiffsname);
+                            return next;
+                          })
+                        }
+                      />
+                    </li>
+                  ))}
+                </ul>
+                <p className="etaupdate__fehlt-hinweis">
+                  Ohne "Behalten" werden diese Schiffe aus der ETA-Liste gelöscht.
+                </p>
+              </div>
+            )}
+
+            <div className="etaupdate__bestaetigen-aktionen">
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => setFrageOffen(false)}
+                data-testid="etaupdate-bestaetigen-nein"
+              >
+                Nein
+              </button>
+              <button
+                type="button"
+                className="btn btn--accent"
+                onClick={handleUebernehmen}
+                data-testid="etaupdate-bestaetigen-ja"
+              >
+                Ja
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

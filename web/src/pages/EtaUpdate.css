@@ -44,6 +44,18 @@
   color: var(--ink-muted);
 }
 
+/* "fehlt": bestehendes Schiff steht nicht mehr im PDF — anders als
+   "abgeteilt" (rote Fläche) hier rote Schrift + durchgestrichen, weil es
+   beim Übernehmen standardmäßig aus der Liste entfernt wird. */
+.etaupdate__zeile--fehlt td {
+  color: #b5432f;
+  text-decoration: line-through;
+}
+
+.etaupdate__zeile--fehlt .etaupdate__typ {
+  color: #b5432f;
+}
+
 /* geänderte Zelle: alter Wert dezent durchgestrichen, neuer fett */
 .etaupdate__wert--neu {
   font-weight: 700;
@@ -54,4 +66,76 @@
   font-weight: 400;
   color: var(--ink-faint);
   text-decoration: line-through;
+}
+
+/* Bestätigen-Fenster: Frage + ggf. Liste der "fehlt"-Schiffe mit Schalter
+   "Behalten" (Standard aus = werden gelöscht) — gleicher Aufbau wie die
+   Austritt-Liste im EH-Listen-Update. */
+.etaupdate__bestaetigen {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.etaupdate__bestaetigen-frage {
+  margin: 0;
+  text-align: center;
+}
+
+.etaupdate__bestaetigen-aktionen {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.etaupdate__fehlt-gruppe {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.etaupdate__fehlt-kopf {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.etaupdate__fehlt-titel {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #b5432f;
+}
+
+.etaupdate__fehlt-ignorieren-kopf {
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.etaupdate__fehlt-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.etaupdate__fehlt-zeile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.etaupdate__fehlt-zeile .seestation-switch {
+  width: auto;
+}
+
+.etaupdate__fehlt-hinweis {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 0.82rem;
+  font-style: italic;
 }
