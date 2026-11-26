@@ -1,20 +1,11 @@
 /* Schiebeschalter (angemeldet, E3/ST, Doppeldecker) */
 .seestation-switch {
   display: flex;
-  /* ohne explizite Angabe gewinnt die globale label-Regel (index.css) mit
-     flex-direction: column — macht sich bei den bisherigen kurzen
-     Beschriftungen kaum bemerkbar, bricht aber bei längerem Text (z.B.
-     "Austritt ignorieren" in der EH-Liste) sichtbar um. */
-  flex-direction: row;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   font-size: 0.9rem;
   color: var(--ink);
-}
-
-.seestation-switch__label {
-  white-space: nowrap;
 }
 
 .seestation-switch input {
