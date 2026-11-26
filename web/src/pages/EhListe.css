@@ -129,8 +129,23 @@
   font-size: 0.9rem;
 }
 
-/* Austritt-Liste: je Zeile Name + Schalter "Austritt ignorieren" statt
-   einer schlichten Aufzählung — keine Bullets, stattdessen flex-Zeilen. */
+/* Austritt-Kopf: Überschrift + gemeinsames "Ignorieren"-Label auf Höhe der
+   Spalte mit den Schaltern darunter — die Schalter selbst bleiben unbeschriftet. */
+.ehliste__austritt-kopf {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ehliste__austritt-ignorieren-kopf {
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+/* Austritt-Liste: je Zeile Name + Schalter statt einer schlichten
+   Aufzählung — keine Bullets, stattdessen flex-Zeilen. */
 .ehliste__vorschau-gruppe ul.ehliste__austritt-liste {
   display: flex;
   flex-direction: column;
@@ -148,8 +163,6 @@
 
 .ehliste__austritt-zeile .seestation-switch {
   width: auto;
-  font-size: 0.82rem;
-  color: var(--ink-muted);
 }
 
 .ehliste__vorschau-titel {

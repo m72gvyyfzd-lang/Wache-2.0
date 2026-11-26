@@ -213,10 +213,13 @@ export function EhListe() {
 
   /** Lädt die EH-Liste als Text-Datei herunter — möglichst mit Wahl des
    *  Speicherorts statt eines stillen Downloads in den Standardordner:
-   *  Desktop (Chrome/Edge) bekommt einen echten "Speichern unter"-Dialog;
-   *  iPad/iPhone (kein showSaveFilePicker) stattdessen das native
-   *  Teilen-Menü, worüber sich z.B. "In Dateien sichern" wählen lässt.
-   *  Nur wenn beides fehlt (alte Browser): stiller Direkt-Download wie bisher. */
+   *  Desktop (Chrome/Edge) bekommt einen echten "Speichern unter"-Dialog.
+   *  Auf Touch-Geräten (iPad/iPhone) kein showSaveFilePicker, dafür aber das
+   *  native Teilen-Menü mit "In Dateien sichern". Am Mac (Safari/Firefox,
+   *  kein Touch) bietet das Teilen-Menü keine solche Option — dort deshalb
+   *  direkt der Download-Fallback (dort hilft nur Safaris eigene
+   *  Einstellung "Für jeden Download nachfragen", die die Seite nicht
+   *  erzwingen kann). */
   async function handleExportDatei() {
     const inhalt = exportText(ehListe);
     const heute = new Date();
@@ -243,7 +246,7 @@ export function EhListe() {
     }
 
     const datei = new File([inhalt], dateiname, { type: "text/plain" });
-    if (navigator.canShare?.({ files: [datei] })) {
+    if (navigator.maxTouchPoints > 0 && navigator.canShare?.({ files: [datei] })) {
       try {
         await navigator.share({ files: [datei] });
         return;
@@ -536,16 +539,18 @@ export function EhListe() {
               )}
             </div>
             <div className="ehliste__vorschau-gruppe">
-              <h4 className="ehliste__vorschau-titel ehliste__vorschau-titel--austritt">
-                Austritt aus der EH-Liste: {vorschau.austritt.length} {vorschau.austritt.length === 1 ? "Lotse" : "Lotsen"}
-              </h4>
+              <div className="ehliste__austritt-kopf">
+                <h4 className="ehliste__vorschau-titel ehliste__vorschau-titel--austritt">
+                  Austritt aus der EH-Liste: {vorschau.austritt.length} {vorschau.austritt.length === 1 ? "Lotse" : "Lotsen"}
+                </h4>
+                {vorschau.austritt.length > 0 && <span className="ehliste__austritt-ignorieren-kopf">Ignorieren</span>}
+              </div>
               {vorschau.austritt.length > 0 && (
                 <ul className="ehliste__austritt-liste">
                   {vorschau.austritt.map((a) => (
                     <li key={a.name} className="ehliste__austritt-zeile">
                       <span>{a.name}</span>
                       <Switch
-                        label="Austritt ignorieren"
                         checked={austrittIgnoriert.has(a.name)}
                         onChange={(wert) =>
                           setAustrittIgnoriert((prev) => {

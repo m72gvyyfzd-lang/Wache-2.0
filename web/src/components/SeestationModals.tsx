@@ -6,11 +6,21 @@ import { SchiffKatSelect } from "./formShared";
 import "./JobForm.css";
 import "./SeestationModals.css";
 
-/** Schiebeschalter im iOS-Stil (Checkbox mit Switch-Optik). */
-export function Switch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (wert: boolean) => void }) {
+/** Schiebeschalter im iOS-Stil (Checkbox mit Switch-Optik). Ohne label: nur
+ *  der bloße Schalter — z.B. wenn eine gemeinsame Überschrift für mehrere
+ *  Schalter in einer Liste die Beschriftung übernimmt. */
+export function Switch({
+  label,
+  checked,
+  onChange,
+}: {
+  label?: string;
+  checked: boolean;
+  onChange: (wert: boolean) => void;
+}) {
   return (
     <label className="seestation-switch">
-      <span className="seestation-switch__label">{label}</span>
+      {label && <span className="seestation-switch__label">{label}</span>}
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       <span className="seestation-switch__slider" aria-hidden="true" />
     </label>
