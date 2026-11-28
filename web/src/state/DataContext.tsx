@@ -17,7 +17,7 @@ import type { ZeitOverrides, ZeitrechnungsModus } from "../lib/coreJob";
 import { setAgPlanungEinstellungen as setAgPlanungEinstellungenSingleton } from "../lib/seestation";
 import type { AgPlanungEinstellungen } from "../lib/seestation";
 import { toernFeldFuerTypLabel } from "../lib/listenvergabe";
-import { tauschePositionen, verschiebeHinter } from "../lib/lotsenOrdnung";
+import { fuegeLotseEin, tauschePositionen, verschiebeHinter } from "../lib/lotsenOrdnung";
 import {
   ladeAbteilungen,
   ladeAktuelleFahrt,
@@ -59,7 +59,9 @@ interface DataContextValue {
   addJob: (job: JobEintrag) => void;
   updateJob: (id: number, job: JobEintrag) => void;
   deleteJob: (id: number) => void;
-  addLotse: (lotse: LotsenEintrag) => void;
+  /** nachIndex: Original-Index, hinter dem eingefügt wird (-1 = ganz an
+   *  den Anfang, undefined = ans Ende) — siehe lib/lotsenOrdnung.ts. */
+  addLotse: (lotse: LotsenEintrag, nachIndex?: number) => void;
   updateLotse: (index: number, lotse: LotsenEintrag) => void;
   deleteLotse: (index: number) => void;
   /** Tauscht die Positionen zweier Lotsen (inkl. gegenseitiger Fahrt-Übernahme) */
@@ -268,7 +270,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
   const deleteJob = useCallback((id: number) => setJobs((prev) => prev.filter((j) => j.id !== id)), []);
 
-  const addLotse = useCallback((lotse: LotsenEintrag) => setLotsen((prev) => [...prev, lotse]), []);
+  // nachIndex: Original-Index, hinter dem der neue Lotse eingefügt wird
+  // (-1 = ganz an den Anfang, undefined = ans Ende — siehe lib/lotsenOrdnung.ts).
+  const addLotse = useCallback(
+    (lotse: LotsenEintrag, nachIndex?: number) => setLotsen((prev) => fuegeLotseEin(prev, lotse, nachIndex)),
+    [],
+  );
   const updateLotse = useCallback(
     (index: number, lotse: LotsenEintrag) => setLotsen((prev) => prev.map((l, i) => (i === index ? lotse : l))),
     [],

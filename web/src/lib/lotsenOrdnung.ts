@@ -126,3 +126,72 @@ export function verschiebeHinter(lotsen: LotsenEintrag[], quellIndex: number, zi
   liste.splice(zielNachEntfernen + 1, 0, { ...bewegter, fahrt: zielFahrt });
   return liste;
 }
+
+/**
+ * Fügt einen neuen Lotsen in die Liste ein — Gegenstück zu verschiebeHinter,
+ * nur für einen noch nicht enthaltenen Eintrag statt einen bestehenden.
+ * nachIndex bezieht sich auf den ORIGINAL-Index aus der übergebenen Liste:
+ * -1 = ganz an den Anfang, undefined = ans Ende, sonst direkt dahinter.
+ */
+export function fuegeLotseEin(lotsen: LotsenEintrag[], lotse: LotsenEintrag, nachIndex: number | undefined): LotsenEintrag[] {
+  if (nachIndex === undefined) return [...lotsen, lotse];
+  const liste = [...lotsen];
+  liste.splice(nachIndex + 1, 0, lotse);
+  return liste;
+}
+
+/** Neuer Lotse, Position "Am Ende": ans Ende der Liste, keine Fahrtzuordnung. */
+export function positionAmEnde(): { nachIndex: number | undefined; fahrt: Fahrt } {
+  return { nachIndex: undefined, fahrt: "" };
+}
+
+/**
+ * Neuer Lotse, Position "Aus §30": wird KEIN Mitglied der aktuellen Fahrt,
+ * sondern der erste Bereitschaftslotse direkt im Anschluss daran (daher
+ * fahrt: "", nicht aktuelleFahrt). Ankerpunkt ist der letzte Lotse der
+ * aktuellen Fahrt-Gruppe (sortiert); ist die Gruppe leer, der Anfang der
+ * ganzen Liste — so zählt der neue Lotse in jedem Fall als erster
+ * Bereitschaftslotse, nie als letzter.
+ *
+ * Stehen dort bereits ein oder mehrere frühere "Aus §30"-Einfügungen
+ * (gleiches Muster: fahrt "" + Bemerkung exakt "Aus §30"), reiht sich der
+ * neue Lotse dahinter ein — eine erneute Berechnung nach jeder Einfügung
+ * läuft die bestehende Kette automatisch bis zu ihrem Ende durch, die
+ * Einfüge-Reihenfolge bleibt dadurch erhalten (zuerst eingefügt = steht
+ * vorn in der Warteschlange).
+ */
+export function positionAusParagraph30(
+  lotsen: LotsenEintrag[],
+  aktuelleFahrt: AktuelleFahrt,
+): { nachIndex: number | undefined; fahrt: Fahrt } {
+  const geordnet = sortiereUndNummeriere(lotsen, aktuelleFahrt);
+  let ankerPos = -1;
+  for (let i = 0; i < geordnet.length; i += 1) {
+    if (geordnet[i].eintrag.fahrt === aktuelleFahrt) ankerPos = i;
+  }
+  let i = ankerPos + 1;
+  while (i < geordnet.length && geordnet[i].eintrag.fahrt === "" && geordnet[i].eintrag.bemerkung === "Aus §30") {
+    i += 1;
+  }
+  return { nachIndex: i > 0 ? geordnet[i - 1].index : -1, fahrt: "" };
+}
+
+/**
+ * Neuer Lotse, Position "5. Mann": wird so eingefügt, dass er absolut
+ * (über alle Fahrt-Gruppen hinweg) die 5. Position der Liste einnimmt.
+ * Fahrtzuordnung entspricht der aktuellen Fahrt — außer der bisherige
+ * Besetzer der 5. Position hat keine Fahrtzuordnung, dann ebenfalls keine.
+ * Stehen noch keine 4 Lotsen in der Liste (Position 5 gibt es noch gar
+ * nicht), wird wie bei "Am Ende" angehängt.
+ */
+export function positionFuenfterMann(
+  lotsen: LotsenEintrag[],
+  aktuelleFahrt: AktuelleFahrt,
+): { nachIndex: number | undefined; fahrt: Fahrt } {
+  const geordnet = sortiereUndNummeriere(lotsen, aktuelleFahrt);
+  if (geordnet.length < 4) return { nachIndex: geordnet.at(-1)?.index, fahrt: "" };
+  const vierter = geordnet[3];
+  const bisherFuenfter = geordnet[4];
+  const fahrt: Fahrt = bisherFuenfter && bisherFuenfter.eintrag.fahrt === "" ? "" : aktuelleFahrt;
+  return { nachIndex: vierter.index, fahrt };
+}

@@ -99,11 +99,11 @@ export function Einsatzstation() {
     });
   }
 
-  function handleSubmit(lotse: LotsenEintrag) {
+  function handleSubmit(lotse: LotsenEintrag, nachIndex?: number) {
     if (dialog?.index !== undefined) {
       updateLotse(dialog.index, lotse);
     } else {
-      addLotse(lotse);
+      addLotse(lotse, nachIndex);
     }
     setAuswahl([]);
     setDialog(null);
@@ -398,6 +398,8 @@ export function Einsatzstation() {
         <Modal title={dialog.lotse ? "Lotse bearbeiten" : "Neuer Lotse"} onClose={() => setDialog(null)} maxWidth="420px">
           <LotseForm
             initial={dialog.lotse}
+            lotsen={lotsen}
+            aktuelleFahrt={aktuelleFahrt}
             onSubmit={handleSubmit}
             onDelete={dialog.index !== undefined ? handleDelete : undefined}
             onCancel={() => setDialog(null)}

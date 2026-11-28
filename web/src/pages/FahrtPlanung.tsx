@@ -312,11 +312,19 @@ export function FahrtPlanung() {
   // Definition nicht bestätigt und damit schon ausgenommen.
   const fensterLotsenOptionen = useMemo(() => {
     const optionen: { index: number; name: string }[] = [];
+    // Der letzte Lotse der bestehenden Fahrt selbst ist geschützt (kein
+    // Häkchen möglich, siehe geschuetzteKandidaten) und taucht deshalb sonst
+    // gar nicht als "nach X"-Ziel auf — ohne ihn startet die Auswahl eine
+    // Position zu spät (erst ab dem ersten bestätigten Kandidaten).
+    const letzterBestehender = grenze > 0 ? kandidaten[grenze - 1] : undefined;
+    if (letzterBestehender?.art === "lotse") {
+      optionen.push({ index: letzterBestehender.index, name: letzterBestehender.eintrag.name });
+    }
     for (const z of kandidaten) {
       if (z.art === "lotse" && bestaetigt.has(z.id)) optionen.push({ index: z.index, name: z.eintrag.name });
     }
     return optionen;
-  }, [kandidaten, bestaetigt]);
+  }, [kandidaten, bestaetigt, grenze]);
 
   function handleVorschauGenerieren() {
     setBestaetigt(boertVorschlag(kandidaten, grenze, fahrtAnforderung, new Set([...geschuetzt, ...verhindert])));
