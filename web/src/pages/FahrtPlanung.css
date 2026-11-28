@@ -336,8 +336,12 @@
 
 /* Tabelle bleibt innerhalb der Karte scrollbar statt die Kachel beliebig
    wachsen zu lassen — deutlich niedriger als die seitenfüllende Variante
-   der Einsatzstation. */
-.boert-tabelle-scroll {
+   der Einsatzstation. Zusammengesetzter Selektor (statt nur .boert-
+   tabelle-scroll): gleiche Spezifität wie .tabelle-scroll aus index.css
+   ließ bei gleicher Spezifität die Lade-Reihenfolge entscheiden — dort
+   gewann bislang dessen deutlich höheres max-height, die Karte wuchs
+   dadurch trotz dieser Regel mit jeder weiteren Zeile unbegrenzt mit. */
+.tabelle-scroll.boert-tabelle-scroll {
   max-height: 360px;
   min-height: 0;
   border: 1px solid var(--line);
@@ -400,6 +404,9 @@ tr.boert-zeile--abgelehnt.fahrt-zeile--afa td {
   padding: 7px 10px;
 }
 
+/* Scrollbar statt die Kachel mit jedem weiteren Eintrag wachsen zu lassen
+   (gleiches Prinzip wie .boert-tabelle-scroll) — Formular und
+   Hinzufügen-Knopf darüber bleiben dadurch an fester Position. */
 .boert-einfuegen__liste {
   list-style: none;
   margin: 12px 0 0;
@@ -407,6 +414,8 @@ tr.boert-zeile--abgelehnt.fahrt-zeile--afa td {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
 }
 
 /* Schmale Karte: Name, Info und Entfernen-Knopf untereinander statt in
