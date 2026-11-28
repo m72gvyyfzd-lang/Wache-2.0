@@ -307,21 +307,29 @@ export function FahrtPlanung() {
     () => berechneDurchgestrichen(kandidaten, bestaetigt, geschuetzt),
     [kandidaten, bestaetigt, geschuetzt],
   );
-  // Positions-Auswahl für "Einzufügen" (Punkt 4.1): nur echte, bestätigte
-  // Lotsen ("die vorgeschlagene nächste Fahrt"), Durchgestrichene sind per
-  // Definition nicht bestätigt und damit schon ausgenommen.
+  // Positions-Auswahl für "Einzufügen" (Punkt 4.1): echte, bestätigte Lotsen
+  // ("die vorgeschlagene nächste Fahrt") UND bereits bestätigte frühere
+  // "Einzufügen"-Einträge selbst — sonst ließe sich ein weiterer Lotse "aus
+  // Verhinderung" nicht hinter einen schon hinzugefügten setzen. Technisch
+  // bekommt er dabei denselben nachIndex wie der gewählte Eintrag: mehrere
+  // Einzufügen-Einträge mit gleichem nachIndex reihen sich in
+  // mergeKandidaten() ohnehin in Einfüge-Reihenfolge hintereinander ein.
+  // Durchgestrichene sind per Definition nicht bestätigt und damit schon
+  // ausgenommen.
   const fensterLotsenOptionen = useMemo(() => {
-    const optionen: { index: number; name: string }[] = [];
+    const optionen: { id: string; name: string; nachIndex: number | undefined }[] = [];
     // Der letzte Lotse der bestehenden Fahrt selbst ist geschützt (kein
     // Häkchen möglich, siehe geschuetzteKandidaten) und taucht deshalb sonst
     // gar nicht als "nach X"-Ziel auf — ohne ihn startet die Auswahl eine
     // Position zu spät (erst ab dem ersten bestätigten Kandidaten).
     const letzterBestehender = grenze > 0 ? kandidaten[grenze - 1] : undefined;
     if (letzterBestehender?.art === "lotse") {
-      optionen.push({ index: letzterBestehender.index, name: letzterBestehender.eintrag.name });
+      optionen.push({ id: letzterBestehender.id, name: letzterBestehender.eintrag.name, nachIndex: letzterBestehender.index });
     }
     for (const z of kandidaten) {
-      if (z.art === "lotse" && bestaetigt.has(z.id)) optionen.push({ index: z.index, name: z.eintrag.name });
+      if (!bestaetigt.has(z.id)) continue;
+      if (z.art === "lotse") optionen.push({ id: z.id, name: z.eintrag.name, nachIndex: z.index });
+      else optionen.push({ id: z.id, name: z.eintrag.name, nachIndex: z.eintrag.nachIndex });
     }
     return optionen;
   }, [kandidaten, bestaetigt, grenze]);
@@ -476,12 +484,16 @@ export function FahrtPlanung() {
   function handleEinfuegenHinzufuegen() {
     const name = neuName.trim();
     if (!name) return;
+    // neuNachIndex ist die ID der gewählten Option (siehe fensterLotsenOptionen)
+    // — ihr nachIndex wird 1:1 übernommen, auch wenn die Option selbst ein
+    // zuvor bestätigter "Einzufügen"-Eintrag war (siehe dortiger Kommentar).
+    const gewaehlt = fensterLotsenOptionen.find((o) => o.id === neuNachIndex);
     const eintrag: EinzufuegenEintrag = {
       id: crypto.randomUUID(),
       name,
       kategorie: neuKat,
       bemerkung: neuBemerkung.trim(),
-      nachIndex: neuNachIndex === "" ? undefined : Number(neuNachIndex),
+      nachIndex: neuNachIndex === "" ? undefined : gewaehlt?.nachIndex,
     };
     setEinfuegungen((liste) => [...liste, eintrag]);
     setNeuName("");
@@ -783,8 +795,8 @@ export function FahrtPlanung() {
             </select>
             <select value={neuNachIndex} onChange={(e) => setNeuNachIndex(e.target.value)}>
               <option value="">am Ende</option>
-              {fensterLotsenOptionen.map(({ index, name }) => (
-                <option key={index} value={index}>
+              {fensterLotsenOptionen.map(({ id, name }) => (
+                <option key={id} value={id}>
                   nach {name}
                 </option>
               ))}
